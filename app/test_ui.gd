@@ -31,6 +31,7 @@ func _ready() -> void:
 
 	await _renderizar_paginas(cfg, emu)
 	await _testar_clique(cfg, emu)
+	await _testar_oclusao(cfg, emu)
 	_testar_save_state(emu)
 	_testar_persistencia(cfg)
 
@@ -103,6 +104,60 @@ func _pagina_visivel(menu: MenuRaiz) -> String:
 		if menu._paginas[nome].visible:
 			return nome
 	return "<nenhuma>"
+
+
+## Reproduz a predefinição "Portátil": a tela do emulador a 1,0 m e o painel a
+## 1,6 m, ou seja, a tela fisicamente na frente do menu. O painel tem que
+## continuar visível — é o que o no_depth_test garante.
+func _testar_oclusao(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(640, 400)
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+
+	var cam := Camera3D.new()
+	cam.position = Vector3(0, 1.4, 0)
+	vp.add_child(cam)
+
+	# A "tela do emulador": quad opaco e bem maior que o painel, mais perto.
+	var barreira := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(4, 3)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color.RED
+	quad.material = mat
+	barreira.mesh = quad
+	barreira.position = Vector3(0, 1.4, -1.0)
+	vp.add_child(barreira)
+
+	var painel := PainelMenu.new(cfg, emu)
+	vp.add_child(painel)
+	painel.abrir()
+	painel.global_position = Vector3(0, 1.4, -1.6)
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+	var img := vp.get_texture().get_image()
+	img.save_png("user://ui_oclusao.png")
+
+	# No centro da imagem, o painel cobre a barreira. Se o vermelho dominar, a
+	# tela venceu o teste de profundidade e o menu está invisível.
+	var vermelhos := 0
+	var total := 0
+	for y in range(150, 250, 5):
+		for x in range(250, 390, 5):
+			var c := img.get_pixel(x, y)
+			total += 1
+			if c.r > 0.5 and c.g < 0.2 and c.b < 0.2:
+				vermelhos += 1
+	_conferir(vermelhos == 0,
+			"painel visível com a tela na frente (%d/%d pixels tapados)" % [vermelhos, total])
+
+	vp.queue_free()
 
 
 ## Round-trip do retro_serialize recém-bindado: gravar, avançar o jogo, voltar

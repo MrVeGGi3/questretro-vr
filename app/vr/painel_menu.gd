@@ -126,6 +126,12 @@ func _montar_quad() -> void:
 	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat.albedo_texture = _viewport.get_texture()
+	# Desenha por cima de tudo. A tela do emulador vai de 0,8 m a 8 m enquanto o
+	# painel abre a 1,6 m fixos, então em Portátil (1,0 m) ela ficava na frente e
+	# tapava o menu. Reposicionar um em função do outro seria frágil, porque a
+	# tela muda de tamanho e distância justamente enquanto o menu está aberto.
+	_mat.no_depth_test = true
+	_mat.render_priority = 1
 	quad.material = _mat
 
 	_tela = MeshInstance3D.new()
@@ -157,6 +163,10 @@ func _montar_ponteiro(controle: XRController3D) -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(TemaVR.ACCENT, 0.6)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Pelo mesmo motivo do painel: o laser e a mira precisam ser vistos mesmo
+	# com a tela do emulador entre o controle e o menu.
+	mat.no_depth_test = true
+	mat.render_priority = 2
 	feixe.material = mat
 
 	_laser = MeshInstance3D.new()
