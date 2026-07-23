@@ -1,6 +1,14 @@
 # Build da GDExtension
 libretrogd/build/
+libretrogd/build-android/
 libretrogd/godot-cpp/
+
+# Template de build Android (gerado ao instalar) e saída de export
+app/android/
+dist/
+
+# Binários pré-compilados do addon de terceiros (copiados; não versionar)
+app/addons/godotopenxrvendors/.bin/
 app/bin/*.so
 app/bin/*.dll
 app/bin/*.dylib

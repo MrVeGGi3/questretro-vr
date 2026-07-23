@@ -1,14 +1,26 @@
-; Projeto Godot — questretro-vr (Fase 0: teste desktop do pipeline libretro)
-; A cena VR entra na Fase 1.
+; Projeto Godot — questretro-vr
+; Fase 1: cena VR (OpenXR/Quest). A cena desktop (main.tscn) segue rodável.
 
 config_version=5
 
 [application]
 
 config/name="questretro-vr"
-run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.5", "Forward Plus")
+run/main_scene="res://vr/vr_main.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
 
 [audio]
 
 driver/enable_input=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+
+[xr]
+
+openxr/enabled=true
+openxr/enabled.android=true
+shaders/enabled=true
+shaders/enabled.android=true
