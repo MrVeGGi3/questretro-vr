@@ -30,6 +30,13 @@ const DIST_MAX := 8.0
 const ESCALA_MIN := 0.3
 const ESCALA_MAX := 8.0
 
+# Conversão analógico -> D-pad (8 direções com viés pros cardeais).
+const DPAD_ENGAJA := 0.5        # magnitude para começar a valer uma direção
+const DPAD_SOLTA := 0.32        # histerese: só solta abaixo disto (evita chatter)
+# Meia-largura do setor cardeal em graus. >45 gera sobreposição (diagonais);
+# 55 deixa a diagonal só perto do canto (~±10°), então segurar reto é fácil.
+const DPAD_MEIA_CARDEAL := 55.0
+
 var _emu: EmuCore
 var _origin: XROrigin3D
 var _camera: XRCamera3D
@@ -44,6 +51,7 @@ var _xr_ativo := false
 var _escala := 1.5
 var _distancia := 2.2
 var _aspecto := 4.0 / 3.0
+var _dpad_ativo := false        # estado da histerese do dead zone
 
 
 func _ready() -> void:
@@ -163,12 +171,12 @@ func _ler_input_vr() -> void:
 		return
 
 	if _xr_ativo:
-		# D-pad no thumbstick esquerdo
-		var lstick := _ctrl_esq.get_vector2(&"primary")
-		_emu.set_button(0, LibretroHost.JOYPAD_LEFT, lstick.x < -0.4)
-		_emu.set_button(0, LibretroHost.JOYPAD_RIGHT, lstick.x > 0.4)
-		_emu.set_button(0, LibretroHost.JOYPAD_UP, lstick.y > 0.4)
-		_emu.set_button(0, LibretroHost.JOYPAD_DOWN, lstick.y < -0.4)
+		# D-pad no thumbstick esquerdo, via setores angulares (preciso pra SNES)
+		var dpad := _dpad_do_stick(_ctrl_esq.get_vector2(&"primary"))
+		_emu.set_button(0, LibretroHost.JOYPAD_LEFT, dpad.left)
+		_emu.set_button(0, LibretroHost.JOYPAD_RIGHT, dpad.right)
+		_emu.set_button(0, LibretroHost.JOYPAD_UP, dpad.up)
+		_emu.set_button(0, LibretroHost.JOYPAD_DOWN, dpad.down)
 
 		_emu.set_button(0, LibretroHost.JOYPAD_A, _ctrl_dir.is_button_pressed(&"ax_button"))
 		_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"by_button"))
@@ -204,6 +212,34 @@ func _ler_input_vr() -> void:
 			_escala = clampf(_escala + 0.05, ESCALA_MIN, ESCALA_MAX)
 		if Input.is_key_pressed(KEY_MINUS):
 			_escala = clampf(_escala - 0.05, ESCALA_MIN, ESCALA_MAX)
+
+
+# Converte o vetor do analógico em 4 booleanos de D-pad usando setores
+# angulares com dead zone radial + histerese. Garante no máximo 2 direções
+# adjacentes (uma diagonal), nunca opostas nem três ao mesmo tempo.
+func _dpad_do_stick(v: Vector2) -> Dictionary:
+	var r := {"up": false, "down": false, "left": false, "right": false}
+	var mag := v.length()
+	# Histerese: engaja num limiar alto, só solta num limiar baixo.
+	if _dpad_ativo:
+		if mag < DPAD_SOLTA:
+			_dpad_ativo = false
+	elif mag >= DPAD_ENGAJA:
+		_dpad_ativo = true
+	if not _dpad_ativo:
+		return r
+	# Ângulo do stick: direita=0°, cima=90°, esquerda=180°, baixo=-90°.
+	var deg := rad_to_deg(atan2(v.y, v.x))
+	r.right = absf(_dif_ang(deg, 0.0)) <= DPAD_MEIA_CARDEAL
+	r.up = absf(_dif_ang(deg, 90.0)) <= DPAD_MEIA_CARDEAL
+	r.left = absf(_dif_ang(deg, 180.0)) <= DPAD_MEIA_CARDEAL
+	r.down = absf(_dif_ang(deg, -90.0)) <= DPAD_MEIA_CARDEAL
+	return r
+
+
+# Menor diferença angular (em graus) entre a e b, no intervalo [-180, 180].
+func _dif_ang(a: float, b: float) -> float:
+	return wrapf(a - b, -180.0, 180.0)
 
 
 func _arg(nome: String, padrao: String) -> String:
