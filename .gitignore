@@ -1,0 +1,33 @@
+# Build da GDExtension
+libretrogd/build/
+libretrogd/godot-cpp/
+app/bin/*.so
+app/bin/*.dll
+app/bin/*.dylib
+
+# Cores libretro (binários, baixados pelo dev — não versionar)
+cores/*.so
+cores/*.dll
+cores/*.dylib
+app/cores/*.so
+app/cores/*.dll
+
+# ROMs — NUNCA versionar (direitos autorais; o usuário fornece as suas)
+*.sfc
+*.smc
+*.n64
+*.z64
+*.nes
+*.gba
+*.bin
+*.iso
+*.chd
+
+# Godot
+app/.godot/
+*.import
+
+# Editores / SO
+.DS_Store
+*.swp
+.vscode/

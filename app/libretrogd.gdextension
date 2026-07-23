@@ -1,0 +1,8 @@
+[configuration]
+entry_symbol = "libretrogd_library_init"
+compatibility_minimum = "4.5"
+reloadable = true
+
+[libraries]
+linux.x86_64 = "res://bin/libretrogd.linux.x86_64.so"
+android.arm64 = "res://bin/libretrogd.android.arm64.so"

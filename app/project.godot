@@ -1,0 +1,14 @@
+; Projeto Godot — questretro-vr (Fase 0: teste desktop do pipeline libretro)
+; A cena VR entra na Fase 1.
+
+config_version=5
+
+[application]
+
+config/name="questretro-vr"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[audio]
+
+driver/enable_input=false
