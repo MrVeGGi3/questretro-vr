@@ -176,8 +176,13 @@ func _ler_input_vr() -> void:
 		_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_esq.is_button_pressed(&"by_button"))
 		_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
 		_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
-		_emu.set_button(0, LibretroHost.JOYPAD_START, _ctrl_dir.is_button_pressed(&"menu_button"))
-		_emu.set_button(0, LibretroHost.JOYPAD_SELECT, _ctrl_esq.is_button_pressed(&"menu_button"))
+		# Start/Select nos grips (aperto lateral): livres e disponíveis nos dois
+		# controles. O botão de sistema do controle direito é reservado pelo Quest
+		# e nunca chega ao app; só o menu (menu_button) do esquerdo funciona, e o
+		# mantemos como atalho alternativo para Start.
+		var start := _ctrl_dir.get_float(&"grip") > 0.5 or _ctrl_esq.is_button_pressed(&"menu_button")
+		_emu.set_button(0, LibretroHost.JOYPAD_START, start)
+		_emu.set_button(0, LibretroHost.JOYPAD_SELECT, _ctrl_esq.get_float(&"grip") > 0.5)
 
 		# Redimensionar/reposicionar com o thumbstick direito
 		var rstick := _ctrl_dir.get_vector2(&"primary")
