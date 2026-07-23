@@ -39,6 +39,10 @@ const START_PULSO := 3
 const ARCO_MAX := 60.0
 const ARCO_SEGMENTOS := 24
 
+## Teto de frames emulados por frame renderizado. Impede a espiral da morte:
+## se emular ficar mais caro que o tempo real, o acumulador cresceria sem fim.
+const MAX_PASSOS := 4
+
 
 func _core_padrao() -> String:
 	return CORE_ANDROID if OS.has_feature("android") else CORE_DESKTOP
@@ -65,8 +69,15 @@ var _menu_desde := 0.0
 var _menu_consumido := false
 var _start_restante := 0
 
+var _acumulador := 0.0          # sobra de tempo entre frames emulados
+var _diag_ligado := false
+var _diag_t := 0.0
+var _diag_passos := 0
+
 
 func _ready() -> void:
+	_diag_ligado = "--diag" in OS.get_cmdline_user_args()
+
 	_cfg = ConfigEmu.new()
 	add_child(_cfg)
 
@@ -104,8 +115,52 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_ler_input_vr(delta)
-	_emu.step()
+	_avancar_emulacao(delta)
 	_atualizar_tela()
+	_diagnostico(delta)
+
+
+## Avança a emulação no ritmo do core, não no do display.
+##
+## O Quest renderiza a 72 Hz e o SNES roda a 60,1 fps. Chamar step() uma vez por
+## frame renderizado fazia o jogo correr 1,2x rápido e o core gerar 1,2x mais
+## áudio do que o AudioStreamGenerator consome — o excedente era descartado em
+## _bombear_audio(), ~16% das amostras por segundo, que é o som picotado.
+func _avancar_emulacao(delta: float) -> void:
+	var fps := _emu.get_fps()
+	if fps <= 0.0:
+		return
+	var passo := 1.0 / fps
+	_acumulador += delta
+
+	var passos := 0
+	while _acumulador >= passo and passos < MAX_PASSOS:
+		_emu.step()
+		_acumulador -= passo
+		passos += 1
+		_diag_passos += 1
+
+	# Se travou tempo demais (carregar ROM, app suspenso), não tenta recuperar o
+	# atraso: acelerar o jogo para "alcançar" é pior que perder o tempo perdido.
+	if passos == MAX_PASSOS:
+		_acumulador = 0.0
+
+
+## Liga com `-- --diag`. Mostra se a emulação está no ritmo do core: passos/s
+## deve bater com o fps do core, e descartado deve ficar em zero.
+func _diagnostico(delta: float) -> void:
+	if not _diag_ligado:
+		return
+	_diag_t += delta
+	if _diag_t < 1.0:
+		return
+	print("DIAG render=%.1f fps | passos do emu=%d/s (core pede %.1f) | audio gerado=%d descartado=%d" % [
+		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
+		_emu.diag_audio_gerado, _emu.diag_audio_descartado])
+	_diag_t = 0.0
+	_diag_passos = 0
+	_emu.diag_audio_gerado = 0
+	_emu.diag_audio_descartado = 0
 
 
 func _unhandled_input(evento: InputEvent) -> void:

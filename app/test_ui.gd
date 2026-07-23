@@ -5,8 +5,11 @@ extends Node
 ## Precisa de um renderizador de verdade (o headless não desenha em textura),
 ## mas não precisa de janela visível:
 ##
-##   xvfb-run -a godot --path app res://test_ui.tscn
+##   xvfb-run -a godot --xr-mode off --path app res://test_ui.tscn
 ##   # -> user://ui_<pagina>.png
+##
+## O `--xr-mode off` não é opcional: o projeto liga OpenXR, e sem um runtime
+## ativo na máquina o Godot trava no arranque sob Xvfb, sem imprimir nada.
 ##
 ## Roda como cena, e não com `-s`, porque scripts de MainLoop travam na
 ## inicialização nesta versão do Godot com a GDExtension carregada.

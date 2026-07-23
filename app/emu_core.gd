@@ -17,6 +17,11 @@ var largura: int = 0
 var altura: int = 0
 var rom_atual := ""               ## caminho da ROM em execução ("" = nenhuma)
 
+## Contadores de diagnóstico do áudio. Descarte contínuo > 0 significa que a
+## emulação está adiantada em relação ao consumo do AudioStreamGenerator.
+var diag_audio_gerado := 0
+var diag_audio_descartado := 0
+
 var _host: LibretroHost
 var _audio_player: AudioStreamPlayer
 var _audio_pb: AudioStreamGeneratorPlayback
@@ -189,8 +194,10 @@ func _bombear_audio() -> void:
 	var quadros := _host.get_audio()
 	if quadros.size() == 0:
 		return
+	diag_audio_gerado += quadros.size()
 	var espaco := _audio_pb.get_frames_available()
 	if quadros.size() > espaco:
+		diag_audio_descartado += quadros.size() - espaco
 		quadros = quadros.slice(0, espaco)
 	if quadros.size() > 0:
 		_audio_pb.push_buffer(quadros)

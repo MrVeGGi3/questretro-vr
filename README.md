@@ -104,8 +104,12 @@ sem build e sideload.
 Para ver as páginas do menu sem headset nenhum:
 
 ```bash
-xvfb-run -a godot --path app res://test_ui.tscn   # -> user://ui_*.png
+xvfb-run -a godot --xr-mode off --path app res://test_ui.tscn   # -> user://ui_*.png
 ```
 
 Esse mesmo teste confere o caminho de clique do laser, o round-trip dos save
 states e a persistência das configurações.
+
+O `--xr-mode off` é obrigatório: o projeto liga OpenXR, e sem um runtime ativo
+na máquina o Godot **trava no arranque** sob Xvfb, sem imprimir nada — parece
+travamento do teste, mas é do motor.
