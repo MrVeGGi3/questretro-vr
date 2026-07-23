@@ -63,12 +63,41 @@ AAPT2=$(ls ~/Android/Sdk/build-tools/*/aapt2 | head -1)
 Deve listar `android.hardware.vr.headtracking`, `com.oculus.intent.category.VR`
 e `org.khronos.openxr.intent.category.IMMERSIVE_HMD`.
 
+## Permissão de armazenamento
+
+O preset traz `permissions/read_external_storage=true`, que é o que põe
+`android.permission.READ_EXTERNAL_STORAGE` no manifesto e deixa o navegador de
+ROMs ler `/sdcard`. No Android 11+ o acesso por caminho de arquivo em
+armazenamento compartilhado voltou a funcionar com essa permissão, então
+`DirAccess` basta — sem MediaStore.
+
+Não usamos `MANAGE_EXTERNAL_STORAGE`: ela não tem diálogo de runtime e exigiria
+que a pessoa fosse até *Special app access* nas configurações do Quest.
+
+> **Cuidado ao editar `export_presets.cfg` à mão**: o `ConfigFile` do Godot trata
+> `;` como comentário, não `#`. Uma linha com `#` faz o parse da seção parar ali,
+> e as chaves seguintes somem silenciosamente — o export roda sem erro e a
+> permissão simplesmente não aparece no manifesto. Conferir com:
+> ```bash
+> AAPT2=$(ls ~/Android/Sdk/build-tools/*/aapt2 | head -1)
+> "$AAPT2" dump permissions dist/questretro-vr.apk
+> ```
+
+## Copiar ROMs para o headset
+
+```bash
+adb push jogo.sfc /sdcard/Download/
+```
+
+O navegador do app oferece `/sdcard/Download`, `/sdcard/ROMs`, `/sdcard` e a
+pasta de dados do app. Sem a permissão concedida, só a última funciona.
+
 ## Pendências conhecidas
 
-- **Ícone**: usa o padrão do Godot (aviso "No project icon"). Adicionar
-  `res://icon.png` e apontar em Project Settings quando quiser identidade visual.
 - **Core carregado no Android**: `EmuCore._preparar_core()` copia o `.so` de
   `res://` para `user://` porque `dlopen` não abre de dentro do APK. Testar em
   device.
-- **ROM**: só a homebrew demo vai no APK. Navegador de ROMs do usuário +
-  permissões de armazenamento ficam para a Fase 2 (integração com `romkeep`).
+- **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
+  deixa remapear (ver o comentário em `ui/paginas/pag_input.gd`). Zona morta do
+  D-pad já é ajustável.
+- **Integração com `romkeep`**: prevista para depois desta fase.

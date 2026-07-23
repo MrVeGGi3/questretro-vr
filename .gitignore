@@ -1,6 +1,7 @@
 # Build da GDExtension
 libretrogd/build/
 libretrogd/build-android/
+libretrogd/.cache/
 libretrogd/godot-cpp/
 
 # Template de build Android (gerado ao instalar) e saída de export

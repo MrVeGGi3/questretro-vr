@@ -77,7 +77,11 @@ static void cb_log(enum retro_log_level level, const char *fmt, ...) {
 void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_core", "path"), &LibretroHost::load_core);
 	ClassDB::bind_method(D_METHOD("load_rom", "path"), &LibretroHost::load_rom);
+	ClassDB::bind_method(D_METHOD("unload_rom"), &LibretroHost::unload_rom);
 	ClassDB::bind_method(D_METHOD("unload"), &LibretroHost::unload);
+	ClassDB::bind_method(D_METHOD("supports_state"), &LibretroHost::supports_state);
+	ClassDB::bind_method(D_METHOD("save_state"), &LibretroHost::save_state);
+	ClassDB::bind_method(D_METHOD("load_state", "data"), &LibretroHost::load_state);
 	ClassDB::bind_method(D_METHOD("run_frame"), &LibretroHost::run_frame);
 	ClassDB::bind_method(D_METHOD("get_frame"), &LibretroHost::get_frame);
 	ClassDB::bind_method(D_METHOD("get_frame_width"), &LibretroHost::get_frame_width);
@@ -142,6 +146,56 @@ void LibretroHost::resolve_symbols() {
 	SYM(p_retro_set_input_poll, "retro_set_input_poll");
 	SYM(p_retro_set_input_state, "retro_set_input_state");
 #undef SYM
+
+// Os de save state são opcionais na API libretro: ausência não é erro, só
+// significa que a página de Saves fica indisponível para este core.
+#define SYM_OPT(field, name) \
+	field = reinterpret_cast<decltype(field)>(dlsym(lib_handle, name));
+
+	SYM_OPT(p_retro_serialize_size, "retro_serialize_size");
+	SYM_OPT(p_retro_serialize, "retro_serialize");
+	SYM_OPT(p_retro_unserialize, "retro_unserialize");
+#undef SYM_OPT
+}
+
+bool LibretroHost::supports_state() const {
+	return p_retro_serialize_size && p_retro_serialize && p_retro_unserialize;
+}
+
+PackedByteArray LibretroHost::save_state() {
+	PackedByteArray out;
+	if (!game_loaded || !supports_state()) {
+		UtilityFunctions::push_error("libretrogd: save_state sem jogo ou sem suporte do core");
+		return out;
+	}
+	// O tamanho pode variar entre frames; consultar sempre antes de gravar.
+	size_t tam = p_retro_serialize_size();
+	if (tam == 0) {
+		UtilityFunctions::push_error("libretrogd: retro_serialize_size retornou 0");
+		return out;
+	}
+	out.resize((int64_t)tam);
+	if (!p_retro_serialize(out.ptrw(), tam)) {
+		UtilityFunctions::push_error("libretrogd: retro_serialize falhou");
+		out.clear();
+	}
+	return out;
+}
+
+bool LibretroHost::load_state(const PackedByteArray &p_data) {
+	if (!game_loaded || !supports_state()) {
+		UtilityFunctions::push_error("libretrogd: load_state sem jogo ou sem suporte do core");
+		return false;
+	}
+	if (p_data.is_empty()) {
+		UtilityFunctions::push_error("libretrogd: load_state com estado vazio");
+		return false;
+	}
+	if (!p_retro_unserialize(p_data.ptr(), (size_t)p_data.size())) {
+		UtilityFunctions::push_error("libretrogd: retro_unserialize falhou (estado de outro core/ROM?)");
+		return false;
+	}
+	return true;
 }
 
 bool LibretroHost::load_core(const String &p_path) {
@@ -191,6 +245,9 @@ bool LibretroHost::load_rom(const String &p_path) {
 		UtilityFunctions::push_error("libretrogd: load_rom sem core carregado");
 		return false;
 	}
+	// Trocar de jogo sem descarregar o anterior deixa o core em estado
+	// inconsistente (e vaza o que ele alocou no load anterior).
+	unload_rom();
 
 	String abs = globalize(p_path);
 
@@ -241,6 +298,19 @@ void LibretroHost::run_frame() {
 	if (game_loaded && p_retro_run) {
 		p_retro_run();
 	}
+}
+
+void LibretroHost::unload_rom() {
+	if (game_loaded && p_retro_unload_game) {
+		p_retro_unload_game();
+	}
+	game_loaded = false;
+	game_data.clear();
+	frame_rgba.clear();
+	frame_width = 0;
+	frame_height = 0;
+	audio_accum.clear();
+	clear_input();
 }
 
 void LibretroHost::unload() {

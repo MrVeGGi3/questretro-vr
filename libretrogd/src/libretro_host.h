@@ -47,7 +47,16 @@ public:
 
 	bool load_core(const String &p_path);
 	bool load_rom(const String &p_path);
+	// Descarrega só o jogo, mantendo o core vivo — é o que troca de ROM sem
+	// pagar o dlopen de novo.
+	void unload_rom();
 	void unload();
+
+	// Save states. O core pode não implementar (retro_serialize* são opcionais
+	// na API libretro), daí supports_state() antes de oferecer os slots na UI.
+	bool supports_state() const;
+	PackedByteArray save_state();
+	bool load_state(const PackedByteArray &p_data);
 
 	void run_frame();
 
@@ -98,6 +107,10 @@ private:
 	void (*p_retro_set_audio_sample_batch)(retro_audio_sample_batch_t) = nullptr;
 	void (*p_retro_set_input_poll)(retro_input_poll_t) = nullptr;
 	void (*p_retro_set_input_state)(retro_input_state_t) = nullptr;
+	// opcionais: nem todo core serializa estado
+	size_t (*p_retro_serialize_size)() = nullptr;
+	bool (*p_retro_serialize)(void *, size_t) = nullptr;
+	bool (*p_retro_unserialize)(const void *, size_t) = nullptr;
 
 	// info do core
 	bool need_fullpath = false;

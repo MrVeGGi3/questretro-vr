@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotestui"]
+
+[ext_resource type="Script" path="res://test_ui.gd" id="1_ui"]
+
+[node name="TestUI" type="Node"]
+script = ExtResource("1_ui")

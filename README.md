@@ -84,7 +84,28 @@ o catálogo `romkeep` está prevista na Fase 2.
 ## Roadmap
 
 - **Fase 0 ✅** — GDExtension libretro rodando no Godot desktop.
-- **Fase 1** — cena OpenXR, quad redimensionável com o framebuffer, APK Quest 3S,
+- **Fase 1 ✅** — cena OpenXR, quad redimensionável com o framebuffer, APK Quest 3S,
   input dos controllers Touch.
-- **Fase 2** — mapeamento pose→eixo por jogo (controles físicos), core N64
+- **Fase 2 ✅** — menu in-VR: navegador de ROMs, configurações persistentes de
+  tela/vídeo/áudio/input e save states.
+- **Fase 3** — mapeamento pose→eixo por jogo (controles físicos), core N64
   (Star Fox 64), integração com `romkeep`, salas/arcade virtual.
+
+## Menu dentro do headset
+
+Segure o **botão de menu** (controle esquerdo) por 0,5 s para abrir o painel;
+toque curto continua valendo como Start. Aponte com o controle direito e use o
+gatilho para clicar. As configurações ficam em `user://config.cfg` e sobrevivem
+entre sessões.
+
+No desktop, `Tab` abre o painel e o mouse interage direto — dá para iterar a UI
+sem build e sideload.
+
+Para ver as páginas do menu sem headset nenhum:
+
+```bash
+xvfb-run -a godot --path app res://test_ui.tscn   # -> user://ui_*.png
+```
+
+Esse mesmo teste confere o caminho de clique do laser, o round-trip dos save
+states e a persistência das configurações.
