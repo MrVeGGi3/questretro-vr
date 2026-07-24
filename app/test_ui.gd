@@ -27,7 +27,9 @@ func _ready() -> void:
 	add_child(emu)
 	# Uma ROM de verdade deixa a página de Saves e o cabeçalho de Vídeo com
 	# conteúdo real em vez de estado vazio.
-	emu.iniciar("res://cores/snes9x_libretro.so", "res://roms/demo.smc")
+	# `-- --rom /caminho/jogo.sfc` troca a ROM: útil para ver a página de Saves
+	# com um cartucho que tem bateria — a demo não tem.
+	emu.iniciar("res://cores/snes9x_libretro.so", _arg("--rom", "res://roms/demo.smc"))
 
 	await _renderizar_paginas(cfg, emu)
 	await _testar_clique(cfg, emu)
@@ -224,3 +226,11 @@ func _conferir(condicao: bool, descricao: String) -> void:
 
 func _sem_acento(s: String) -> String:
 	return s.to_lower().replace("í", "i").replace("á", "a")
+
+
+func _arg(nome: String, padrao: String) -> String:
+	var args := OS.get_cmdline_user_args()
+	for i in range(args.size() - 1):
+		if args[i] == nome:
+			return args[i + 1]
+	return padrao

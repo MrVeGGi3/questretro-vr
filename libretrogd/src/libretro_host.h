@@ -38,6 +38,13 @@ public:
 		JOYPAD_L2 = 12, JOYPAD_R2 = 13, JOYPAD_L3 = 14, JOYPAD_R3 = 15,
 	};
 
+	// Regiões de memória RETRO_MEMORY_* reexpostas como constantes do Godot.
+	// SAVE_RAM é a bateria do cartucho; RTC é o relógio de jogos que têm um.
+	enum Memory {
+		MEMORY_SAVE_RAM = 0,
+		MEMORY_RTC = 1,
+	};
+
 protected:
 	static void _bind_methods();
 
@@ -57,6 +64,14 @@ public:
 	bool supports_state() const;
 	PackedByteArray save_state();
 	bool load_state(const PackedByteArray &p_data);
+
+	// Memória do core (SRAM de bateria, RTC). Diferente do save state: é o que o
+	// jogo grava sozinho quando você salva *dentro* dele, e o frontend é quem
+	// persiste em disco — o core nunca escreve o .srm por conta própria.
+	// Tamanho 0 significa "este jogo não usa esta região".
+	int get_memory_size(int p_id) const;
+	PackedByteArray get_memory(int p_id) const;
+	bool set_memory(int p_id, const PackedByteArray &p_data);
 
 	void run_frame();
 
@@ -111,6 +126,9 @@ private:
 	size_t (*p_retro_serialize_size)() = nullptr;
 	bool (*p_retro_serialize)(void *, size_t) = nullptr;
 	bool (*p_retro_unserialize)(const void *, size_t) = nullptr;
+	// opcionais: nem todo core expõe memória (e nem todo jogo tem bateria)
+	void *(*p_retro_get_memory_data)(unsigned) = nullptr;
+	size_t (*p_retro_get_memory_size)(unsigned) = nullptr;
 
 	// info do core
 	bool need_fullpath = false;
@@ -139,5 +157,6 @@ private:
 } // namespace godot
 
 VARIANT_ENUM_CAST(godot::LibretroHost::Joypad);
+VARIANT_ENUM_CAST(godot::LibretroHost::Memory);
 
 #endif // LIBRETROGD_HOST_H

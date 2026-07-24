@@ -11,11 +11,19 @@ const PASTA := "user://states"
 
 var _emu: EmuCore
 var _grade: GridContainer
+var _bateria: Label
 
 
 func _init(emu: EmuCore) -> void:
 	super("Saves")
 	_emu = emu
+
+	# A SRAM se grava sozinha, sem o jogador pedir; esta linha é o único lugar
+	# onde dá para conferir que o progresso do jogo foi mesmo para o disco.
+	_bateria = WidgetsVR.mono("")
+	_bateria.custom_minimum_size.y = 44
+	_bateria.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	conteudo.add_child(_bateria)
 
 	_grade = GridContainer.new()
 	_grade.columns = 2
@@ -36,6 +44,7 @@ func atualizar() -> void:
 		filho.queue_free()
 
 	caminho_lab.text = _emu.rom_atual.get_file() if not _emu.rom_atual.is_empty() else "sem jogo"
+	_bateria.text = _texto_bateria()
 
 	if not _emu.suporta_estado():
 		var aviso := Label.new()
@@ -46,6 +55,22 @@ func atualizar() -> void:
 
 	for i in SLOTS:
 		_grade.add_child(_slot(i + 1))
+
+
+## Estado do save de bateria: se este jogo tem SRAM e quando ela foi gravada.
+func _texto_bateria() -> String:
+	if _emu.rom_atual.is_empty():
+		return ""
+	var bytes := _emu.tamanho_sram()
+	if bytes <= 0:
+		return "Bateria: este cartucho não tem"
+
+	var tam := String.humanize_size(bytes)
+	var caminho := _emu.caminho_sram()
+	if not FileAccess.file_exists(caminho):
+		return "Bateria: %s · ainda não gravada" % tam
+	var d := Time.get_datetime_dict_from_unix_time(FileAccess.get_modified_time(caminho))
+	return "Bateria: %s · gravada %02d/%02d · %02d:%02d" % [tam, d.day, d.month, d.hour, d.minute]
 
 
 func _slot(numero: int) -> Control:

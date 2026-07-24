@@ -60,18 +60,29 @@ unzip snes9x_libretro.so.zip && rm snes9x_libretro.so.zip
 
 ## Rodar
 
-**Teste headless** (prova extensão + carga do core; ROM opcional):
+**Teste headless** (prova extensão, carga do core e round-trip da SRAM; ROM opcional):
 
 ```bash
 godot --headless --path app --import           # 1ª vez, para escanear a GDExtension
-godot --headless --path app -s res://test_load.gd -- --rom /caminho/jogo.sfc
+godot --headless --xr-mode off --path app -s res://test_load.gd -- --rom /caminho/jogo.sfc
 ```
+
+`--xr-mode off` não é opcional nos testes, porque o projeto liga OpenXR e nenhum
+dos dois desfechos serve: **sem** runtime ativo o loader trava no arranque e o
+Godot nem chega a rodar o script (sem imprimir nada); **com** um runtime ativo o
+teste vira uma sessão de headset.
 
 **Cena desktop** (vídeo na tela + áudio + teclado):
 
 ```bash
-godot --path app -- --rom /caminho/jogo.sfc
+godot --xr-mode off --path app -- --rom /caminho/jogo.sfc
 ```
+
+> Sem o `--xr-mode off`, com o WiVRn ativo, o Godot entra em modo VR e
+> **segfalta no primeiro frame estéreo** — dentro de `libopenxr_wivrn.so` +
+> Mesa/gallium, com `gl_compatibility` numa Intel integrada. Reproduz 4/4 e é
+> anterior aos saves de bateria (o HEAD limpo crasha igual). Testar em VR de
+> verdade, por enquanto, é pelo APK no headset (`docs/EXPORT.md`).
 
 Teclado: setas = D-pad, `Z`/`X` = B/A, `A`/`S` = Y/X, `Q`/`W` = L/R,
 `Enter` = Start, `Shift` = Select.
@@ -79,7 +90,13 @@ Teclado: setas = D-pad, `Z`/`X` = B/A, `A`/`S` = Y/X, `Q`/`W` = L/R,
 ## ROMs
 
 **Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
-o catálogo `romkeep` está prevista na Fase 2.
+o catálogo `romkeep` está prevista na Fase 3.
+
+Jogos com bateria gravam sozinhos em `user://saves/<jogo>.srm`, no mesmo formato
+do RetroArch — dá para levar um save de lá para cá e vice-versa. A gravação é
+automática (a cada 5 s, se algo mudou) e também ao trocar de ROM, ao fechar o app
+e quando o Quest suspende a sessão. A página **Saves** do menu mostra o tamanho
+da bateria e quando ela foi gravada pela última vez.
 
 ## Roadmap
 
@@ -88,8 +105,9 @@ o catálogo `romkeep` está prevista na Fase 2.
   input dos controllers Touch.
 - **Fase 2 ✅** — menu in-VR: navegador de ROMs, configurações persistentes de
   tela/vídeo/áudio/input e save states.
-- **Fase 3** — mapeamento pose→eixo por jogo (controles físicos), core N64
-  (Star Fox 64), integração com `romkeep`, salas/arcade virtual.
+- **Fase 3** — saves de bateria (SRAM) ✅; a seguir: mapeamento pose→eixo por
+  jogo (controles físicos), core N64 (Star Fox 64), integração com `romkeep`,
+  salas/arcade virtual.
 
 ## Menu dentro do headset
 

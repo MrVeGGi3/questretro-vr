@@ -38,9 +38,45 @@ func _initialize() -> void:
 				print("OK  frame renderizado: %dx%d" % [img.get_width(), img.get_height()])
 			var audio := host.get_audio()
 			print("OK  amostras de áudio no frame: ", audio.size())
+			_testar_sram(host)
 		else:
 			printerr("FALHA: load_rom('%s')" % rom)
 
 	host.unload()
 	print("=== fim (Fase 0 verificada) ===")
 	quit(0)
+
+
+## Round-trip da SRAM: ler, alterar, escrever de volta e reler. Prova que o
+## ponteiro do core é gravável e que set_memory recusa tamanho errado — as duas
+## coisas que, se falharem em silêncio, viram progresso perdido no headset.
+func _testar_sram(host: LibretroHost) -> void:
+	var tam := host.get_memory_size(LibretroHost.MEMORY_SAVE_RAM)
+	print("OK  SRAM: %d bytes" % tam)
+	if tam <= 0:
+		print("    (esta ROM não tem bateria — round-trip pulado)")
+		return
+
+	var original := host.get_memory(LibretroHost.MEMORY_SAVE_RAM)
+	if original.size() != tam:
+		printerr("FALHA: get_memory devolveu %d bytes, esperava %d" % [original.size(), tam])
+		return
+
+	var alterado := original.duplicate()
+	for i in mini(8, tam):
+		alterado[i] = (original[i] + 1) % 256
+	if not host.set_memory(LibretroHost.MEMORY_SAVE_RAM, alterado):
+		printerr("FALHA: set_memory recusou dados do tamanho certo")
+		return
+	if host.get_memory(LibretroHost.MEMORY_SAVE_RAM) != alterado:
+		printerr("FALHA: SRAM relida difere do que foi escrito")
+		return
+	print("OK  round-trip da SRAM (escreveu e releu igual)")
+
+	# Devolve o conteúdo original: o teste não pode sujar o save de ninguém.
+	host.set_memory(LibretroHost.MEMORY_SAVE_RAM, original)
+
+	if host.set_memory(LibretroHost.MEMORY_SAVE_RAM, original.slice(0, tam - 1)):
+		printerr("FALHA: set_memory aceitou um buffer de tamanho errado")
+	else:
+		print("OK  set_memory recusou tamanho errado (o aviso acima é esperado)")

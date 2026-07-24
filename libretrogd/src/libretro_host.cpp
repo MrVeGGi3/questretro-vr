@@ -82,6 +82,9 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("supports_state"), &LibretroHost::supports_state);
 	ClassDB::bind_method(D_METHOD("save_state"), &LibretroHost::save_state);
 	ClassDB::bind_method(D_METHOD("load_state", "data"), &LibretroHost::load_state);
+	ClassDB::bind_method(D_METHOD("get_memory_size", "id"), &LibretroHost::get_memory_size);
+	ClassDB::bind_method(D_METHOD("get_memory", "id"), &LibretroHost::get_memory);
+	ClassDB::bind_method(D_METHOD("set_memory", "id", "data"), &LibretroHost::set_memory);
 	ClassDB::bind_method(D_METHOD("run_frame"), &LibretroHost::run_frame);
 	ClassDB::bind_method(D_METHOD("get_frame"), &LibretroHost::get_frame);
 	ClassDB::bind_method(D_METHOD("get_frame_width"), &LibretroHost::get_frame_width);
@@ -110,6 +113,9 @@ void LibretroHost::_bind_methods() {
 	BIND_ENUM_CONSTANT(JOYPAD_R2);
 	BIND_ENUM_CONSTANT(JOYPAD_L3);
 	BIND_ENUM_CONSTANT(JOYPAD_R3);
+
+	BIND_ENUM_CONSTANT(MEMORY_SAVE_RAM);
+	BIND_ENUM_CONSTANT(MEMORY_RTC);
 }
 
 LibretroHost::LibretroHost() {
@@ -155,6 +161,8 @@ void LibretroHost::resolve_symbols() {
 	SYM_OPT(p_retro_serialize_size, "retro_serialize_size");
 	SYM_OPT(p_retro_serialize, "retro_serialize");
 	SYM_OPT(p_retro_unserialize, "retro_unserialize");
+	SYM_OPT(p_retro_get_memory_data, "retro_get_memory_data");
+	SYM_OPT(p_retro_get_memory_size, "retro_get_memory_size");
 #undef SYM_OPT
 }
 
@@ -195,6 +203,59 @@ bool LibretroHost::load_state(const PackedByteArray &p_data) {
 		UtilityFunctions::push_error("libretrogd: retro_unserialize falhou (estado de outro core/ROM?)");
 		return false;
 	}
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// Memória do core (SRAM de bateria, RTC)
+// ---------------------------------------------------------------------------
+// O ponteiro de retro_get_memory_data só vale depois de retro_load_game e pode
+// mudar de endereço a cada carga, então é reconsultado a cada chamada — nunca
+// guardado num campo.
+int LibretroHost::get_memory_size(int p_id) const {
+	if (!game_loaded || !p_retro_get_memory_size || p_id < 0) {
+		return 0;
+	}
+	return (int)p_retro_get_memory_size((unsigned)p_id);
+}
+
+PackedByteArray LibretroHost::get_memory(int p_id) const {
+	PackedByteArray out;
+	int tam = get_memory_size(p_id);
+	if (tam <= 0 || !p_retro_get_memory_data) {
+		return out;
+	}
+	const void *src = p_retro_get_memory_data((unsigned)p_id);
+	if (!src) {
+		// Tamanho > 0 sem ponteiro é bug do core; melhor devolver vazio do que
+		// gravar lixo por cima de um save bom.
+		UtilityFunctions::push_warning("libretrogd: memória " + itos(p_id) +
+				" tem tamanho mas não tem ponteiro");
+		return out;
+	}
+	out.resize((int64_t)tam);
+	memcpy(out.ptrw(), src, (size_t)tam);
+	return out;
+}
+
+bool LibretroHost::set_memory(int p_id, const PackedByteArray &p_data) {
+	int tam = get_memory_size(p_id);
+	if (tam <= 0 || !p_retro_get_memory_data) {
+		return false;
+	}
+	// Tamanho diferente é .srm de outra ROM ou de outro core: escrever assim
+	// corrompe o save do jogo em silêncio, então recusa.
+	if (p_data.size() != tam) {
+		UtilityFunctions::push_warning(String("libretrogd: memória ") + itos(p_id) +
+				" tem " + itos(tam) + " bytes, mas os dados têm " + itos(p_data.size()) +
+				" — ignorando");
+		return false;
+	}
+	void *dst = p_retro_get_memory_data((unsigned)p_id);
+	if (!dst) {
+		return false;
+	}
+	memcpy(dst, p_data.ptr(), (size_t)tam);
 	return true;
 }
 

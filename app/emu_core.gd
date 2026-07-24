@@ -11,6 +11,13 @@ signal falhou(msg: String)
 ## Master, para não silenciar junto sons de interface que venham depois.
 const BUS_AUDIO := "Emu"
 const PASTA_ESTADOS := "user://states"
+## Mesma pasta que o LibretroHost entrega ao core via GET_SAVE_DIRECTORY.
+const PASTA_SAVES := "user://saves"
+
+## Intervalo entre checagens da SRAM. O jogo escreve na bateria sem avisar
+## ninguém, então a única forma de saber é comparar de tempos em tempos — este
+## número é o teto do progresso que se perde num crash.
+const INTERVALO_SRAM := 5.0
 
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
@@ -26,6 +33,9 @@ var _host: LibretroHost
 var _audio_player: AudioStreamPlayer
 var _audio_pb: AudioStreamGeneratorPlayback
 var _rodando := false
+
+var _sram_disco := PackedByteArray()   ## o que já está gravado, para comparar
+var _desde_sram := 0.0
 
 
 func iniciar(core_path: String, rom_path: String) -> bool:
@@ -44,6 +54,7 @@ func iniciar(core_path: String, rom_path: String) -> bool:
 		return false
 
 	rom_atual = rom_path
+	_carregar_sram()
 	_configurar_audio(_host.get_sample_rate())
 	_rodando = true
 	iniciado.emit(_host.get_frame_width(), _host.get_frame_height(), _host.get_fps())
@@ -57,6 +68,10 @@ func trocar_rom(rom_path: String) -> bool:
 		falhou.emit("Sem core carregado")
 		return false
 
+	# Antes do load_rom, que descarrega o jogo atual por dentro: depois disso o
+	# buffer da SRAM já morreu e rom_atual apontaria para o arquivo errado.
+	gravar_sram()
+
 	_rodando = false
 	if not _host.load_rom(rom_path):
 		# load_rom já descarregou o jogo anterior, então não há para onde voltar.
@@ -65,6 +80,7 @@ func trocar_rom(rom_path: String) -> bool:
 		return false
 
 	rom_atual = rom_path
+	_carregar_sram()
 	# O novo jogo pode ter outra taxa de amostragem; recria a cadeia de áudio.
 	_configurar_audio(_host.get_sample_rate())
 	_rodando = true
@@ -136,6 +152,88 @@ func _base_rom() -> String:
 	if rom_atual.is_empty():
 		return "sem_rom"
 	return rom_atual.get_file().get_basename().validate_filename()
+
+
+# ---------------------------------------------------------------------------
+# SRAM (save de bateria)
+# ---------------------------------------------------------------------------
+## Diferente do save state: é o que o jogo grava sozinho quando você salva
+## *dentro* dele. O core mantém a SRAM só em memória — persistir é trabalho
+## nosso, e quem não faz perde o progresso ao fechar o app sem sintoma nenhum.
+##
+## `.srm` é a convenção do RetroArch e o conteúdo é o buffer cru, então os
+## arquivos são intercambiáveis com uma instalação existente.
+func caminho_sram() -> String:
+	return "%s/%s.srm" % [PASTA_SAVES, _base_rom()]
+
+
+## Bytes de bateria deste jogo; 0 quando o cartucho não tem.
+func tamanho_sram() -> int:
+	return _host.get_memory_size(LibretroHost.MEMORY_SAVE_RAM) if _host != null else 0
+
+
+## Grava a SRAM se ela mudou desde a última vez. Barato de chamar em intervalo
+## curto: no caso comum sai na comparação, sem tocar o disco.
+func gravar_sram() -> bool:
+	if _host == null or not _host.is_game_loaded():
+		return false
+	var dados := _host.get_memory(LibretroHost.MEMORY_SAVE_RAM)
+	if dados.is_empty() or dados == _sram_disco:
+		return false
+
+	DirAccess.make_dir_recursive_absolute(PASTA_SAVES)
+	# Escreve num temporário e renomeia por cima: se o app morrer no meio da
+	# escrita (o normal no Quest), o save anterior continua inteiro.
+	var tmp := caminho_sram() + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		push_error("EmuCore: não consegui escrever em " + tmp)
+		return false
+	f.store_buffer(dados)
+	f.close()
+
+	var err := DirAccess.rename_absolute(tmp, caminho_sram())
+	if err != OK:
+		push_error("EmuCore: falha ao renomear %s (erro %d)" % [tmp, err])
+		return false
+
+	_sram_disco = dados
+	return true
+
+
+func _carregar_sram() -> void:
+	_sram_disco = PackedByteArray()
+	_desde_sram = 0.0
+	if tamanho_sram() <= 0:
+		return  # cartucho sem bateria
+
+	var f := FileAccess.open(caminho_sram(), FileAccess.READ)
+	if f == null:
+		return  # primeira vez neste jogo
+	var dados := f.get_buffer(f.get_length())
+	f.close()
+
+	# Se o tamanho não bater, set_memory recusa e avisa; deixando _sram_disco
+	# vazio, a próxima gravação substitui o arquivo inservível pelo bom.
+	if _host.set_memory(LibretroHost.MEMORY_SAVE_RAM, dados):
+		_sram_disco = dados
+
+
+func _process(delta: float) -> void:
+	if not _rodando:
+		return
+	_desde_sram += delta
+	if _desde_sram >= INTERVALO_SRAM:
+		_desde_sram = 0.0
+		gravar_sram()
+
+
+func _notification(what: int) -> void:
+	# APPLICATION_PAUSED é o caso do Quest: tirar o headset suspende o app e o
+	# Android pode matá-lo sem mais aviso. É a última chance de gravar — e é
+	# assim que a maioria das sessões termina no headset, não pelo botão de sair.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		gravar_sram()
 
 
 # ---------------------------------------------------------------------------
@@ -264,5 +362,7 @@ func _preparar_core(core_path: String) -> String:
 
 
 func _exit_tree() -> void:
+	# Antes do unload: ele descarrega o jogo e o buffer da SRAM vai junto.
+	gravar_sram()
 	if _host != null:
 		_host.unload()
