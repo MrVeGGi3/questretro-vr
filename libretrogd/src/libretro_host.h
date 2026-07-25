@@ -3,7 +3,9 @@
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 
@@ -90,6 +92,14 @@ public:
 	void set_button(int p_port, int p_id, bool p_pressed);
 	void clear_input();
 
+	// Opções do core. Ficam disponíveis logo após load_core() — o core as
+	// declara de dentro de retro_set_environment —, então dá para ajustá-las
+	// antes do load_rom(), que é quando várias delas passam a valer.
+	// get_options() devolve um Array de Dictionary com chave/desc/info/valores.
+	Array get_options() const;
+	String get_option(const String &p_key) const;
+	void set_option(const String &p_key, const String &p_value);
+
 	bool is_core_loaded() const { return core_loaded; }
 	bool is_game_loaded() const { return game_loaded; }
 
@@ -102,6 +112,39 @@ public:
 private:
 	void resolve_symbols();
 	void reset_state();
+
+	// --- opções do core ---
+	// Uma opção como o core a declarou, mais o valor vigente. O valor é mantido
+	// também como CharString porque GET_VARIABLE devolve um `const char *` que o
+	// core lê *depois* de a chamada retornar: precisa apontar para um buffer que
+	// sobreviva a nós. Trocar o valor invalida o ponteiro antigo, e é por isso
+	// que set_option() marca options_dirty — o core então reconsulta tudo.
+	struct CoreOption {
+		String key;
+		String desc;
+		String info;
+		PackedStringArray values;  // ids aceitos, na ordem em que o core declarou
+		PackedStringArray labels;  // rótulo legível de cada id (cai no id se não houver)
+		String default_value;
+		String value;
+		CharString value_utf8;
+	};
+
+	CoreOption *find_option(const String &p_key);
+	const CoreOption *find_option(const String &p_key) const;
+	// Registra (ou atualiza) uma opção preservando o valor já escolhido.
+	void register_option(const String &p_key, const String &p_desc, const String &p_info,
+			const PackedStringArray &p_values, const PackedStringArray &p_labels,
+			const String &p_default);
+	// Um parser por formato: SET_VARIABLES (16), SET_CORE_OPTIONS (53) e
+	// SET_CORE_OPTIONS_V2 (67). Cores modernos mandam só o mais novo que o
+	// frontend declarar suportar, mas os três chegam na prática.
+	void parse_variables(const struct retro_variable *p_vars);
+	void parse_options_v1(const struct retro_core_option_definition *p_defs);
+	void parse_options_v2(const struct retro_core_option_v2_definition *p_defs);
+
+	std::vector<CoreOption> options;
+	bool options_dirty = false;
 
 	// handle do dlopen
 	void *lib_handle = nullptr;

@@ -3,6 +3,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <cstdarg>
@@ -94,6 +95,9 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_audio"), &LibretroHost::get_audio);
 	ClassDB::bind_method(D_METHOD("set_button", "port", "id", "pressed"), &LibretroHost::set_button);
 	ClassDB::bind_method(D_METHOD("clear_input"), &LibretroHost::clear_input);
+	ClassDB::bind_method(D_METHOD("get_options"), &LibretroHost::get_options);
+	ClassDB::bind_method(D_METHOD("get_option", "key"), &LibretroHost::get_option);
+	ClassDB::bind_method(D_METHOD("set_option", "key", "value"), &LibretroHost::set_option);
 	ClassDB::bind_method(D_METHOD("is_core_loaded"), &LibretroHost::is_core_loaded);
 	ClassDB::bind_method(D_METHOD("is_game_loaded"), &LibretroHost::is_game_loaded);
 
@@ -136,7 +140,7 @@ static String globalize(const String &p_path) {
 void LibretroHost::resolve_symbols() {
 #define SYM(field, name) \
 	field = reinterpret_cast<decltype(field)>(dlsym(lib_handle, name)); \
-	if (!field) { UtilityFunctions::push_error(String("libretrogd: símbolo ausente: ") + name); }
+	if (!field) { UtilityFunctions::push_error(String::utf8("libretrogd: símbolo ausente: ") + name); }
 
 	SYM(p_retro_init, "retro_init");
 	SYM(p_retro_deinit, "retro_deinit");
@@ -229,8 +233,8 @@ PackedByteArray LibretroHost::get_memory(int p_id) const {
 	if (!src) {
 		// Tamanho > 0 sem ponteiro é bug do core; melhor devolver vazio do que
 		// gravar lixo por cima de um save bom.
-		UtilityFunctions::push_warning("libretrogd: memória " + itos(p_id) +
-				" tem tamanho mas não tem ponteiro");
+		UtilityFunctions::push_warning(String::utf8("libretrogd: memória ") + itos(p_id) +
+				String::utf8(" tem tamanho mas não tem ponteiro"));
 		return out;
 	}
 	out.resize((int64_t)tam);
@@ -246,9 +250,9 @@ bool LibretroHost::set_memory(int p_id, const PackedByteArray &p_data) {
 	// Tamanho diferente é .srm de outra ROM ou de outro core: escrever assim
 	// corrompe o save do jogo em silêncio, então recusa.
 	if (p_data.size() != tam) {
-		UtilityFunctions::push_warning(String("libretrogd: memória ") + itos(p_id) +
-				" tem " + itos(tam) + " bytes, mas os dados têm " + itos(p_data.size()) +
-				" — ignorando");
+		UtilityFunctions::push_warning(String::utf8("libretrogd: memória ") + itos(p_id) +
+				" tem " + itos(tam) + String::utf8(" bytes, mas os dados têm ") + itos(p_data.size()) +
+				String::utf8(" — ignorando"));
 		return false;
 	}
 	void *dst = p_retro_get_memory_data((unsigned)p_id);
@@ -271,7 +275,7 @@ bool LibretroHost::load_core(const String &p_path) {
 
 	resolve_symbols();
 	if (!p_retro_init || !p_retro_run || !p_retro_load_game || !p_retro_set_environment) {
-		UtilityFunctions::push_error("libretrogd: core não expõe a API libretro esperada");
+		UtilityFunctions::push_error(String::utf8("libretrogd: core não expõe a API libretro esperada"));
 		unload();
 		return false;
 	}
@@ -323,7 +327,7 @@ bool LibretroHost::load_rom(const String &p_path) {
 	} else {
 		Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 		if (f.is_null()) {
-			UtilityFunctions::push_error(String("libretrogd: não abriu a ROM: ") + p_path);
+			UtilityFunctions::push_error(String::utf8("libretrogd: não abriu a ROM: ") + p_path);
 			return false;
 		}
 		PackedByteArray bytes = f->get_buffer(f->get_length());
@@ -348,7 +352,7 @@ bool LibretroHost::load_rom(const String &p_path) {
 	}
 
 	game_loaded = true;
-	UtilityFunctions::print(String("libretrogd: ROM carregada — ") +
+	UtilityFunctions::print(String::utf8("libretrogd: ROM carregada — ") +
 			String::num_int64((int64_t)av.geometry.base_width) + "x" +
 			String::num_int64((int64_t)av.geometry.base_height) + " @ " +
 			String::num(av_fps, 2) + "fps");
@@ -399,6 +403,10 @@ void LibretroHost::reset_state() {
 	audio_accum.clear();
 	input_state[0] = input_state[1] = 0;
 	game_data.clear();
+	// As opções pertencem ao core, não ao jogo: só somem quando o core sai.
+	// Por isso a limpeza mora aqui e não em unload_rom().
+	options.clear();
+	options_dirty = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -526,6 +534,158 @@ void LibretroHost::clear_input() {
 }
 
 // ---------------------------------------------------------------------------
+// Opções do core
+// ---------------------------------------------------------------------------
+LibretroHost::CoreOption *LibretroHost::find_option(const String &p_key) {
+	for (CoreOption &o : options) {
+		if (o.key == p_key) {
+			return &o;
+		}
+	}
+	return nullptr;
+}
+
+const LibretroHost::CoreOption *LibretroHost::find_option(const String &p_key) const {
+	return const_cast<LibretroHost *>(this)->find_option(p_key);
+}
+
+void LibretroHost::register_option(const String &p_key, const String &p_desc, const String &p_info,
+		const PackedStringArray &p_values, const PackedStringArray &p_labels,
+		const String &p_default) {
+	if (p_key.is_empty()) {
+		return;
+	}
+	CoreOption *existente = find_option(p_key);
+	// Um core pode declarar o mesmo conjunto duas vezes (v2 e depois o fallback
+	// v1). Redeclarar não pode apagar uma escolha que o GDScript já fez.
+	String escolhido = existente ? existente->value : String();
+
+	CoreOption opt;
+	opt.key = p_key;
+	opt.desc = p_desc;
+	opt.info = p_info;
+	opt.values = p_values;
+	opt.labels = p_labels;
+	opt.default_value = p_default.is_empty() && !p_values.is_empty() ? p_values[0] : p_default;
+	opt.value = escolhido.is_empty() ? opt.default_value : escolhido;
+	opt.value_utf8 = opt.value.utf8();
+
+	if (existente) {
+		*existente = opt;
+	} else {
+		options.push_back(opt);
+	}
+}
+
+// SET_VARIABLES: cada entrada é "Título; val1|val2|val3", o primeiro é o padrão.
+void LibretroHost::parse_variables(const struct retro_variable *p_vars) {
+	if (!p_vars) {
+		return;
+	}
+	for (const retro_variable *v = p_vars; v->key && v->value; ++v) {
+		String bruto = String::utf8(v->value);
+		int corte = bruto.find(";");
+		String desc = corte >= 0 ? bruto.substr(0, corte) : bruto;
+		String lista = corte >= 0 ? bruto.substr(corte + 1).strip_edges() : String();
+
+		PackedStringArray vals;
+		for (const String &item : lista.split("|", false)) {
+			String limpo = item.strip_edges();
+			if (!limpo.is_empty()) {
+				vals.push_back(limpo);
+			}
+		}
+		// Sem rótulos separados neste formato: o id é o que a UI mostra.
+		register_option(String::utf8(v->key), desc, String(), vals, vals,
+				vals.is_empty() ? String() : vals[0]);
+	}
+}
+
+void LibretroHost::parse_options_v1(const struct retro_core_option_definition *p_defs) {
+	if (!p_defs) {
+		return;
+	}
+	for (const retro_core_option_definition *d = p_defs; d->key; ++d) {
+		PackedStringArray vals;
+		PackedStringArray labels;
+		for (int i = 0; i < RETRO_NUM_CORE_OPTION_VALUES_MAX && d->values[i].value; ++i) {
+			vals.push_back(String::utf8(d->values[i].value));
+			labels.push_back(d->values[i].label
+					? String::utf8(d->values[i].label)
+					: String::utf8(d->values[i].value));
+		}
+		register_option(String::utf8(d->key),
+				d->desc ? String::utf8(d->desc) : String(),
+				d->info ? String::utf8(d->info) : String(),
+				vals, labels,
+				d->default_value ? String::utf8(d->default_value) : String());
+	}
+}
+
+void LibretroHost::parse_options_v2(const struct retro_core_option_v2_definition *p_defs) {
+	if (!p_defs) {
+		return;
+	}
+	for (const retro_core_option_v2_definition *d = p_defs; d->key; ++d) {
+		PackedStringArray vals;
+		PackedStringArray labels;
+		for (int i = 0; i < RETRO_NUM_CORE_OPTION_VALUES_MAX && d->values[i].value; ++i) {
+			vals.push_back(String::utf8(d->values[i].value));
+			labels.push_back(d->values[i].label
+					? String::utf8(d->values[i].label)
+					: String::utf8(d->values[i].value));
+		}
+		register_option(String::utf8(d->key),
+				d->desc ? String::utf8(d->desc) : String(),
+				d->info ? String::utf8(d->info) : String(),
+				vals, labels,
+				d->default_value ? String::utf8(d->default_value) : String());
+	}
+}
+
+Array LibretroHost::get_options() const {
+	Array out;
+	for (const CoreOption &o : options) {
+		Dictionary d;
+		d["key"] = o.key;
+		d["desc"] = o.desc;
+		d["info"] = o.info;
+		d["values"] = o.values;
+		d["labels"] = o.labels;
+		d["default"] = o.default_value;
+		d["value"] = o.value;
+		out.push_back(d);
+	}
+	return out;
+}
+
+String LibretroHost::get_option(const String &p_key) const {
+	const CoreOption *o = find_option(p_key);
+	return o ? o->value : String();
+}
+
+void LibretroHost::set_option(const String &p_key, const String &p_value) {
+	CoreOption *o = find_option(p_key);
+	if (!o) {
+		UtilityFunctions::push_warning(String::utf8("libretrogd: opção desconhecida: ") + p_key);
+		return;
+	}
+	// Valor fora da lista faz o core cair no default dele sem avisar; barrar
+	// aqui transforma um erro de digitação num aviso legível.
+	if (!o->values.is_empty() && o->values.find(p_value) < 0) {
+		UtilityFunctions::push_warning(String::utf8("libretrogd: valor inválido para ") + p_key +
+				": " + p_value + String::utf8(" (aceitos: ") + String(", ").join(o->values) + ")");
+		return;
+	}
+	if (o->value == p_value) {
+		return;
+	}
+	o->value = p_value;
+	o->value_utf8 = p_value.utf8();
+	options_dirty = true;
+}
+
+// ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
 bool LibretroHost::_on_environment(unsigned cmd, void *data) {
@@ -554,14 +714,58 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 			cb->log = cb_log;
 			return true;
 		}
-		case RETRO_ENVIRONMENT_GET_VARIABLE: {
-			// Sem opções customizadas no MVP: o core usa os defaults.
-			auto *var = reinterpret_cast<retro_variable *>(data);
-			var->value = nullptr;
+		case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION: {
+			// Declarar 2 é o que faz um core moderno mandar SET_CORE_OPTIONS_V2
+			// em vez de decair para o formato de 2012.
+			*reinterpret_cast<unsigned *>(data) = 2;
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_VARIABLES: {
+			parse_variables(reinterpret_cast<const retro_variable *>(data));
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_CORE_OPTIONS: {
+			parse_options_v1(reinterpret_cast<const retro_core_option_definition *>(data));
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL: {
+			// Só o inglês: `local` seria a tradução, e não traduzimos a UI do core.
+			auto *intl = reinterpret_cast<const retro_core_options_intl *>(data);
+			parse_options_v1(intl ? intl->us : nullptr);
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2: {
+			auto *v2 = reinterpret_cast<const retro_core_options_v2 *>(data);
+			parse_options_v2(v2 ? v2->definitions : nullptr);
+			// Devolver true diria "eu mostro categorias"; não mostramos, e o core
+			// só usa isso para escolher o rótulo, então false é o honesto.
 			return false;
 		}
+		case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL: {
+			auto *intl = reinterpret_cast<const retro_core_options_v2_intl *>(data);
+			parse_options_v2(intl && intl->us ? intl->us->definitions : nullptr);
+			return false;
+		}
+		case RETRO_ENVIRONMENT_GET_VARIABLE: {
+			auto *var = reinterpret_cast<retro_variable *>(data);
+			if (!var || !var->key) {
+				return false;
+			}
+			const CoreOption *o = find_option(String::utf8(var->key));
+			if (!o) {
+				// nullptr é como a API diz "não tenho essa opção"; o core usa o
+				// default interno dele.
+				var->value = nullptr;
+				return false;
+			}
+			var->value = o->value_utf8.get_data();
+			return true;
+		}
 		case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
-			*reinterpret_cast<bool *>(data) = false;
+			*reinterpret_cast<bool *>(data) = options_dirty;
+			// Consultar zera: o core relê tudo agora, e só uma mudança nova
+			// justifica pedir que releia de novo.
+			options_dirty = false;
 			return true;
 		}
 		default:

@@ -20,6 +20,7 @@ func _initialize() -> void:
 		return
 	print("OK  core carregado (dlopen + símbolos + retro_init)")
 	print("    is_core_loaded=", host.is_core_loaded())
+	_testar_opcoes(host)
 
 	# ROM opcional: se passada, testa o pipeline completo de um frame.
 	var rom := ""
@@ -45,6 +46,39 @@ func _initialize() -> void:
 	host.unload()
 	print("=== fim (Fase 0 verificada) ===")
 	quit(0)
+
+
+## Opções do core: o core as declara dentro de retro_set_environment, então já
+## têm que estar aqui, antes de qualquer ROM. Sem isto o mupen64plus fica preso
+## nos defaults dele — é por opção que se escolhe plugin de vídeo e resolução.
+func _testar_opcoes(host: LibretroHost) -> void:
+	var opcoes := host.get_options()
+	print("OK  opções declaradas pelo core: %d" % opcoes.size())
+	if opcoes.is_empty():
+		return
+	for op: Dictionary in opcoes.slice(0, 3):
+		print("    %s = %s  (padrão %s, %d valores) — %s" % [
+			op["key"], op["value"], op["default"], (op["values"] as PackedStringArray).size(),
+			op["desc"]])
+
+	# Round-trip: escolher um valor diferente do vigente tem que pegar.
+	var primeira: Dictionary = opcoes[0]
+	var vals: PackedStringArray = primeira["values"]
+	if vals.size() < 2:
+		return
+	var outro: String = vals[1] if vals[0] == primeira["value"] else vals[0]
+	host.set_option(primeira["key"], outro)
+	if host.get_option(primeira["key"]) == outro:
+		print("OK  set_option pegou (%s = %s)" % [primeira["key"], outro])
+	else:
+		printerr("FALHA: set_option não mudou %s" % primeira["key"])
+
+	# E um valor fora da lista tem que ser recusado, não repassado ao core.
+	host.set_option(primeira["key"], "valor_que_nao_existe")
+	if host.get_option(primeira["key"]) == outro:
+		print("OK  set_option recusou valor inválido (o aviso acima é esperado)")
+	else:
+		printerr("FALHA: set_option aceitou valor fora da lista")
 
 
 ## Round-trip da SRAM: ler, alterar, escrever de volta e reler. Prova que o
