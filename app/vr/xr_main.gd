@@ -385,34 +385,37 @@ func _input_snes() -> void:
 	_emu.set_button(0, LibretroHost.JOYPAD_SELECT, _ctrl_esq.get_float(&"grip") > 0.5)
 
 
-## N64: o analógico esquerdo vira eixo de verdade — é o manche do Arwing — e o
-## D-pad digital fica nos botões do controle esquerdo, onde quase nenhum jogo
-## de N64 precisa dele. Os C-buttons ocupam o stick direito, por setores, que é
-## como o N64 os trata: quatro botões, não um eixo.
+## N64: os dois analógicos são eixos de verdade. Este mapa vem dos descritores
+## que o mupen64plus declara (SET_INPUT_DESCRIPTORS), não de tabela decorada —
+## e eles surpreendem em dois pontos:
 ##
-## O mapeamento libretro do N64 não é o óbvio: no core, JOYPAD_B é o botão A do
-## N64 e JOYPAD_Y é o B; os C-buttons são L2/R2/L3/R3.
+##   - os nomes não batem com os ids: JOYPAD_B é o **A** do N64, JOYPAD_Y é o
+##     **B**, e o Z fica em JOYPAD_L2;
+##   - os C-buttons não são quatro botões digitais para o core, e sim o
+##     **segundo manche** (device=ANALOG, index=1: "C Buttons X/Y").
+##
+## O segundo ponto é o que faz o stick direito do Touch cair direto nos C, sem
+## conversão para setores.
 func _input_n64() -> void:
-	var stick := _ctrl_esq.get_vector2(&"primary")
 	# O Y do thumbstick cresce para cima; o do libretro, para baixo.
+	var stick := _ctrl_esq.get_vector2(&"primary")
 	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, stick.x)
 	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_Y, -stick.y)
 
-	var c := _dpad_do_stick(_ctrl_dir.get_vector2(&"primary"))
-	_emu.set_button(0, LibretroHost.JOYPAD_L2, c.up)      # C-cima
-	_emu.set_button(0, LibretroHost.JOYPAD_R2, c.down)    # C-baixo
-	_emu.set_button(0, LibretroHost.JOYPAD_L3, c.left)    # C-esquerda
-	_emu.set_button(0, LibretroHost.JOYPAD_R3, c.right)   # C-direita
+	var c := _ctrl_dir.get_vector2(&"primary")
+	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_X, c.x)
+	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_Y, -c.y)
 
-	_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"ax_button"))  # A
-	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_dir.is_button_pressed(&"by_button"))  # B
+	_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"ax_button"))
+	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_dir.is_button_pressed(&"by_button"))
 	_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
 	_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
 	# Z é o gatilho do meio do N64; no Touch cai no grip esquerdo, que sobrou.
 	_emu.set_button(0, LibretroHost.JOYPAD_L2, _ctrl_esq.get_float(&"grip") > 0.5)
 	_emu.set_button(0, LibretroHost.JOYPAD_START, _start_com_pulso(_ctrl_dir.get_float(&"grip") > 0.5))
 
-	# D-pad nos botões do controle esquerdo (menus de alguns jogos ainda pedem).
+	# Sobraram dois botões para quatro direções de D-pad. Cima/baixo é o que
+	# aparece em menu de jogo de N64; esquerda/direita quase nunca.
 	_emu.set_button(0, LibretroHost.JOYPAD_UP, _ctrl_esq.is_button_pressed(&"by_button"))
 	_emu.set_button(0, LibretroHost.JOYPAD_DOWN, _ctrl_esq.is_button_pressed(&"ax_button"))
 

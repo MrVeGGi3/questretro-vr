@@ -26,6 +26,22 @@ const CORES := {
 	"n64": "res://cores/mupen64plus_next_libretro%s.so",
 }
 
+## Opções aplicadas ao core assim que ele carrega e antes da ROM — várias só
+## valem no load_rom. Só o que difere do padrão do core.
+##
+## O `angrylion` é o renderizador por *software* do mupen: é o único que dá
+## imagem enquanto o LibretroHost não implementa SET_HW_RENDER, e o preço é
+## alto — medido em 65 fps num x86_64 de desktop, o que no ARM do Quest não
+## fecha os 60. Vira `gliden64` quando a renderização por hardware entrar.
+const OPCOES := {
+	"n64": {
+		"mupen64plus-rdp-plugin": "angrylion",
+		# 320x240 é a resolução nativa; subir custa CPU no angrylion sem ganho
+		# real, já que a tela do headset reamostra de qualquer jeito.
+		"mupen64plus-43screensize": "320x240",
+	},
+}
+
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
 var altura: int = 0
@@ -68,7 +84,7 @@ func iniciar(core_path: String, rom_path: String) -> bool:
 			return false
 
 	_host = LibretroHost.new()
-	if not _carregar_core(core_path):
+	if not _carregar_core(core_path, NavegadorRoms.sistema_de(rom_path)):
 		return false
 	if not _host.load_rom(rom_path):
 		falhou.emit("Falha ao carregar a ROM: " + rom_path)
@@ -101,7 +117,7 @@ func trocar_rom(rom_path: String) -> bool:
 		_host.unload()
 		rom_atual = ""
 		sistema = ""
-		if not _carregar_core(core_novo):
+		if not _carregar_core(core_novo, NavegadorRoms.sistema_de(rom_path)):
 			return false
 
 	if not _host.load_rom(rom_path):
@@ -115,13 +131,17 @@ func trocar_rom(rom_path: String) -> bool:
 	return true
 
 
-func _carregar_core(core_path: String) -> bool:
+func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 	# No Android o core vive dentro do APK (res:// virtual) e o dlopen não
 	# consegue abri-lo; então preparamos uma cópia num caminho real (user://).
 	var core_real := _preparar_core(core_path)
 	if not _host.load_core(core_real):
 		falhou.emit("Falha ao carregar o core: " + core_real.get_file())
 		return false
+	# Aqui, e não depois do load_rom: o core lê boa parte das opções ao abrir a
+	# ROM, e as que ele já leu não voltam atrás.
+	for chave: String in OPCOES.get(sistema_novo, {}):
+		_host.set_option(chave, OPCOES[sistema_novo][chave])
 	return true
 
 
