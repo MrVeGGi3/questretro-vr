@@ -3,13 +3,31 @@ extends RefCounted
 ## Listagem de ROMs no armazenamento. Só lógica — a página de ROMs desenha.
 ##
 ## No Quest as ROMs chegam por `adb push` ou pelo gerenciador de arquivos do
-## headset, então precisamos ler /sdcard. No Android 11+ o acesso por caminho
-## de arquivo em armazenamento compartilhado volta a funcionar com
-## READ_EXTERNAL_STORAGE, então DirAccess basta — sem MediaStore.
+## headset, então precisamos ler /sdcard. E aí esbarramos no armazenamento por
+## escopo do Android 11+: `READ_EXTERNAL_STORAGE` só dá acesso a **mídia**
+## (imagem, áudio, vídeo). Uma ROM não é mídia, então com ela o app leva
+## `Permission denied` em /sdcard inteiro — medido no Quest 3S, com a permissão
+## concedida. Quem destrava tipo de arquivo arbitrário é MANAGE_EXTERNAL_STORAGE.
+##
+## Daí as duas vias, e as duas importam:
+##   1. MANAGE_EXTERNAL_STORAGE, ligada uma vez pela pessoa em Ajustes. Cobre
+##      /sdcard/Download, /sdcard/ROMs e o cartão inteiro.
+##   2. A pasta externa do próprio app, que dispensa permissão e recebe
+##      `adb push` direto. É a saída para quem não quer mexer em Ajustes — mas
+##      não é alcançável por MTP nem pelo gerenciador do Quest, porque o Android
+##      esconde `Android/data`.
 
 const EXTENSOES := ["smc", "sfc", "fig", "swc", "zip"]  ## o que o snes9x aceita
 
-const PERMISSAO := "android.permission.READ_EXTERNAL_STORAGE"
+## Precisa casar com `package/unique_name` do preset em export_presets.cfg: o
+## Godot 4.6 não expõe o nome do pacote em runtime, e é ele que forma o caminho
+## da pasta externa do app.
+const PACOTE := "com.questretro.vr"
+
+## Tela geral de "acesso a todos os arquivos". A variante por app
+## (MANAGE_APP_ALL_FILES_ACCESS_PERMISSION) não existe no Quest — resolve para
+## "No activity found" —, então caímos na lista e a pessoa acha o app nela.
+const ACAO_ACESSO_TOTAL := "android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION"
 
 
 ## Pastas oferecidas como ponto de partida. Só as que existem de fato, para a
@@ -21,6 +39,8 @@ static func raizes() -> Array:
 			{"nome": "Downloads", "caminho": "/sdcard/Download"},
 			{"nome": "ROMs", "caminho": "/sdcard/ROMs"},
 			{"nome": "Armazenamento", "caminho": "/sdcard"},
+			# Esta funciona sem permissão nenhuma e é o destino do `adb push`.
+			{"nome": "Pasta do app (adb)", "caminho": pasta_externa()},
 			{"nome": "Dados do app", "caminho": ProjectSettings.globalize_path("user://roms")},
 		]
 	else:
@@ -86,28 +106,63 @@ static func formatar_tamanho(bytes: int) -> String:
 	return "%d B" % bytes
 
 
+## Pasta externa do app: `/sdcard/Android/data/<pacote>/files/roms`. O app lê e
+## escreve nela sem permissão alguma, e o `adb push` alcança de fora.
+static func pasta_externa() -> String:
+	return "/sdcard/Android/data/%s/files/roms" % PACOTE
+
+
 static func precisa_permissao() -> bool:
 	return OS.has_feature("android")
 
 
+## Só MANAGE_EXTERNAL_STORAGE vale aqui. READ_EXTERNAL_STORAGE fica concedida e
+## mesmo assim não abre uma ROM, então perguntar por ela enganaria a interface.
 static func tem_permissao() -> bool:
 	if not precisa_permissao():
 		return true
-	return PERMISSAO in OS.get_granted_permissions()
+	var ambiente := JavaClassWrapper.wrap("android.os.Environment")
+	if ambiente == null:
+		push_warning("NavegadorRoms: sem android.os.Environment")
+		return false
+	return ambiente.isExternalStorageManager()
 
 
-## Dispara o diálogo do Android. A resposta é assíncrona e chega no
-## `on_request_permissions_result` do MainLoop; a página re-checa ao reabrir.
+## Abre a tela de Ajustes do Android onde a chave é ligada. Não há diálogo de
+## runtime para esta permissão: é uma viagem à lista de Ajustes e volta, e a
+## página relê o estado ao reabrir.
 static func pedir_permissao() -> void:
-	if precisa_permissao():
-		OS.request_permissions()
+	if not precisa_permissao():
+		return
+	var runtime := Engine.get_singleton("AndroidRuntime")
+	if runtime == null:
+		push_warning("NavegadorRoms: sem o singleton AndroidRuntime")
+		return
+	var intent_cls := JavaClassWrapper.wrap("android.content.Intent")
+	if intent_cls == null:
+		push_warning("NavegadorRoms: sem android.content.Intent")
+		return
+	# O construtor Java é exposto pelo nome simples da classe, não por `new`:
+	# `Intent.Intent(acao)` é o `new Intent(action)`.
+	var intent: Variant = intent_cls.Intent(ACAO_ACESSO_TOTAL)
+	if intent == null:
+		push_warning("NavegadorRoms: não construí o Intent (%s)" % JavaClassWrapper.get_exception())
+		return
+	runtime.getActivity().startActivity(intent)
+	# Sem isto, uma ActivityNotFoundException viraria um botão que não faz nada.
+	var erro: Variant = JavaClassWrapper.get_exception()
+	if erro != null:
+		push_warning("NavegadorRoms: startActivity falhou: %s" % erro)
 
 
-## Garante que user://roms exista, para haver sempre um destino gravável e uma
-## raiz válida mesmo sem permissão nenhuma.
+## Garante que as pastas próprias existam, para haver sempre um destino gravável
+## e uma raiz válida mesmo sem permissão nenhuma.
 static func garantir_pasta_local() -> void:
 	if not DirAccess.dir_exists_absolute("user://roms"):
 		DirAccess.make_dir_recursive_absolute("user://roms")
+	# A externa some quando o app é desinstalado, então recriamos sempre.
+	if precisa_permissao() and not DirAccess.dir_exists_absolute(pasta_externa()):
+		DirAccess.make_dir_recursive_absolute(pasta_externa())
 
 
 static func _tamanho(caminho: String) -> int:

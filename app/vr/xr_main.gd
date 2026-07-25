@@ -101,10 +101,11 @@ func _ready() -> void:
 
 	_cfg.mudou.connect(_ao_mudar_config)
 
-	# O diálogo do Android é assíncrono; pedir cedo dá tempo de a pessoa
-	# responder antes de abrir a página de ROMs.
-	if NavegadorRoms.precisa_permissao() and not NavegadorRoms.tem_permissao():
-		NavegadorRoms.pedir_permissao()
+	# Não pedimos a permissão no arranque: MANAGE_EXTERNAL_STORAGE não tem
+	# diálogo de runtime, e pedi-la aqui jogaria a pessoa para os Ajustes do
+	# Android antes mesmo de o jogo aparecer. Quem pede é o botão da página de
+	# ROMs, quando ela de fato quer procurar um jogo.
+	NavegadorRoms.garantir_pasta_local()
 
 	var ok := _emu.iniciar(_arg("--core", _core_padrao()), _arg("--rom", ROM_PADRAO))
 	if not ok:

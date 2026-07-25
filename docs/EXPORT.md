@@ -65,14 +65,52 @@ e `org.khronos.openxr.intent.category.IMMERSIVE_HMD`.
 
 ## Permissão de armazenamento
 
-O preset traz `permissions/read_external_storage=true`, que é o que põe
-`android.permission.READ_EXTERNAL_STORAGE` no manifesto e deixa o navegador de
-ROMs ler `/sdcard`. No Android 11+ o acesso por caminho de arquivo em
-armazenamento compartilhado voltou a funcionar com essa permissão, então
-`DirAccess` basta — sem MediaStore.
+`READ_EXTERNAL_STORAGE` **não serve** para ler ROMs. No Android 11+ ela só dá
+acesso a **mídia** (imagem, áudio, vídeo); um `.sfc` não é mídia, então o app
+leva `Permission denied` em `/sdcard` inteiro mesmo com a permissão concedida —
+medido no Quest 3S. O próprio Godot denuncia isso no manifesto, onde ela sai
+com `maxSdkVersion='29'`:
 
-Não usamos `MANAGE_EXTERNAL_STORAGE`: ela não tem diálogo de runtime e exigiria
-que a pessoa fosse até *Special app access* nas configurações do Quest.
+```bash
+AAPT2=$(ls ~/Android/Sdk/build-tools/*/aapt2 | head -1)
+"$AAPT2" dump permissions dist/questretro-vr.apk
+# uses-permission: name='android.permission.READ_EXTERNAL_STORAGE' maxSdkVersion='29'
+# uses-permission: name='android.permission.MANAGE_EXTERNAL_STORAGE'
+```
+
+Quem destrava tipo de arquivo arbitrário é `MANAGE_EXTERNAL_STORAGE`, no preset
+via `permissions/custom_permissions`. Ela não tem diálogo de runtime: o botão
+"Permitir acesso" da página de ROMs abre a tela do Android por intent, e a
+pessoa liga a chave uma vez. Detalhes que custaram tempo:
+
+- A tela **por app** (`MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`) **não existe no
+  Quest** — resolve para "No activity found". Usamos a lista geral
+  (`MANAGE_ALL_FILES_ACCESS_PERMISSION` → `Settings$ManageExternalStorageActivity`),
+  então a pessoa cai numa lista e precisa achar *QuestRetro* nela.
+- No `JavaClassWrapper` o construtor Java é exposto pelo **nome simples da
+  classe**, não por `new`: `Intent.Intent(acao)` é o `new Intent(action)`.
+  Chamar `.new()` dá `Nonexistent function 'new' in base 'JavaClass'`.
+- Conferir o estado sem entrar no headset:
+  ```bash
+  adb shell appops get com.questretro.vr MANAGE_EXTERNAL_STORAGE   # allow / default
+  ```
+
+## ROMs sem mexer em permissão
+
+`/sdcard/Android/data/com.questretro.vr/files/roms` é lida pelo app sem
+permissão alguma e recebe `adb push` direto — é a raiz "Pasta do app (adb)" do
+navegador:
+
+```bash
+adb push jogo.sfc /sdcard/Android/data/com.questretro.vr/files/roms/
+```
+
+Não serve para quem copia por cabo USB: o Android esconde `Android/data` do MTP
+e do gerenciador de arquivos do headset. Para esse caso, só a permissão acima.
+
+> O caminho é montado a partir de `NavegadorRoms.PACOTE`, que precisa casar com
+> `package/unique_name` do preset — o Godot 4.6 não expõe o nome do pacote em
+> runtime.
 
 > **Cuidado ao editar `export_presets.cfg` à mão**: o `ConfigFile` do Godot trata
 > `;` como comentário, não `#`. Uma linha com `#` faz o parse da seção parar ali,
@@ -86,17 +124,24 @@ que a pessoa fosse até *Special app access* nas configurações do Quest.
 ## Copiar ROMs para o headset
 
 ```bash
-adb push jogo.sfc /sdcard/Download/
+adb push jogo.sfc /sdcard/Download/     # exige MANAGE_EXTERNAL_STORAGE ligada
 ```
 
-O navegador do app oferece `/sdcard/Download`, `/sdcard/ROMs`, `/sdcard` e a
-pasta de dados do app. Sem a permissão concedida, só a última funciona.
+O navegador oferece `/sdcard/Download`, `/sdcard/ROMs`, `/sdcard`, a pasta
+externa do app e a pasta de dados. Sem a permissão ligada, só as duas últimas
+funcionam — e a de dados (`user://roms`) não é alcançável de fora sem `run-as`,
+o que só existe em build de debug.
 
 ## Pendências conhecidas
 
 - **Core carregado no Android**: `EmuCore._preparar_core()` copia o `.so` de
-  `res://` para `user://` porque `dlopen` não abre de dentro do APK. Testar em
-  device.
+  `res://` para `user://` porque `dlopen` não abre de dentro do APK. ✅ Testado
+  em device (Quest 3S).
+- **Crash ao pausar**: o Godot segfalta em
+  `GodotVulkanRenderView.lambda$onActivityPaused$0` (VkThread) quando o app é
+  pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de
+  derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
+  confiável: a SRAM depende da gravação periódica, não dele.
 - **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
   deixa remapear (ver o comentário em `ui/paginas/pag_input.gd`). Zona morta do
   D-pad já é ajustável.

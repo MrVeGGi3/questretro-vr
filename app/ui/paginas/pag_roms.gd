@@ -40,8 +40,9 @@ func _init(cfg: ConfigEmu) -> void:
 	_bt_permitir = WidgetsVR.botao("Permitir acesso")
 	_bt_permitir.pressed.connect(func() -> void:
 		NavegadorRoms.pedir_permissao()
-		# A resposta do Android é assíncrona; reabrir a página relê o estado.
-		_bt_permitir.text = "Aguardando…"
+		# Sai do app para os Ajustes do Android; ao voltar, reabrir o menu relê
+		# o estado da permissão.
+		_bt_permitir.text = "Ligue em Ajustes"
 	)
 	rodape.add_child(_bt_permitir)
 
@@ -177,7 +178,10 @@ func _banner_permissao() -> Control:
 	glifo.add_theme_color_override("font_color", TemaVR.BTN_B)
 	linha.add_child(glifo)
 	var txt := Label.new()
-	txt.text = "Sem acesso ao armazenamento. Só a pasta do app aparece aqui."
+	txt.text = "Sem acesso ao armazenamento: /sdcard não abre e as ROMs de lá " \
+			+ "não aparecem. Toque em “Permitir acesso”, ache QuestRetro na lista " \
+			+ "de Ajustes e ligue a chave. Sem isso, só a pasta do app funciona — " \
+			+ "e nela dá para pôr ROMs por adb."
 	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	linha.add_child(txt)
