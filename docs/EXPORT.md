@@ -25,11 +25,16 @@ para o SDK e o JDK 17.
      -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
      -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DCMAKE_BUILD_TYPE=Release
    cmake --build build-android -j"$(nproc)"   # -> app/bin/libretrogd.android.arm64.so
-   # core
+   # cores
    cd ../app/cores
-   curl -fsSL -O https://buildbot.libretro.com/nightly/android/latest/arm64-v8a/snes9x_libretro_android.so.zip
-   unzip -o snes9x_libretro_android.so.zip && rm snes9x_libretro_android.so.zip
+   B=https://buildbot.libretro.com/nightly/android/latest/arm64-v8a
+   curl -fsSL -O $B/snes9x_libretro_android.so.zip
+   curl -fsSL -O $B/mupen64plus_next_gles3_libretro_android.so.zip
+   unzip -o '*.so.zip' && rm -f *.so.zip
    ```
+   No Android o mupen vem separado por versão de GL (`gles2`/`gles3`); o Quest
+   usa o **gles3**. O nome não bate com o do desktop, por isso `EmuCore.CORES`
+   escreve os dois por extenso em vez de montar por sufixo.
 
 ## Gerar o APK
 
@@ -132,11 +137,48 @@ externa do app e a pasta de dados. Sem a permissão ligada, só as duas últimas
 funcionam — e a de dados (`user://roms`) não é alcançável de fora sem `run-as`,
 o que só existe em build de debug.
 
+## Renderização por hardware (cores de N64)
+
+O mupen64plus não produz framebuffer de software: ele desenha por GPU. O
+`LibretroHost` atende `SET_HW_RENDER` emprestando ao core o **contexto GL do
+próprio Godot** e um FBO nosso; `run_frame()` salva o alvo de render, binda o
+FBO, chama `retro_run` e devolve tudo.
+
+Três coisas presas a isso, que quebram em silêncio se mudarem:
+
+- **`renderer/rendering_method="gl_compatibility"`** em `project.godot`. É o que
+  torna o contexto compartilhável. No renderer Mobile (Vulkan) nada disto vale.
+- **Thread principal**: `step()` sai de `_process`, que no gl_compatibility roda
+  na mesma thread que tem o contexto corrente. Ligar o modo de renderização
+  multi-thread quebra a premissa.
+- **Devolver o alvo de render** depois do `retro_run` não é zelo: sem isso o
+  Godot desenha o frame seguinte dentro do FBO do emulador.
+
+`gl_funcs.cpp` resolve as funções de GL por `dlsym` em vez de incluir header,
+porque desktop (`GL/gl.h`) e Android (`GLES3/gl3.h`) brigam por tipos e por
+ligação. Se a resolução falhar, `SET_HW_RENDER` é recusado e o core cai no
+renderizador de software dele.
+
+Conferir qual caminho está valendo:
+
+```bash
+adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
+```
+
 ## Pendências conhecidas
 
 - **Core carregado no Android**: `EmuCore._preparar_core()` copia o `.so` de
   `res://` para `user://` porque `dlopen` não abre de dentro do APK. ✅ Testado
   em device (Quest 3S).
+- **N64 no device**: o pipeline foi verificado no desktop (Star Fox 64 a 640x480
+  com GLideN64, 86 fps sobre Mesa por software). Falta medir no Quest — o
+  `glReadPixels` por frame é o custo a vigiar, e a saída, se pesar, é a textura
+  do FBO direto por `RenderingServer.texture_create_from_native_handle`, sem
+  cópia.
+- **Lançar por `adb` exige controles ligados**: com eles desligados o Quest
+  intercepta e mostra *controller required* — no logcat,
+  `common_system_dialog_app_launch_blocked_controller_required`. Não é crash do
+  app; é preciso estar de headset com os controles ativos.
 - **Crash ao pausar**: o Godot segfalta em
   `GodotVulkanRenderView.lambda$onActivityPaused$0` (VkThread) quando o app é
   pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de

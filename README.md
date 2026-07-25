@@ -50,13 +50,22 @@ cmake --build build -j"$(nproc)"
 # gera: app/bin/libretrogd.linux.x86_64.so
 ```
 
-## Baixar um core (ex: SNES)
+## Baixar os cores
 
 ```bash
 cd app/cores
-curl -fsSL -O https://buildbot.libretro.com/nightly/linux/x86_64/latest/snes9x_libretro.so.zip
-unzip snes9x_libretro.so.zip && rm snes9x_libretro.so.zip
+B=https://buildbot.libretro.com/nightly/linux/x86_64/latest
+curl -fsSL -O $B/snes9x_libretro.so.zip                 # SNES
+curl -fsSL -O $B/mupen64plus_next_libretro.so.zip       # N64
+unzip -o '*.so.zip' && rm -f *.so.zip
 ```
+
+O core sai da extensão da ROM (`EmuCore.core_para_rom`): `.smc/.sfc/.fig/.swc/.zip`
+vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus. Trocar de ROM entre
+sistemas troca o `.so` sozinho, gravando a SRAM do jogo anterior antes.
+
+O N64 desenha por GPU, num FBO que a GDExtension empresta ao core — ver
+"Renderização por hardware" em `docs/EXPORT.md` para o que isso amarra.
 
 ## Rodar
 
@@ -87,6 +96,21 @@ godot --xr-mode off --path app -- --rom /caminho/jogo.sfc
 Teclado: setas = D-pad, `Z`/`X` = B/A, `A`/`S` = Y/X, `Q`/`W` = L/R,
 `Enter` = Start, `Shift` = Select.
 
+## Controles no headset
+
+O mapa muda com o sistema da ROM. No **SNES**, o analógico esquerdo vira D-pad
+digital (por setores angulares, com zona morta ajustável) e o direito
+redimensiona/aproxima a tela.
+
+No **N64**, os dois analógicos são eixos de verdade: o esquerdo é o manche, o
+direito são os C-buttons — que o core expõe como um segundo manche, não como
+quatro botões. Com o direito ocupado, a tela se ajusta pelos sliders da página
+Tela. Z fica no grip esquerdo, L/R nos gatilhos, A/B nos botões do controle
+direito.
+
+Esse mapa não é decorado: sai dos descritores que o próprio core declara
+(`SET_INPUT_DESCRIPTORS`), e eles surpreendem — no N64, `JOYPAD_B` é o **A**.
+
 ## ROMs
 
 **Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
@@ -105,8 +129,9 @@ da bateria e quando ela foi gravada pela última vez.
   input dos controllers Touch.
 - **Fase 2 ✅** — menu in-VR: navegador de ROMs, configurações persistentes de
   tela/vídeo/áudio/input e save states.
-- **Fase 3** — saves de bateria (SRAM) ✅; a seguir: mapeamento pose→eixo por
-  jogo (controles físicos), core N64 (Star Fox 64), integração com `romkeep`,
+- **Fase 3** — saves de bateria (SRAM) ✅; core N64 com renderização por
+  hardware ✅ (verificado no desktop; falta medir no Quest); a seguir:
+  mapeamento pose→eixo por jogo (controles físicos), integração com `romkeep`,
   salas/arcade virtual.
 
 ## Menu dentro do headset

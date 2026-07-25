@@ -19,11 +19,19 @@ const PASTA_SAVES := "user://saves"
 ## número é o teto do progresso que se perde num crash.
 const INTERVALO_SRAM := 5.0
 
-## Core por sistema. O sufixo `_android` é o binário aarch64; o outro é o
-## x86_64 do desktop. Ver `core_para_rom()`, que junta sistema e plataforma.
+## Core por sistema e plataforma: `android` é o binário aarch64 do Quest,
+## `desktop` o x86_64. Os nomes não seguem um padrão comum — o mupen do
+## buildbot vem separado por versão de GL no Android e sem sufixo no desktop —,
+## então cada um é escrito por extenso. Ver `core_para_rom()`.
 const CORES := {
-	"snes": "res://cores/snes9x_libretro%s.so",
-	"n64": "res://cores/mupen64plus_next_libretro%s.so",
+	"snes": {
+		"desktop": "res://cores/snes9x_libretro.so",
+		"android": "res://cores/snes9x_libretro_android.so",
+	},
+	"n64": {
+		"desktop": "res://cores/mupen64plus_next_libretro.so",
+		"android": "res://cores/mupen64plus_next_gles3_libretro_android.so",
+	},
 }
 
 ## Opções aplicadas ao core assim que ele carrega e antes da ROM — várias só
@@ -68,7 +76,7 @@ static func core_para_rom(rom_path: String) -> String:
 	var sis := NavegadorRoms.sistema_de(rom_path)
 	if not CORES.has(sis):
 		return ""
-	return CORES[sis] % ("_android" if OS.has_feature("android") else "")
+	return CORES[sis]["android" if OS.has_feature("android") else "desktop"]
 
 
 ## `core_path` vazio faz o core sair da extensão da ROM — é o caminho normal.
