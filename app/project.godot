@@ -17,6 +17,11 @@ driver/enable_input=false
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
+; No Android quem manda é esta chave, não a de cima: sem ela o Godot cai no
+; padrão (Vulkan/Mobile) e o Quest roda num renderer diferente do desktop.
+; Precisa ser GL porque é o contexto do Godot que a GDExtension empresta ao
+; core do N64 — ver "Renderização por hardware" em docs/EXPORT.md.
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 
 [xr]
