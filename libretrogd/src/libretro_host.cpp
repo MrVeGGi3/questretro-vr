@@ -5,6 +5,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -986,6 +987,19 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 				UtilityFunctions::push_warning(
 						String("libretrogd: core pediu contexto de vídeo não suportado (tipo ") +
 						itos((int)cb->context_type) + ")");
+				return false;
+			}
+			// O contexto que emprestamos é o do Godot, e ele só existe se o
+			// Godot estiver rodando em gl_compatibility. Num renderer baseado
+			// em RenderingDevice (Vulkan) há libGLESv2 no sistema e os
+			// símbolos resolvem — mas não há contexto corrente, e o core
+			// desenharia no vazio. Este é o caso do Android, onde
+			// `rendering_method.mobile` manda e o padrão é Vulkan.
+			RenderingServer *rs = RenderingServer::get_singleton();
+			if (rs && rs->get_rendering_device() != nullptr) {
+				UtilityFunctions::push_warning(String::utf8(
+						"libretrogd: hw render recusado — o Godot não está em "
+						"gl_compatibility (renderer baseado em RenderingDevice)"));
 				return false;
 			}
 			// Sem as funções de GL não há FBO para oferecer. Recusar aqui faz o

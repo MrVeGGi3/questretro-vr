@@ -98,6 +98,10 @@ func _testar_opcoes(host: LibretroHost) -> void:
 	else:
 		printerr("FALHA: set_option aceitou valor fora da lista")
 
+	# Devolve o valor original: a primeira opção do mupen é o renderizador, e
+	# deixá-la trocada faria o resto do teste medir outro caminho de vídeo.
+	host.set_option(primeira["key"], primeira["value"])
+
 
 ## Round-trip da SRAM: ler, alterar, escrever de volta e reler. Prova que o
 ## ponteiro do core é gravável e que set_memory recusa tamanho errado — as duas
