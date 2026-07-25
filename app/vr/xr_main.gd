@@ -19,10 +19,8 @@ extends Node3D
 ## Tamanho, distância, vídeo, áudio e zona morta vivem no ConfigEmu e
 ## persistem entre sessões; esta cena só reage a `mudou`.
 
-# Core por plataforma: o binário aarch64 no Quest, o x86_64 no desktop.
-const CORE_ANDROID := "res://cores/snes9x_libretro_android.so"
-const CORE_DESKTOP := "res://cores/snes9x_libretro.so"
 # ROM demo embutida (homebrew freeware). Vazio => exige -- --rom no desktop.
+# O core sai da extensão da ROM (EmuCore.core_para_rom), não daqui.
 const ROM_PADRAO := "res://roms/demo.smc"
 
 const LARGURA_BASE := 1.4       # metros, largura da tela em escala 1.0
@@ -42,10 +40,6 @@ const ARCO_SEGMENTOS := 24
 ## Teto de frames emulados por frame renderizado. Impede a espiral da morte:
 ## se emular ficar mais caro que o tempo real, o acumulador cresceria sem fim.
 const MAX_PASSOS := 4
-
-
-func _core_padrao() -> String:
-	return CORE_ANDROID if OS.has_feature("android") else CORE_DESKTOP
 
 
 var _cfg: ConfigEmu
@@ -107,7 +101,7 @@ func _ready() -> void:
 	# ROMs, quando ela de fato quer procurar um jogo.
 	NavegadorRoms.garantir_pasta_local()
 
-	var ok := _emu.iniciar(_arg("--core", _core_padrao()), _arg("--rom", ROM_PADRAO))
+	var ok := _emu.iniciar(_arg("--core", ""), _arg("--rom", ROM_PADRAO))
 	if not ok:
 		_mostrar("Sem ROM. Segure o botão de menu para escolher uma.")
 
@@ -351,7 +345,30 @@ func _ler_input_vr(delta: float) -> void:
 		_emu.limpar_input()
 		return
 
-	# D-pad no thumbstick esquerdo, via setores angulares (preciso pra SNES)
+	if _emu.sistema == "n64":
+		_input_n64()
+	else:
+		_input_snes()
+		# Redimensionar/reposicionar com o thumbstick direito. No N64 esse stick
+		# são os C-buttons, e o jogo ganha: a tela se ajusta pelos sliders da
+		# página Tela, que é para onde este atalho é um atalho.
+		_ajustar_tela_com_stick(_ctrl_dir.get_vector2(&"primary"))
+
+
+func _ajustar_tela_com_stick(rstick: Vector2) -> void:
+	if absf(rstick.y) > 0.15:
+		_cfg.definir("tela/escala", clampf(
+			_cfg.obter("tela/escala") + rstick.y * 0.03,
+			PagTela.ESCALA_MIN, PagTela.ESCALA_MAX))
+	if absf(rstick.x) > 0.15:
+		_cfg.definir("tela/distancia", clampf(
+			_cfg.obter("tela/distancia") - rstick.x * 0.03,
+			PagTela.DIST_MIN, PagTela.DIST_MAX))
+
+
+## SNES: D-pad digital no analógico esquerdo, os quatro botões nos dois
+## controles, L/R nos gatilhos, Start/Select nos grips.
+func _input_snes() -> void:
 	var dpad := _dpad_do_stick(_ctrl_esq.get_vector2(&"primary"))
 	_emu.set_button(0, LibretroHost.JOYPAD_LEFT, dpad.left)
 	_emu.set_button(0, LibretroHost.JOYPAD_RIGHT, dpad.right)
@@ -364,26 +381,49 @@ func _ler_input_vr(delta: float) -> void:
 	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_esq.is_button_pressed(&"by_button"))
 	_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
 	_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
-	# Start/Select nos grips (aperto lateral): livres e disponíveis nos dois
-	# controles. O botão de sistema do controle direito é reservado pelo Quest
-	# e nunca chega ao app.
-	var start := _ctrl_dir.get_float(&"grip") > 0.5
-	if _start_restante > 0:
-		start = true
-		_start_restante -= 1
-	_emu.set_button(0, LibretroHost.JOYPAD_START, start)
+	_emu.set_button(0, LibretroHost.JOYPAD_START, _start_com_pulso(_ctrl_dir.get_float(&"grip") > 0.5))
 	_emu.set_button(0, LibretroHost.JOYPAD_SELECT, _ctrl_esq.get_float(&"grip") > 0.5)
 
-	# Redimensionar/reposicionar com o thumbstick direito
-	var rstick := _ctrl_dir.get_vector2(&"primary")
-	if absf(rstick.y) > 0.15:
-		_cfg.definir("tela/escala", clampf(
-			_cfg.obter("tela/escala") + rstick.y * 0.03,
-			PagTela.ESCALA_MIN, PagTela.ESCALA_MAX))
-	if absf(rstick.x) > 0.15:
-		_cfg.definir("tela/distancia", clampf(
-			_cfg.obter("tela/distancia") - rstick.x * 0.03,
-			PagTela.DIST_MIN, PagTela.DIST_MAX))
+
+## N64: o analógico esquerdo vira eixo de verdade — é o manche do Arwing — e o
+## D-pad digital fica nos botões do controle esquerdo, onde quase nenhum jogo
+## de N64 precisa dele. Os C-buttons ocupam o stick direito, por setores, que é
+## como o N64 os trata: quatro botões, não um eixo.
+##
+## O mapeamento libretro do N64 não é o óbvio: no core, JOYPAD_B é o botão A do
+## N64 e JOYPAD_Y é o B; os C-buttons são L2/R2/L3/R3.
+func _input_n64() -> void:
+	var stick := _ctrl_esq.get_vector2(&"primary")
+	# O Y do thumbstick cresce para cima; o do libretro, para baixo.
+	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, stick.x)
+	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_Y, -stick.y)
+
+	var c := _dpad_do_stick(_ctrl_dir.get_vector2(&"primary"))
+	_emu.set_button(0, LibretroHost.JOYPAD_L2, c.up)      # C-cima
+	_emu.set_button(0, LibretroHost.JOYPAD_R2, c.down)    # C-baixo
+	_emu.set_button(0, LibretroHost.JOYPAD_L3, c.left)    # C-esquerda
+	_emu.set_button(0, LibretroHost.JOYPAD_R3, c.right)   # C-direita
+
+	_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"ax_button"))  # A
+	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_dir.is_button_pressed(&"by_button"))  # B
+	_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
+	_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
+	# Z é o gatilho do meio do N64; no Touch cai no grip esquerdo, que sobrou.
+	_emu.set_button(0, LibretroHost.JOYPAD_L2, _ctrl_esq.get_float(&"grip") > 0.5)
+	_emu.set_button(0, LibretroHost.JOYPAD_START, _start_com_pulso(_ctrl_dir.get_float(&"grip") > 0.5))
+
+	# D-pad nos botões do controle esquerdo (menus de alguns jogos ainda pedem).
+	_emu.set_button(0, LibretroHost.JOYPAD_UP, _ctrl_esq.is_button_pressed(&"by_button"))
+	_emu.set_button(0, LibretroHost.JOYPAD_DOWN, _ctrl_esq.is_button_pressed(&"ax_button"))
+
+
+## Start segurado pelo grip, ou pulsado pelo toque curto no botão de menu. O
+## pulso dura alguns frames porque um só às vezes cai entre polls do core.
+func _start_com_pulso(segurado: bool) -> bool:
+	if _start_restante > 0:
+		_start_restante -= 1
+		return true
+	return segurado
 
 
 ## Toque curto no botão de menu = Start; segurar = abre/fecha o painel.

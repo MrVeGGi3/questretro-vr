@@ -17,7 +17,17 @@ extends RefCounted
 ##      não é alcançável por MTP nem pelo gerenciador do Quest, porque o Android
 ##      esconde `Android/data`.
 
-const EXTENSOES := ["smc", "sfc", "fig", "swc", "zip"]  ## o que o snes9x aceita
+## Extensão → sistema. É daqui que sai qual core carregar (ver
+## `EmuCore.core_para_rom`) e qual mapa de controle vale (ver `xr_main`).
+## `zip` fica no SNES porque é como as ROMs de SNES costumam circular; ROM de
+## N64 zipada o mupen não abre, já que ele exige caminho de arquivo real.
+const SISTEMAS := {
+	"smc": "snes", "sfc": "snes", "fig": "snes", "swc": "snes", "zip": "snes",
+	"z64": "n64", "n64": "n64", "v64": "n64",
+}
+
+## Nome que a interface mostra para cada sistema.
+const NOMES_SISTEMA := {"snes": "SNES", "n64": "N64"}
 
 ## Precisa casar com `package/unique_name` do preset em export_presets.cfg: o
 ## Godot 4.6 não expõe o nome do pacote em runtime, e é ele que forma o caminho
@@ -75,10 +85,11 @@ static func listar(caminho: String) -> Array:
 			var completo := caminho.path_join(nome)
 			if dir.current_is_dir():
 				pastas.append({"nome": nome, "caminho": completo, "pasta": true, "tamanho": 0})
-			elif nome.get_extension().to_lower() in EXTENSOES:
+			elif SISTEMAS.has(nome.get_extension().to_lower()):
 				arquivos.append({
 					"nome": nome, "caminho": completo, "pasta": false,
 					"tamanho": _tamanho(completo),
+					"sistema": sistema_de(completo),
 				})
 		nome = dir.get_next()
 	dir.list_dir_end()
@@ -88,6 +99,16 @@ static func listar(caminho: String) -> Array:
 	pastas.sort_custom(por_nome)
 	arquivos.sort_custom(por_nome)
 	return pastas + arquivos
+
+
+## Sistema de uma ROM pela extensão, ou "" se não reconhecemos o arquivo.
+static func sistema_de(caminho: String) -> String:
+	return SISTEMAS.get(caminho.get_extension().to_lower(), "")
+
+
+## Nome legível do sistema, para a lista de ROMs e a página de Input.
+static func nome_sistema(sistema: String) -> String:
+	return NOMES_SISTEMA.get(sistema, sistema.to_upper())
 
 
 ## Caminho da pasta acima, ou vazio se já estamos numa raiz do sistema.

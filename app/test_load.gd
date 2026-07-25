@@ -13,7 +13,7 @@ func _initialize() -> void:
 	print("OK  classe LibretroHost registrada pela GDExtension")
 
 	var host: LibretroHost = LibretroHost.new()
-	var core := "res://cores/snes9x_libretro.so"
+	var core := _arg("--core", "res://cores/snes9x_libretro.so")
 	if not host.load_core(core):
 		printerr("FALHA: load_core('%s')" % core)
 		quit(2)
@@ -23,10 +23,7 @@ func _initialize() -> void:
 	_testar_opcoes(host)
 
 	# ROM opcional: se passada, testa o pipeline completo de um frame.
-	var rom := ""
-	for i in range(OS.get_cmdline_user_args().size() - 1):
-		if OS.get_cmdline_user_args()[i] == "--rom":
-			rom = OS.get_cmdline_user_args()[i + 1]
+	var rom := _arg("--rom", "")
 	if not rom.is_empty():
 		if host.load_rom(rom):
 			print("OK  ROM carregada: %dx%d @ %.1ffps sr=%.0f" % [
@@ -39,6 +36,7 @@ func _initialize() -> void:
 				print("OK  frame renderizado: %dx%d" % [img.get_width(), img.get_height()])
 			var audio := host.get_audio()
 			print("OK  amostras de áudio no frame: ", audio.size())
+			_mostrar_descritores(host)
 			_testar_sram(host)
 		else:
 			printerr("FALHA: load_rom('%s')" % rom)
@@ -46,6 +44,26 @@ func _initialize() -> void:
 	host.unload()
 	print("=== fim (Fase 0 verificada) ===")
 	quit(0)
+
+
+func _arg(nome: String, padrao: String) -> String:
+	var args := OS.get_cmdline_user_args()
+	for i in range(args.size() - 1):
+		if args[i] == nome:
+			return args[i + 1]
+	return padrao
+
+
+## Mapa de controle declarado pelo core. É a fonte da verdade para montar o
+## mapa do Touch: o mesmo JOYPAD_L2 é "Z" no N64 e não existe no SNES.
+func _mostrar_descritores(host: LibretroHost) -> void:
+	var descs := host.get_input_descriptors()
+	print("OK  descritores de input: %d" % descs.size())
+	for d: Dictionary in descs:
+		if d["port"] != 0:
+			continue
+		print("    porta 0  device=%d index=%d id=%2d  %s" % [
+			d["device"], d["index"], d["id"], d["desc"]])
 
 
 ## Opções do core: o core as declara dentro de retro_set_environment, então já

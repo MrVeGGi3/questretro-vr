@@ -40,6 +40,27 @@ public:
 		JOYPAD_L2 = 12, JOYPAD_R2 = 13, JOYPAD_L3 = 14, JOYPAD_R3 = 15,
 	};
 
+	// Tipos de controle RETRO_DEVICE_*. ANALOG é um superconjunto de JOYPAD:
+	// além dos eixos, o core continua lendo os botões pela mesma porta.
+	enum Device {
+		DEVICE_JOYPAD = 1,
+		DEVICE_ANALOG = 5,
+	};
+
+	// Qual manche (RETRO_DEVICE_INDEX_ANALOG_*). O N64 só tem o esquerdo; o
+	// direito existe para cores de console com dois.
+	enum AnalogIndex {
+		ANALOG_LEFT = 0,
+		ANALOG_RIGHT = 1,
+	};
+
+	// Eixo dentro do manche. Convenção do libretro: X cresce para a direita e
+	// **Y cresce para baixo** — o oposto do Vector2 do thumbstick no Godot.
+	enum AnalogAxis {
+		ANALOG_X = 0,
+		ANALOG_Y = 1,
+	};
+
 	// Regiões de memória RETRO_MEMORY_* reexpostas como constantes do Godot.
 	// SAVE_RAM é a bateria do cartucho; RTC é o relógio de jogos que têm um.
 	enum Memory {
@@ -90,6 +111,12 @@ public:
 
 	// Input: estado por porta/botão (RETRO_DEVICE_JOYPAD).
 	void set_button(int p_port, int p_id, bool p_pressed);
+	// Eixo analógico (RETRO_DEVICE_ANALOG). `valor` em [-1,1]; ver AnalogAxis
+	// para o sentido do Y.
+	void set_analog(int p_port, int p_index, int p_axis, double p_value);
+	// Anuncia ao core que tipo de controle está ligado na porta. O N64 precisa
+	// de DEVICE_ANALOG; o SNES fica em DEVICE_JOYPAD.
+	void set_controller_device(int p_port, int p_device);
 	void clear_input();
 
 	// Opções do core. Ficam disponíveis logo após load_core() — o core as
@@ -99,6 +126,13 @@ public:
 	Array get_options() const;
 	String get_option(const String &p_key) const;
 	void set_option(const String &p_key, const String &p_value);
+
+	// O mapa de controle que o core declarou (SET_INPUT_DESCRIPTORS): para cada
+	// entrada, que botão do console é aquele id do joypad libretro. É a fonte
+	// da verdade para montar o mapa do Touch e para a página de Input — o
+	// mesmo JOYPAD_L2 é "Z" no N64 e não existe no SNES.
+	// Array de Dictionary: port, device, index, id, desc.
+	Array get_input_descriptors() const;
 
 	bool is_core_loaded() const { return core_loaded; }
 	bool is_game_loaded() const { return game_loaded; }
@@ -146,6 +180,9 @@ private:
 	std::vector<CoreOption> options;
 	bool options_dirty = false;
 
+	// Mapa de controle declarado pelo core, já convertido para Variant.
+	Array input_descriptors;
+
 	// handle do dlopen
 	void *lib_handle = nullptr;
 	bool core_loaded = false;
@@ -165,6 +202,7 @@ private:
 	void (*p_retro_set_audio_sample_batch)(retro_audio_sample_batch_t) = nullptr;
 	void (*p_retro_set_input_poll)(retro_input_poll_t) = nullptr;
 	void (*p_retro_set_input_state)(retro_input_state_t) = nullptr;
+	void (*p_retro_set_controller_port_device)(unsigned, unsigned) = nullptr;
 	// opcionais: nem todo core serializa estado
 	size_t (*p_retro_serialize_size)() = nullptr;
 	bool (*p_retro_serialize)(void *, size_t) = nullptr;
@@ -188,6 +226,8 @@ private:
 
 	// estado de input: bitmask por porta (até 2 portas no MVP)
 	uint32_t input_state[2] = { 0, 0 };
+	// eixos analógicos: [porta][manche][eixo], já na escala do libretro
+	int16_t analog_state[2][2][2] = {};
 
 	// dados do jogo mantidos vivos enquanto o core roda (quando não é fullpath)
 	std::vector<uint8_t> game_data;
@@ -201,5 +241,8 @@ private:
 
 VARIANT_ENUM_CAST(godot::LibretroHost::Joypad);
 VARIANT_ENUM_CAST(godot::LibretroHost::Memory);
+VARIANT_ENUM_CAST(godot::LibretroHost::Device);
+VARIANT_ENUM_CAST(godot::LibretroHost::AnalogIndex);
+VARIANT_ENUM_CAST(godot::LibretroHost::AnalogAxis);
 
 #endif // LIBRETROGD_HOST_H

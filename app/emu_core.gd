@@ -19,10 +19,18 @@ const PASTA_SAVES := "user://saves"
 ## número é o teto do progresso que se perde num crash.
 const INTERVALO_SRAM := 5.0
 
+## Core por sistema. O sufixo `_android` é o binário aarch64; o outro é o
+## x86_64 do desktop. Ver `core_para_rom()`, que junta sistema e plataforma.
+const CORES := {
+	"snes": "res://cores/snes9x_libretro%s.so",
+	"n64": "res://cores/mupen64plus_next_libretro%s.so",
+}
+
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
 var altura: int = 0
 var rom_atual := ""               ## caminho da ROM em execução ("" = nenhuma)
+var sistema := ""                 ## sistema da ROM em execução ("snes", "n64", …)
 
 ## Contadores de diagnóstico do áudio. Descarte contínuo > 0 significa que a
 ## emulação está adiantada em relação ao consumo do AudioStreamGenerator.
@@ -38,54 +46,98 @@ var _sram_disco := PackedByteArray()   ## o que já está gravado, para comparar
 var _desde_sram := 0.0
 
 
+## Core que roda uma ROM, pela extensão dela. "" se não reconhecemos o arquivo
+## ou se ainda não temos core para o sistema.
+static func core_para_rom(rom_path: String) -> String:
+	var sis := NavegadorRoms.sistema_de(rom_path)
+	if not CORES.has(sis):
+		return ""
+	return CORES[sis] % ("_android" if OS.has_feature("android") else "")
+
+
+## `core_path` vazio faz o core sair da extensão da ROM — é o caminho normal.
+## Passar um explícito serve para os testes e para o `--core` da linha de comando.
 func iniciar(core_path: String, rom_path: String) -> bool:
-	_host = LibretroHost.new()
-	# No Android o core vive dentro do APK (res:// virtual) e o dlopen não
-	# consegue abri-lo; então preparamos uma cópia num caminho real (user://).
-	var core_real := _preparar_core(core_path)
-	if not _host.load_core(core_real):
-		falhou.emit("Falha ao carregar o core: " + core_real)
-		return false
 	if rom_path.is_empty():
 		falhou.emit("Nenhuma ROM informada")
+		return false
+	if core_path.is_empty():
+		core_path = core_para_rom(rom_path)
+		if core_path.is_empty():
+			falhou.emit("Sem core para " + rom_path.get_file())
+			return false
+
+	_host = LibretroHost.new()
+	if not _carregar_core(core_path):
 		return false
 	if not _host.load_rom(rom_path):
 		falhou.emit("Falha ao carregar a ROM: " + rom_path)
 		return false
 
-	rom_atual = rom_path
-	_carregar_sram()
-	_configurar_audio(_host.get_sample_rate())
-	_rodando = true
-	iniciado.emit(_host.get_frame_width(), _host.get_frame_height(), _host.get_fps())
+	_apos_carregar_rom(rom_path)
 	return true
 
 
-## Troca o jogo mantendo o core carregado — o dlopen custa caro e o core não
-## muda enquanto for o mesmo sistema.
+## Troca o jogo. Mantém o core carregado quando dá — o dlopen custa caro —, mas
+## troca de core quando a ROM é de outro sistema.
 func trocar_rom(rom_path: String) -> bool:
-	if _host == null or not _host.is_core_loaded():
+	if _host == null:
 		falhou.emit("Sem core carregado")
 		return false
 
-	# Antes do load_rom, que descarrega o jogo atual por dentro: depois disso o
-	# buffer da SRAM já morreu e rom_atual apontaria para o arquivo errado.
-	gravar_sram()
+	var core_novo := core_para_rom(rom_path)
+	if core_novo.is_empty():
+		falhou.emit("Sem core para " + rom_path.get_file())
+		return false
 
+	# Antes de qualquer descarga: depois dela o buffer da SRAM já morreu e
+	# rom_atual apontaria para o arquivo errado.
+	gravar_sram()
 	_rodando = false
+
+	if NavegadorRoms.sistema_de(rom_path) != sistema or not _host.is_core_loaded():
+		# Outro sistema: o core atual não abre esta ROM. unload() derruba jogo e
+		# core de uma vez, e a SRAM já foi gravada acima.
+		_host.unload()
+		rom_atual = ""
+		sistema = ""
+		if not _carregar_core(core_novo):
+			return false
+
 	if not _host.load_rom(rom_path):
 		# load_rom já descarregou o jogo anterior, então não há para onde voltar.
 		rom_atual = ""
+		sistema = ""
 		falhou.emit("Falha ao carregar a ROM: " + rom_path.get_file())
 		return false
 
+	_apos_carregar_rom(rom_path)
+	return true
+
+
+func _carregar_core(core_path: String) -> bool:
+	# No Android o core vive dentro do APK (res:// virtual) e o dlopen não
+	# consegue abri-lo; então preparamos uma cópia num caminho real (user://).
+	var core_real := _preparar_core(core_path)
+	if not _host.load_core(core_real):
+		falhou.emit("Falha ao carregar o core: " + core_real.get_file())
+		return false
+	return true
+
+
+## O que vale para toda ROM recém-carregada, seja no arranque ou na troca.
+func _apos_carregar_rom(rom_path: String) -> void:
 	rom_atual = rom_path
+	sistema = NavegadorRoms.sistema_de(rom_path)
+	# Só depois do load_rom: antes disso o core ainda não tem porta para
+	# configurar. O N64 não consulta os eixos sem isto.
+	if sistema == "n64":
+		_host.set_controller_device(0, LibretroHost.DEVICE_ANALOG)
 	_carregar_sram()
 	# O novo jogo pode ter outra taxa de amostragem; recria a cadeia de áudio.
 	_configurar_audio(_host.get_sample_rate())
 	_rodando = true
 	iniciado.emit(_host.get_frame_width(), _host.get_frame_height(), _host.get_fps())
-	return true
 
 
 func get_sample_rate() -> float:
@@ -261,6 +313,21 @@ func step() -> void:
 func set_button(port: int, id: int, pressed: bool) -> void:
 	if _host != null:
 		_host.set_button(port, id, pressed)
+
+
+## Eixo analógico. `valor` em [-1,1] na convenção do libretro: X para a direita,
+## **Y para baixo** — o inverso do Vector2 do thumbstick, então quem chama a
+## partir de um XRController3D precisa inverter o Y.
+func set_analog(port: int, indice: int, eixo: int, valor: float) -> void:
+	if _host != null:
+		_host.set_analog(port, indice, eixo, valor)
+
+
+## Anuncia o tipo de controle da porta. O N64 precisa de DEVICE_ANALOG para o
+## core sequer consultar os eixos; o SNES fica no DEVICE_JOYPAD padrão.
+func set_controller_device(port: int, device: int) -> void:
+	if _host != null:
+		_host.set_controller_device(port, device)
 
 
 ## Solta todos os botões. Usado ao abrir o menu, para o jogo não ficar com uma

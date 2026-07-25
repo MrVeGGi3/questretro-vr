@@ -94,10 +94,13 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_sample_rate"), &LibretroHost::get_sample_rate);
 	ClassDB::bind_method(D_METHOD("get_audio"), &LibretroHost::get_audio);
 	ClassDB::bind_method(D_METHOD("set_button", "port", "id", "pressed"), &LibretroHost::set_button);
+	ClassDB::bind_method(D_METHOD("set_analog", "port", "index", "axis", "value"), &LibretroHost::set_analog);
+	ClassDB::bind_method(D_METHOD("set_controller_device", "port", "device"), &LibretroHost::set_controller_device);
 	ClassDB::bind_method(D_METHOD("clear_input"), &LibretroHost::clear_input);
 	ClassDB::bind_method(D_METHOD("get_options"), &LibretroHost::get_options);
 	ClassDB::bind_method(D_METHOD("get_option", "key"), &LibretroHost::get_option);
 	ClassDB::bind_method(D_METHOD("set_option", "key", "value"), &LibretroHost::set_option);
+	ClassDB::bind_method(D_METHOD("get_input_descriptors"), &LibretroHost::get_input_descriptors);
 	ClassDB::bind_method(D_METHOD("is_core_loaded"), &LibretroHost::is_core_loaded);
 	ClassDB::bind_method(D_METHOD("is_game_loaded"), &LibretroHost::is_game_loaded);
 
@@ -120,6 +123,13 @@ void LibretroHost::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(MEMORY_SAVE_RAM);
 	BIND_ENUM_CONSTANT(MEMORY_RTC);
+
+	BIND_ENUM_CONSTANT(DEVICE_JOYPAD);
+	BIND_ENUM_CONSTANT(DEVICE_ANALOG);
+	BIND_ENUM_CONSTANT(ANALOG_LEFT);
+	BIND_ENUM_CONSTANT(ANALOG_RIGHT);
+	BIND_ENUM_CONSTANT(ANALOG_X);
+	BIND_ENUM_CONSTANT(ANALOG_Y);
 }
 
 LibretroHost::LibretroHost() {
@@ -155,6 +165,7 @@ void LibretroHost::resolve_symbols() {
 	SYM(p_retro_set_audio_sample_batch, "retro_set_audio_sample_batch");
 	SYM(p_retro_set_input_poll, "retro_set_input_poll");
 	SYM(p_retro_set_input_state, "retro_set_input_state");
+	SYM(p_retro_set_controller_port_device, "retro_set_controller_port_device");
 #undef SYM
 
 // Os de save state são opcionais na API libretro: ausência não é erro, só
@@ -401,12 +412,13 @@ void LibretroHost::reset_state() {
 	frame_rgba.clear();
 	frame_width = frame_height = 0;
 	audio_accum.clear();
-	input_state[0] = input_state[1] = 0;
+	clear_input();
 	game_data.clear();
-	// As opções pertencem ao core, não ao jogo: só somem quando o core sai.
-	// Por isso a limpeza mora aqui e não em unload_rom().
+	// Opções e mapa de controle pertencem ao core, não ao jogo: só somem quando
+	// o core sai. Por isso a limpeza mora aqui e não em unload_rom().
 	options.clear();
 	options_dirty = false;
+	input_descriptors.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -511,8 +523,22 @@ PackedVector2Array LibretroHost::get_audio() {
 // Input
 // ---------------------------------------------------------------------------
 int16_t LibretroHost::_on_input_state(unsigned port, unsigned device, unsigned index, unsigned id) {
-	(void)index;
-	if (device != RETRO_DEVICE_JOYPAD || port >= 2 || id > 15) {
+	if (port >= 2) {
+		return 0;
+	}
+	if (device == RETRO_DEVICE_ANALOG) {
+		// Índice BUTTON pede a *pressão* de um botão, não um eixo. Só temos
+		// digital, então devolvemos o fundo de escala quando está apertado —
+		// é o que o RetroArch faz para controle sem gatilho analógico.
+		if (index == RETRO_DEVICE_INDEX_ANALOG_BUTTON) {
+			return (id <= 15 && (input_state[port] & (1u << id))) ? 0x7fff : 0;
+		}
+		if (index > RETRO_DEVICE_INDEX_ANALOG_RIGHT || id > RETRO_DEVICE_ID_ANALOG_Y) {
+			return 0;
+		}
+		return analog_state[port][index][id];
+	}
+	if (device != RETRO_DEVICE_JOYPAD || id > 15) {
 		return 0;
 	}
 	return (input_state[port] & (1u << id)) ? 1 : 0;
@@ -529,8 +555,26 @@ void LibretroHost::set_button(int p_port, int p_id, bool p_pressed) {
 	}
 }
 
+void LibretroHost::set_analog(int p_port, int p_index, int p_axis, double p_value) {
+	if (p_port < 0 || p_port >= 2 || p_index < 0 || p_index > 1 || p_axis < 0 || p_axis > 1) {
+		return;
+	}
+	// 0x7fff nos dois sentidos, para o centro cair exatamente em zero — o -32768
+	// que caberia no int16 deixaria a esquerda mais forte que a direita.
+	double v = p_value < -1.0 ? -1.0 : (p_value > 1.0 ? 1.0 : p_value);
+	analog_state[p_port][p_index][p_axis] = (int16_t)(v * 32767.0);
+}
+
+void LibretroHost::set_controller_device(int p_port, int p_device) {
+	if (p_port < 0 || p_port >= 2 || !p_retro_set_controller_port_device) {
+		return;
+	}
+	p_retro_set_controller_port_device((unsigned)p_port, (unsigned)p_device);
+}
+
 void LibretroHost::clear_input() {
 	input_state[0] = input_state[1] = 0;
+	memset(analog_state, 0, sizeof(analog_state));
 }
 
 // ---------------------------------------------------------------------------
@@ -659,6 +703,10 @@ Array LibretroHost::get_options() const {
 	return out;
 }
 
+Array LibretroHost::get_input_descriptors() const {
+	return input_descriptors;
+}
+
 String LibretroHost::get_option(const String &p_key) const {
 	const CoreOption *o = find_option(p_key);
 	return o ? o->value : String();
@@ -712,6 +760,22 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 		case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
 			auto *cb = reinterpret_cast<retro_log_callback *>(data);
 			cb->log = cb_log;
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: {
+			// Chega uma vez por core (às vezes por jogo). É o core dizendo o
+			// nome de cada id do joypad libretro no console dele.
+			input_descriptors.clear();
+			auto *d = reinterpret_cast<const retro_input_descriptor *>(data);
+			for (; d && d->description; ++d) {
+				Dictionary e;
+				e["port"] = (int)d->port;
+				e["device"] = (int)d->device;
+				e["index"] = (int)d->index;
+				e["id"] = (int)d->id;
+				e["desc"] = String::utf8(d->description);
+				input_descriptors.push_back(e);
+			}
 			return true;
 		}
 		case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION: {
