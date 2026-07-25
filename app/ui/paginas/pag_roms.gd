@@ -131,8 +131,14 @@ func _linha(item: Dictionary) -> Button:
 		bt.add_theme_color_override("font_color", TemaVR.DIM)
 
 	if not item.pasta:
-		# O tamanho fica encostado à direita, alinhado entre linhas.
-		var meta := WidgetsVR.mono(NavegadorRoms.formatar_tamanho(item.tamanho))
+		# O tamanho fica encostado à direita, alinhado entre linhas, com o
+		# sistema na frente — agora que há mais de um core, saber se a ROM é de
+		# SNES ou de N64 antes de abrir evita a troca de core à toa.
+		var sistema: String = item.get("sistema", "")
+		var direita := NavegadorRoms.formatar_tamanho(item.tamanho)
+		if not sistema.is_empty():
+			direita = "%s · %s" % [NavegadorRoms.nome_sistema(sistema), direita]
+		var meta := WidgetsVR.mono(direita)
 		meta.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		meta.offset_left = -220
 		meta.offset_right = -18

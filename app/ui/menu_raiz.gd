@@ -58,7 +58,7 @@ func _criar_paginas() -> void:
 	_registrar("Tela", PagTela.new(_cfg))
 	_registrar("Vídeo", PagVideo.new(_cfg, _emu))
 	_registrar("Áudio", PagAudio.new(_cfg, _emu))
-	_registrar("Input", PagInput.new(_cfg))
+	_registrar("Input", PagInput.new(_cfg, _emu))
 	_registrar("Saves", PagSaves.new(_emu))
 
 
@@ -82,6 +82,9 @@ func mostrar(nome: String) -> void:
 func ao_abrir() -> void:
 	(_paginas["ROMs"] as PagRoms).atualizar()
 	(_paginas["Saves"] as PagSaves).atualizar()
+	# O mapa de controle muda com o sistema da ROM, e a ROM pode ter trocado
+	# desde a última vez que o painel abriu.
+	(_paginas["Input"] as PagInput).atualizar()
 	_atualizar_rodape()
 
 

@@ -369,6 +369,13 @@ func get_fps() -> float:
 	return _host.get_fps() if _host != null else 60.0
 
 
+## Mapa de controle declarado pelo core: para cada id do joypad libretro, o
+## nome daquele botão no console. É o que a página de Input mostra, em vez de
+## uma tabela nossa que envelheceria a cada core novo.
+func descritores_input() -> Array:
+	return _host.get_input_descriptors() if _host != null else []
+
+
 ## true quando o core desenha pela GPU. Muda o que a página de Vídeo pode
 ## oferecer: filtro e brilho seguem valendo, mas a resolução passa a ser opção
 ## do core, não do nosso lado.
