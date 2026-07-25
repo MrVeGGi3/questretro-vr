@@ -29,16 +29,16 @@ const CORES := {
 ## Opções aplicadas ao core assim que ele carrega e antes da ROM — várias só
 ## valem no load_rom. Só o que difere do padrão do core.
 ##
-## O `angrylion` é o renderizador por *software* do mupen: é o único que dá
-## imagem enquanto o LibretroHost não implementa SET_HW_RENDER, e o preço é
-## alto — medido em 65 fps num x86_64 de desktop, o que no ARM do Quest não
-## fecha os 60. Vira `gliden64` quando a renderização por hardware entrar.
+## O `gliden64` desenha pela GPU, no FBO que o LibretroHost empresta ao core.
+## O `angrylion` é o renderizador por software e serve de rede de segurança —
+## dá imagem sem GL nenhum, mas foi medido em 65 fps num x86_64 de desktop, o
+## que no ARM do Quest não fecharia os 60.
 const OPCOES := {
 	"n64": {
-		"mupen64plus-rdp-plugin": "angrylion",
-		# 320x240 é a resolução nativa; subir custa CPU no angrylion sem ganho
-		# real, já que a tela do headset reamostra de qualquer jeito.
-		"mupen64plus-43screensize": "320x240",
+		"mupen64plus-rdp-plugin": "gliden64",
+		# Resolução interna. 640x480 é o dobro da nativa e é o que sobra
+		# legível numa tela grande dentro do headset.
+		"mupen64plus-43screensize": "640x480",
 	},
 }
 
@@ -359,6 +359,13 @@ func limpar_input() -> void:
 
 func get_fps() -> float:
 	return _host.get_fps() if _host != null else 60.0
+
+
+## true quando o core desenha pela GPU. Muda o que a página de Vídeo pode
+## oferecer: filtro e brilho seguem valendo, mas a resolução passa a ser opção
+## do core, não do nosso lado.
+func hw_render() -> bool:
+	return _host != null and _host.is_hw_render()
 
 
 func _atualizar_video() -> void:

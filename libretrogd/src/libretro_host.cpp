@@ -1,5 +1,7 @@
 #include "libretro_host.h"
 
+#include "gl_funcs.h"
+
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
@@ -49,6 +51,14 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
 		return g_active_host->_on_input_state(port, device, index, id);
 	}
 	return 0;
+}
+
+static uintptr_t cb_get_current_framebuffer() {
+	return g_active_host ? g_active_host->_on_get_current_framebuffer() : 0;
+}
+
+static retro_proc_address_t cb_get_proc_address(const char *sym) {
+	return reinterpret_cast<retro_proc_address_t>(libretrogd::gl_proc_address(sym));
 }
 
 static bool cb_environment(unsigned cmd, void *data) {
@@ -101,6 +111,7 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_option", "key"), &LibretroHost::get_option);
 	ClassDB::bind_method(D_METHOD("set_option", "key", "value"), &LibretroHost::set_option);
 	ClassDB::bind_method(D_METHOD("get_input_descriptors"), &LibretroHost::get_input_descriptors);
+	ClassDB::bind_method(D_METHOD("is_hw_render"), &LibretroHost::is_hw_render);
 	ClassDB::bind_method(D_METHOD("is_core_loaded"), &LibretroHost::is_core_loaded);
 	ClassDB::bind_method(D_METHOD("is_game_loaded"), &LibretroHost::is_game_loaded);
 
@@ -362,6 +373,30 @@ bool LibretroHost::load_rom(const String &p_path) {
 		av_sample_rate = av.timing.sample_rate > 0 ? av.timing.sample_rate : 32040.0;
 	}
 
+	// Com hw render, o core ainda não desenhou nada: falta o FBO e o aviso de
+	// que o contexto está pronto. A ordem é essa — context_reset é onde o core
+	// compila shaders e cria texturas, e ele já pode pedir o framebuffer.
+	if (hw_enabled) {
+		int alvo_w = (int)av.geometry.max_width;
+		int alvo_h = (int)av.geometry.max_height;
+		if (alvo_w <= 0 || alvo_h <= 0) {
+			alvo_w = (int)av.geometry.base_width;
+			alvo_h = (int)av.geometry.base_height;
+		}
+		if (hw_criar_alvo(alvo_w, alvo_h)) {
+			hw_pronto = true;
+			if (hw_cb.context_reset) {
+				hw_cb.context_reset();
+			}
+		} else {
+			// Sem FBO o core desenharia no alvo do Godot. Melhor sair sem
+			// imagem do que corromper o que a cena está desenhando.
+			UtilityFunctions::push_error(
+					"libretrogd: hw render pedido mas o FBO não subiu — sem vídeo");
+			hw_enabled = false;
+		}
+	}
+
 	game_loaded = true;
 	UtilityFunctions::print(String::utf8("libretrogd: ROM carregada — ") +
 			String::num_int64((int64_t)av.geometry.base_width) + "x" +
@@ -371,12 +406,46 @@ bool LibretroHost::load_rom(const String &p_path) {
 }
 
 void LibretroHost::run_frame() {
-	if (game_loaded && p_retro_run) {
+	if (!game_loaded || !p_retro_run) {
+		return;
+	}
+	if (!hw_pronto) {
 		p_retro_run();
+		return;
+	}
+
+	// Emprestamos o contexto do Godot ao core, então devolvemos o alvo de
+	// render exatamente como estava. Sem isto o Godot desenha o próximo frame
+	// dentro do FBO do emulador.
+	const libretrogd::GLFuncs *gl = libretrogd::gl_load();
+	using namespace libretrogd;
+	GLint fbo_antes = 0;
+	GLint viewport_antes[4] = { 0, 0, 0, 0 };
+	if (gl) {
+		gl->GetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo_antes);
+		gl->GetIntegerv(GL_VIEWPORT, viewport_antes);
+		gl->BindFramebuffer(GL_FRAMEBUFFER, hw_fbo);
+		gl->Viewport(0, 0, hw_alvo_w, hw_alvo_h);
+	}
+
+	p_retro_run();
+
+	if (gl) {
+		gl->BindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo_antes);
+		gl->Viewport(viewport_antes[0], viewport_antes[1],
+				viewport_antes[2], viewport_antes[3]);
 	}
 }
 
 void LibretroHost::unload_rom() {
+	// Antes do unload_game: o core solta aqui as texturas e shaders que criou,
+	// e depois de descarregado ele não tem mais como fazê-lo.
+	if (hw_pronto && hw_cb.context_destroy) {
+		hw_cb.context_destroy();
+	}
+	hw_pronto = false;
+	hw_destruir_alvo();
+
 	if (game_loaded && p_retro_unload_game) {
 		p_retro_unload_game();
 	}
@@ -390,8 +459,10 @@ void LibretroHost::unload_rom() {
 }
 
 void LibretroHost::unload() {
-	if (game_loaded && p_retro_unload_game) {
-		p_retro_unload_game();
+	// Passa por unload_rom() em vez de chamar retro_unload_game direto: é ele
+	// que avisa o core para soltar os recursos de GPU antes de tudo sumir.
+	if (game_loaded) {
+		unload_rom();
 	}
 	if (core_loaded && p_retro_deinit) {
 		p_retro_deinit();
@@ -419,6 +490,135 @@ void LibretroHost::reset_state() {
 	options.clear();
 	options_dirty = false;
 	input_descriptors.clear();
+	// O pedido de hw render também é do core: o próximo pode não querer.
+	hw_pronto = false;
+	hw_enabled = false;
+	hw_cb = {};
+	hw_destruir_alvo();
+}
+
+// ---------------------------------------------------------------------------
+// Renderização por hardware
+// ---------------------------------------------------------------------------
+// O core não devolve pixels: ele desenha num FBO nosso. O ciclo é
+//   run_frame() -> salva o alvo do Godot -> binda o nosso -> retro_run()
+//               -> lê o resultado -> devolve o alvo do Godot.
+// Devolver é obrigatório: sem isso o core fica com o alvo de render e o Godot
+// passa a desenhar dentro do FBO dele.
+uintptr_t LibretroHost::_on_get_current_framebuffer() {
+	return hw_fbo;
+}
+
+bool LibretroHost::hw_criar_alvo(int p_width, int p_height) {
+	const libretrogd::GLFuncs *gl = libretrogd::gl_load();
+	if (!gl || p_width <= 0 || p_height <= 0) {
+		return false;
+	}
+	if (hw_fbo && hw_alvo_w == p_width && hw_alvo_h == p_height) {
+		return true;  // já serve
+	}
+	hw_destruir_alvo();
+
+	using namespace libretrogd;
+	GLint fbo_antes = 0;
+	gl->GetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo_antes);
+
+	gl->GenTextures(1, &hw_tex);
+	gl->BindTexture(GL_TEXTURE_2D, hw_tex);
+	gl->TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, p_width, p_height, 0,
+			GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	gl->GenFramebuffers(1, &hw_fbo);
+	gl->BindFramebuffer(GL_FRAMEBUFFER, hw_fbo);
+	gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, hw_tex, 0);
+
+	// Profundidade só se o core pediu. Um core 2D não paga por ela; o N64 sim.
+	if (hw_cb.depth) {
+		gl->GenRenderbuffers(1, &hw_depth);
+		gl->BindRenderbuffer(GL_RENDERBUFFER, hw_depth);
+		// Combinado quando também há stencil: um anexo em vez de dois, que é o
+		// que o GLES3 aceita sem reclamar de formato.
+		if (hw_cb.stencil) {
+			gl->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, p_width, p_height);
+			gl->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+					GL_RENDERBUFFER, hw_depth);
+		} else {
+			gl->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, p_width, p_height);
+			gl->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+					GL_RENDERBUFFER, hw_depth);
+		}
+		gl->BindRenderbuffer(GL_RENDERBUFFER, 0);
+	}
+
+	GLenum estado = gl->CheckFramebufferStatus(GL_FRAMEBUFFER);
+	gl->BindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo_antes);
+	gl->BindTexture(GL_TEXTURE_2D, 0);
+
+	if (estado != GL_FRAMEBUFFER_COMPLETE) {
+		UtilityFunctions::push_error(String("libretrogd: FBO incompleto (0x") +
+				String::num_int64(estado, 16) + ")");
+		hw_destruir_alvo();
+		return false;
+	}
+
+	hw_alvo_w = p_width;
+	hw_alvo_h = p_height;
+	frame_rgba.assign((size_t)p_width * (size_t)p_height * 4, 0);
+	UtilityFunctions::print(String("libretrogd: hw render em FBO ") +
+			itos(p_width) + "x" + itos(p_height) +
+			(hw_cb.depth ? " (com profundidade)" : ""));
+	return true;
+}
+
+void LibretroHost::hw_destruir_alvo() {
+	const libretrogd::GLFuncs *gl = libretrogd::gl_load();
+	if (gl) {
+		using namespace libretrogd;
+		if (hw_fbo) gl->DeleteFramebuffers(1, &hw_fbo);
+		if (hw_tex) gl->DeleteTextures(1, &hw_tex);
+		if (hw_depth) gl->DeleteRenderbuffers(1, &hw_depth);
+	}
+	hw_fbo = hw_tex = hw_depth = 0;
+	hw_alvo_w = hw_alvo_h = 0;
+}
+
+void LibretroHost::hw_ler_frame(int p_width, int p_height) {
+	const libretrogd::GLFuncs *gl = libretrogd::gl_load();
+	if (!gl || !hw_fbo || p_width <= 0 || p_height <= 0) {
+		return;
+	}
+	using namespace libretrogd;
+	size_t linha = (size_t)p_width * 4;
+	frame_rgba.resize(linha * (size_t)p_height);
+
+	GLint fbo_antes = 0;
+	gl->GetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo_antes);
+	gl->BindFramebuffer(GL_FRAMEBUFFER, hw_fbo);
+	// Sem isto o GL assume alinhamento de 4 por linha; com RGBA já bate, mas
+	// deixar explícito evita surpresa se um dia lermos outro formato.
+	gl->PixelStorei(GL_PACK_ALIGNMENT, 1);
+	gl->ReadPixels(0, 0, p_width, p_height, GL_RGBA, GL_UNSIGNED_BYTE, frame_rgba.data());
+	gl->BindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo_antes);
+
+	// O GL numera as linhas de baixo para cima; a Image do Godot, de cima para
+	// baixo. Quando o core desenha na convenção do GL (o normal), desviramos.
+	if (hw_cb.bottom_left_origin) {
+		hw_linha.resize(linha);
+		for (int y = 0; y < p_height / 2; ++y) {
+			uint8_t *a = frame_rgba.data() + (size_t)y * linha;
+			uint8_t *b = frame_rgba.data() + (size_t)(p_height - 1 - y) * linha;
+			memcpy(hw_linha.data(), a, linha);
+			memcpy(a, b, linha);
+			memcpy(b, hw_linha.data(), linha);
+		}
+	}
+
+	frame_width = p_width;
+	frame_height = p_height;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +627,14 @@ void LibretroHost::reset_state() {
 void LibretroHost::_on_video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
 	// data == NULL sinaliza frame duplicado; mantém o buffer anterior.
 	if (data == nullptr || width == 0 || height == 0) {
+		return;
+	}
+
+	// Com hw render o core não manda pixels: manda este sentinela dizendo "o
+	// frame está no FBO que você me deu". A resolução varia de frame a frame
+	// (o N64 troca de modo de vídeo), então ela chega por aqui, não do av_info.
+	if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+		hw_ler_frame((int)width, (int)height);
 		return;
 	}
 
@@ -760,6 +968,36 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 		case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
 			auto *cb = reinterpret_cast<retro_log_callback *>(data);
 			cb->log = cb_log;
+			return true;
+		}
+		case RETRO_ENVIRONMENT_SET_HW_RENDER: {
+			auto *cb = reinterpret_cast<retro_hw_render_callback *>(data);
+			if (!cb) {
+				return false;
+			}
+			// Só as variantes de OpenGL. Vulkan exigiria a interface de
+			// negociação de dispositivo, e aqui o Godot roda em
+			// gl_compatibility — é o contexto dele que emprestamos ao core.
+			if (cb->context_type != RETRO_HW_CONTEXT_OPENGL &&
+					cb->context_type != RETRO_HW_CONTEXT_OPENGL_CORE &&
+					cb->context_type != RETRO_HW_CONTEXT_OPENGLES2 &&
+					cb->context_type != RETRO_HW_CONTEXT_OPENGLES3 &&
+					cb->context_type != RETRO_HW_CONTEXT_OPENGLES_VERSION) {
+				UtilityFunctions::push_warning(
+						String("libretrogd: core pediu contexto de vídeo não suportado (tipo ") +
+						itos((int)cb->context_type) + ")");
+				return false;
+			}
+			// Sem as funções de GL não há FBO para oferecer. Recusar aqui faz o
+			// core cair no renderizador de software dele, que é ruim mas roda;
+			// aceitar e falhar depois seria tela preta sem explicação.
+			if (libretrogd::gl_load() == nullptr) {
+				return false;
+			}
+			hw_cb = *cb;
+			cb->get_current_framebuffer = cb_get_current_framebuffer;
+			cb->get_proc_address = cb_get_proc_address;
+			hw_enabled = true;
 			return true;
 		}
 		case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: {

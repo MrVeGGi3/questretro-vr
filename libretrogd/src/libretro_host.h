@@ -137,11 +137,17 @@ public:
 	bool is_core_loaded() const { return core_loaded; }
 	bool is_game_loaded() const { return game_loaded; }
 
+	// true quando o core desenha por GPU (SET_HW_RENDER aceito). Nesse caso o
+	// frame não vem por retro_video_refresh: o core renderiza no nosso FBO.
+	bool is_hw_render() const { return hw_enabled; }
+
 	// --- chamados pelos callbacks C estáticos do libretro ---
 	void _on_video_refresh(const void *data, unsigned width, unsigned height, size_t pitch);
 	void _on_audio_batch(const int16_t *data, size_t frames);
 	int16_t _on_input_state(unsigned port, unsigned device, unsigned index, unsigned id);
 	bool _on_environment(unsigned cmd, void *data);
+	// O core chama isto a cada frame para saber onde desenhar.
+	uintptr_t _on_get_current_framebuffer();
 
 private:
 	void resolve_symbols();
@@ -182,6 +188,24 @@ private:
 
 	// Mapa de controle declarado pelo core, já convertido para Variant.
 	Array input_descriptors;
+
+	// --- renderização por hardware ---
+	// Prepara/destrói o FBO onde o core desenha. O tamanho vem do max_width/
+	// max_height que o core declara em retro_get_system_av_info.
+	bool hw_criar_alvo(int p_width, int p_height);
+	void hw_destruir_alvo();
+	// Traz o conteúdo do FBO para frame_rgba, já desvirado se preciso.
+	void hw_ler_frame(int p_width, int p_height);
+
+	retro_hw_render_callback hw_cb = {};
+	bool hw_enabled = false;     // o core pediu e aceitamos
+	bool hw_pronto = false;      // FBO criado e context_reset já chamado
+	unsigned hw_fbo = 0;
+	unsigned hw_tex = 0;
+	unsigned hw_depth = 0;
+	int hw_alvo_w = 0;
+	int hw_alvo_h = 0;
+	std::vector<uint8_t> hw_linha;  // buffer de troca para desvirar o frame
 
 	// handle do dlopen
 	void *lib_handle = nullptr;
