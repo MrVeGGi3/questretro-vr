@@ -170,11 +170,36 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
 - **Core carregado no Android**: `EmuCore._preparar_core()` copia o `.so` de
   `res://` para `user://` porque `dlopen` não abre de dentro do APK. ✅ Testado
   em device (Quest 3S).
-- **N64 no device**: o pipeline foi verificado no desktop (Star Fox 64 a 640x480
-  com GLideN64, 86 fps sobre Mesa por software). Falta medir no Quest — o
-  `glReadPixels` por frame é o custo a vigiar, e a saída, se pesar, é a textura
-  do FBO direto por `RenderingServer.texture_create_from_native_handle`, sem
-  cópia.
+- **GLideN64 derruba o app no Quest**: com `rdp-plugin=gliden64`, o Star Fox 64
+  morre no primeiro frame com `SIGSEGV` (null deref) dentro de
+  `libGLESv2_adreno.so`, chamado pelo core. O rastro é um `memcpy` de 64 bytes
+  com origem nula — o tamanho de uma matriz 4x4.
+
+  O que **não** é a causa, por eliminação já feita no device: nosso FBO sobe
+  (`hw render em FBO 640x480`), o `context_reset()` do core retorna limpo, a ROM
+  abre a 640x480@60 e o dynarec inicia. Com `rdp-plugin=angrylion` — software
+  puro, sem GL — o mesmo jogo roda fluido, grava `.srm` e responde ao controle.
+  Ou seja: core, ROM, input, áudio, SRAM e o empréstimo de contexto estão de pé;
+  o problema é o GLideN64 sobre o driver da Adreno.
+
+  Por isso `EmuCore.OPCOES` usa `angrylion` no Android e `gliden64` no desktop.
+
+  Já descartados como causa: pasta de sistema faltando (era bug real, corrigido)
+  e cache de shaders em disco (`EnableShadersStorage=False` não mudou nada).
+  A investigar: `EnableFBEmulation=False`, desligar as cópias de cor/profundidade
+  para a RDRAM, e a variante `gles2` do core.
+
+- **Testar opções de core sem rebuild**: `user://opcoes_core.cfg` sobrescreve
+  `EmuCore.OPCOES`, uma seção por sistema. No Android o `user://` é a pasta
+  **interna** do app — `/sdcard/Android/data/...` é outra coisa —, então só se
+  escreve por `run-as`, e só em build de debug:
+  ```bash
+  adb shell "run-as com.questretro.vr sh -c \
+      'printf \"[n64]\nmupen64plus-rdp-plugin=\\\"gliden64\\\"\n\" > files/opcoes_core.cfg'"
+  adb shell run-as com.questretro.vr cat files/opcoes_core.cfg   # conferir
+  ```
+  O app imprime no log cada opção que leu do arquivo, para o teste dizer com que
+  configuração rodou.
 - **Lançar por `adb` exige controles ligados**: com eles desligados o Quest
   intercepta e mostra *controller required* — no logcat,
   `common_system_dialog_app_launch_blocked_controller_required`. Não é crash do

@@ -129,10 +129,12 @@ da bateria e quando ela foi gravada pela última vez.
   input dos controllers Touch.
 - **Fase 2 ✅** — menu in-VR: navegador de ROMs, configurações persistentes de
   tela/vídeo/áudio/input e save states.
-- **Fase 3** — saves de bateria (SRAM) ✅; core N64 com renderização por
-  hardware ✅ (verificado no desktop; falta medir no Quest); a seguir:
-  mapeamento pose→eixo por jogo (controles físicos), integração com `romkeep`,
-  salas/arcade virtual.
+- **Fase 3** — saves de bateria (SRAM) ✅; core N64 ✅ — Star Fox 64 roda no
+  Quest 3S e no desktop, com um porém: no headset o renderizador por GPU do
+  mupen (GLideN64) derruba o app na Adreno, então lá ele usa o renderizador
+  por software, que roda fluido (ver `docs/EXPORT.md`). A seguir: destravar o
+  GLideN64 no Quest, mapeamento pose→eixo por jogo (controles físicos),
+  integração com `romkeep`, salas/arcade virtual.
 
 ## Menu dentro do headset
 

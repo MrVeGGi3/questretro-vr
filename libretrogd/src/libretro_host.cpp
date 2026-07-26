@@ -3,6 +3,7 @@
 #include "gl_funcs.h"
 
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
@@ -304,6 +305,13 @@ bool LibretroHost::load_core(const String &p_path) {
 	}
 
 	g_active_host = this;
+
+	// GET_SYSTEM_DIRECTORY e GET_SAVE_DIRECTORY prometem caminhos ao core, e
+	// ele os usa sem conferir se existem: o GLideN64 guarda o cache de shaders
+	// compilados no de sistema, e o mupen escreve .srm/.eep no de save. Criar
+	// aqui, antes do retro_init, é o que torna a promessa verdadeira.
+	DirAccess::make_dir_recursive_absolute(system_dir);
+	DirAccess::make_dir_recursive_absolute(save_dir);
 
 	// A ordem importa: environment antes de init para o core ler pixel format etc.
 	p_retro_set_environment(cb_environment);

@@ -41,14 +41,45 @@ const CORES := {
 ## O `angrylion` é o renderizador por software e serve de rede de segurança —
 ## dá imagem sem GL nenhum, mas foi medido em 65 fps num x86_64 de desktop, o
 ## que no ARM do Quest não fecharia os 60.
+## O renderizador do N64 **difere por plataforma**, e não por gosto:
+##
+## - No desktop, `gliden64` desenha pela GPU no FBO que emprestamos ao core.
+## - No Quest, esse mesmo caminho derruba o app: SIGSEGV no primeiro frame,
+##   dentro do `libGLESv2_adreno.so`, chamado pelo core. Nossa parte já passou
+##   quando isso acontece — o FBO sobe e o `context_reset()` do core retorna
+##   limpo —, então o problema mora no GLideN64 sobre o driver da Adreno.
+##   `angrylion` é software puro, não toca em GL, e roda fluido no headset.
+##
+## Trocar o Android para gliden64 é o objetivo; enquanto não for, isto é o que
+## faz o N64 funcionar no Quest hoje.
 const OPCOES := {
 	"n64": {
-		"mupen64plus-rdp-plugin": "gliden64",
+		"mupen64plus-rdp-plugin": "angrylion" if OS.has_feature("android") else "gliden64",
 		# Resolução interna. 640x480 é o dobro da nativa e é o que sobra
 		# legível numa tela grande dentro do headset.
 		"mupen64plus-43screensize": "640x480",
+		# O GLideN64 guarda shaders compilados em disco e os recarrega.
+		# Recompilar toda vez custa um arranque mais lento e nada mais, e tira
+		# uma variável do caminho enquanto o crash acima não estiver resolvido.
+		"mupen64plus-EnableShadersStorage": "False",
+		# Cópia assíncrona do framebuffer usa PBO; síncrona é mais lenta e
+		# muito menos exigente com o driver.
+		"mupen64plus-EnableCopyColorToRDRAM": "Sync",
 	},
 }
+
+## Sobrescreve `OPCOES` sem rebuild: um ConfigFile com uma seção por sistema.
+## Existe para o ciclo de teste no headset, onde cada rebuild custa dez minutos
+## e escrever este arquivo custa segundos. No Android o `user://` é a pasta
+## **interna** do app, alcançável só por `run-as` (e só em build de debug):
+##
+##     adb shell "run-as com.questretro.vr sh -c \
+##         'printf \"[n64]\nmupen64plus-rdp-plugin=\\\"gliden64\\\"\n\" \
+##          > files/opcoes_core.cfg'"
+##
+## Foi assim que se descobriu, em segundos, que o crash do N64 no Quest é do
+## GLideN64 e não do nosso empréstimo de contexto.
+const ARQUIVO_OPCOES := "user://opcoes_core.cfg"
 
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
@@ -150,7 +181,23 @@ func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 	# ROM, e as que ele já leu não voltam atrás.
 	for chave: String in OPCOES.get(sistema_novo, {}):
 		_host.set_option(chave, OPCOES[sistema_novo][chave])
+	_aplicar_opcoes_do_arquivo(sistema_novo)
 	return true
+
+
+## Sobrescritas de `user://opcoes_core.cfg`, se houver. Imprime o que aplicou:
+## num log de headset, saber com que opções aquele teste rodou é a diferença
+## entre bisseccionar e adivinhar.
+func _aplicar_opcoes_do_arquivo(sistema_novo: String) -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(ARQUIVO_OPCOES) != OK:
+		return
+	if not cfg.has_section(sistema_novo):
+		return
+	for chave in cfg.get_section_keys(sistema_novo):
+		var valor := str(cfg.get_value(sistema_novo, chave))
+		print("EmuCore: opção de %s vinda do arquivo: %s = %s" % [sistema_novo, chave, valor])
+		_host.set_option(chave, valor)
 
 
 ## O que vale para toda ROM recém-carregada, seja no arranque ou na troca.
