@@ -158,3 +158,18 @@ states e a persistência das configurações.
 O `--xr-mode off` é obrigatório: o projeto liga OpenXR, e sem um runtime ativo
 na máquina o Godot **trava no arranque** sob Xvfb, sem imprimir nada — parece
 travamento do teste, mas é do motor.
+
+Trocar de ROM tem teste próprio, porque o mupen64plus recusa um segundo
+`retro_load_game` e a troca de N64 precisa recarregar o core (ver
+`EmuCore.RECARREGA_SEMPRE`). Como as ROMs não são versionadas, elas vêm por
+argumento:
+
+```bash
+xvfb-run -a godot --xr-mode off --path app res://test_troca_rom.tscn -- \
+    --n64 "$ROMS/N64/Star Fox 64 (USA).z64" \
+    --n64b "$ROMS/N64/Super Mario 64 (USA).z64" \
+    --snes "$ROMS/SNES/Chrono Trigger (USA).sfc"
+```
+
+Também não roda em `--headless`: o N64 desenha por GPU, e sem contexto de GL o
+FBO emprestado ao core não sobe.

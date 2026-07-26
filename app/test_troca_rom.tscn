@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotesttroca"]
+
+[ext_resource type="Script" path="res://test_troca_rom.gd" id="1_troca"]
+
+[node name="TestTrocaRom" type="Node"]
+script = ExtResource("1_troca")

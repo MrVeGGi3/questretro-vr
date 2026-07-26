@@ -138,8 +138,23 @@ func iniciar(core_path: String, rom_path: String) -> bool:
 	return true
 
 
+## Sistemas cujo core não aceita carregar uma segunda ROM sem ser reiniciado.
+##
+## O mupen64plus é um deles: o segundo `retro_load_game` responde "failed to
+## load ROM" e o jogo não abre. Não depende de ser a mesma ROM — em
+## `test_troca_rom.tscn`, o que falha é sempre a primeira troca N64→N64, seja
+## para o mesmo cartucho ou para outro. E não é só do headset: reproduz igual no
+## desktop.
+##
+## Para estes, `trocar_rom` refaz o dlopen mesmo quando o sistema não muda.
+## Custa alguns décimos de segundo e evita um erro que, da interface, parece ROM
+## corrompida.
+const RECARREGA_SEMPRE := ["n64"]
+
+
 ## Troca o jogo. Mantém o core carregado quando dá — o dlopen custa caro —, mas
-## troca de core quando a ROM é de outro sistema.
+## troca de core quando a ROM é de outro sistema (ou quando o core não suporta
+## uma segunda carga; ver RECARREGA_SEMPRE).
 func trocar_rom(rom_path: String) -> bool:
 	if _host == null:
 		falhou.emit("Sem core carregado")
@@ -155,13 +170,17 @@ func trocar_rom(rom_path: String) -> bool:
 	gravar_sram()
 	_rodando = false
 
-	if NavegadorRoms.sistema_de(rom_path) != sistema or not _host.is_core_loaded():
-		# Outro sistema: o core atual não abre esta ROM. unload() derruba jogo e
-		# core de uma vez, e a SRAM já foi gravada acima.
+	var sistema_novo := NavegadorRoms.sistema_de(rom_path)
+	if sistema_novo != sistema or not _host.is_core_loaded() \
+			or sistema_novo in RECARREGA_SEMPRE:
+		# Outro sistema (ou core que não recarrega): o core atual não abre esta
+		# ROM. unload() derruba jogo e core de uma vez, e a SRAM já foi gravada
+		# acima. Recarregar também é o que faz as opções valerem de novo, já que
+		# elas são aplicadas junto do load_core.
 		_host.unload()
 		rom_atual = ""
 		sistema = ""
-		if not _carregar_core(core_novo, NavegadorRoms.sistema_de(rom_path)):
+		if not _carregar_core(core_novo, sistema_novo):
 			return false
 
 	if not _host.load_rom(rom_path):
