@@ -132,9 +132,16 @@ da bateria e quando ela foi gravada pela última vez.
 - **Fase 3** — saves de bateria (SRAM) ✅; core N64 ✅ — Star Fox 64 roda no
   Quest 3S e no desktop, com um porém: no headset o renderizador por GPU do
   mupen (GLideN64) derruba o app na Adreno, então lá ele usa o renderizador
-  por software, que roda fluido (ver `docs/EXPORT.md`). A seguir: destravar o
-  GLideN64 no Quest, mapeamento pose→eixo por jogo (controles físicos),
-  integração com `romkeep`, salas/arcade virtual.
+  por software, que roda fluido.
+
+  O GLideN64 no Quest foi investigado até o fim e **não se resolve por
+  configuração**: oito opções do core aplicadas de uma vez e as duas variantes
+  de GL (`gles2`/`gles3`) dão o mesmo crash, com os mesmos quadros do driver.
+  `docs/EXPORT.md` traz o rastro, a tabela do que foi descartado e as duas
+  trilhas que sobraram para quem voltar nisso.
+
+  A seguir: mapeamento pose→eixo por jogo (controles físicos), integração com
+  `romkeep`, salas/arcade virtual.
 
 ## Menu dentro do headset
 
