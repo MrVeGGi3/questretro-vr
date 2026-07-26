@@ -65,6 +65,7 @@ var _start_restante := 0
 
 var _guidao := Guidao.new()
 var _recentrar_antes := false   # borda do clique do thumbstick esquerdo
+var _painel_antes := false      # para recentrar quando o painel fecha
 
 var _acumulador := 0.0          # sobra de tempo entre frames emulados
 var _diag_ligado := false
@@ -244,9 +245,10 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 	elif chave.begins_with("audio/"):
 		_aplicar_audio()
 	elif chave == "input/n64_guidao" or chave.begins_with("input/guidao_"):
-		# Mexer nos ajustes recentra: a sensibilidade nova vale a partir do
-		# repouso novo, e o jogador está com as mãos no menu, não no manche.
-		_centrar_guidao()
+		# Só os ajustes; o recentro fica para quando o painel fechar. Aplicar a
+		# sensibilidade nova é seguro a qualquer hora — capturar repouso com as
+		# mãos no menu não é.
+		_aplicar_ajustes_guidao()
 
 
 func _aplicar_tudo() -> void:
@@ -353,7 +355,15 @@ func _ler_input_vr(delta: float) -> void:
 	if _painel.esta_aberto():
 		# Com o menu aberto o gatilho direito é clique, não R: congela o jogo.
 		_emu.limpar_input()
+		_painel_antes = true
 		return
+
+	if _painel_antes:
+		# Acabou de fechar o painel. Centralizar aqui, e não no instante em que a
+		# opção mudou: mexendo no menu a mão direita está esticada apontando para
+		# ele, e capturar aquilo como repouso nasce com a arfagem no batente.
+		_painel_antes = false
+		_centrar_guidao()
 
 	if _emu.sistema == "n64":
 		_input_n64()
@@ -446,20 +456,30 @@ func _manche_do_n64() -> Vector2:
 		_centrar_guidao("Guidão centralizado")
 	_recentrar_antes = clique
 
-	return _guidao.eixos(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
+	var v := _guidao.eixos(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
 			_camera.global_transform)
+	if _cfg.obter("input/guidao_diag"):
+		_mostrar("guidão  x %+.2f  y %+.2f   %s" % [
+			v.x, v.y, "inv Y" if _guidao.inverter_y else "Y normal"])
+	return v
 
 
-## Captura a pose atual como repouso e aplica os ajustes da página Input. Os
-## ajustes entram aqui, e não no _process, porque só valem a partir do próximo
-## centro — mudar a sensibilidade sem recentrar deslocaria o repouso.
-func _centrar_guidao(msg := "") -> void:
-	if not _xr_ativo or _camera == null:
-		return
+## Sensibilidade e sentido dos eixos, direto da página Input. Não mexe no
+## repouso: dá para mudar com o jogo rodando, sem o comando saltar.
+func _aplicar_ajustes_guidao() -> void:
 	_guidao.angulo_max = _cfg.obter("input/guidao_angulo_max")
 	_guidao.curso = _cfg.obter("input/guidao_curso")
 	_guidao.zona_morta = _cfg.obter("input/guidao_zona_morta")
 	_guidao.inverter_y = _cfg.obter("input/guidao_inverter_y")
+
+
+## Captura a pose atual como repouso. Só faz sentido com as mãos no manche —
+## por isso quem chama é o fechamento do painel, a troca de ROM e o clique do
+## analógico, e não a mudança de uma opção.
+func _centrar_guidao(msg := "") -> void:
+	if not _xr_ativo or _camera == null:
+		return
+	_aplicar_ajustes_guidao()
 	_guidao.centrar(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
 			_camera.global_transform)
 	if not msg.is_empty():

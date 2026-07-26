@@ -46,10 +46,13 @@ func _inclinar_a_barra_rola() -> void:
 	var p := _pose()
 	g.centrar(p.esq, p.dir, p.cam)
 
-	# Mão direita sobe, esquerda desce: barra tombada para a direita.
+	# Guidão gira como volante: mão direita sobe e esquerda desce é o giro
+	# anti-horário, ou seja, comando de **esquerda** (-x). A primeira versão
+	# afirmava o contrário aqui, e passava — o teste estava errado junto com o
+	# código, e só pilotar revelou.
 	var d := _pose(0.0, deg_to_rad(20.0))
 	var dir_cima := g.eixos(d.esq, d.dir, d.cam)
-	_verdade(dir_cima.x > 0.4, "direita acima da esquerda rola para +x (deu %.2f)" % dir_cima.x)
+	_verdade(dir_cima.x < -0.4, "direita acima da esquerda vira para a esquerda, -x (deu %.2f)" % dir_cima.x)
 
 	# E o espelho tem que dar o oposto, com a mesma força.
 	var e := _pose(0.0, deg_to_rad(-20.0))
@@ -122,7 +125,9 @@ func _satura_em_um() -> void:
 	var p := _pose(-1.5, deg_to_rad(80.0))
 	var v := g.eixos(p.esq, p.dir, p.cam)
 	_verdade(v.length() <= 1.0001, "não passa de 1 no módulo (deu %.3f)" % v.length())
-	_verdade(v.x > 0.6 and v.y > 0.6, "satura para o canto certo (%.2f, %.2f)" % [v.x, v.y])
+	# Direita levantada e mãos empurradas: esquerda (-x, ver a convenção de
+	# volante acima) e para cima (+y).
+	_verdade(v.x < -0.6 and v.y > 0.6, "satura para o canto certo (%.2f, %.2f)" % [v.x, v.y])
 
 
 func _zona_morta_e_exatamente_zero() -> void:

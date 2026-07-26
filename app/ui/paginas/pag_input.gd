@@ -158,6 +158,8 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 	# pessoa: não é escolha que dê para acertar por padrão.
 	caixa.add_child(WidgetsVR.campo("Inverter subir/descer", "empurrar mergulha",
 			WidgetsVR.interruptor(cfg, "input/guidao_inverter_y")))
+	caixa.add_child(WidgetsVR.campo("Mostrar leitura", "os eixos ao vivo, na tela",
+			WidgetsVR.interruptor(cfg, "input/guidao_diag")))
 	caixa.add_child(WidgetsVR.mono("Clique o analógico esquerdo para centralizar"))
 	return caixa
 

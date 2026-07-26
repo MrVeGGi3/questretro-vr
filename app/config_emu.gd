@@ -43,6 +43,10 @@ const PADROES := {
 	"input/guidao_curso": 0.25,
 	"input/guidao_zona_morta": 0.08,
 	"input/guidao_inverter_y": false,
+	# Leitura ao vivo dos eixos, na tela. Existe porque cada ida ao headset é
+	# cara: com o número à vista, "não responde" e "responde ao contrário" e
+	# "está grudado no batente" param de ser a mesma queixa.
+	"input/guidao_diag": false,
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
 }

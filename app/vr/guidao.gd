@@ -54,8 +54,14 @@ func eixos(esq: Transform3D, dir: Transform3D, cam: Transform3D) -> Vector2:
 	# Rolagem: quanto a barra pende, comparada com o comprimento dela. Usar o
 	# ângulo (e não a diferença de altura crua) faz o resultado não depender de
 	# quão separadas as mãos estão.
+	#
+	# O sinal é negativo porque guidão gira como volante: para ir à **esquerda**
+	# a mão direita sobe e a esquerda desce (giro anti-horário). Mão direita
+	# acima, portanto, é comando de esquerda. Eu tinha escrito o contrário, e o
+	# teste passava porque afirmava a mesma convenção errada — foi pilotando que
+	# apareceu.
 	var horizontal := Vector2(d.x, d.z).length()
-	var rolagem := rad_to_deg(atan2(d.y, horizontal))
+	var rolagem := -rad_to_deg(atan2(d.y, horizontal))
 
 	# Arfagem: o ponto médio afastando ou aproximando do corpo. -z é para
 	# frente em Godot, então empurrar dá valor positivo aqui.
