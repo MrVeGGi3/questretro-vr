@@ -40,7 +40,9 @@ const PADROES := {
 	# pilotar de verdade; a página Input existe para corrigi-los sem rebuild.
 	"input/n64_guidao": false,
 	"input/guidao_angulo_max": 35.0,
-	"input/guidao_curso": 0.25,
+	# 12 cm, não 25: rolar é ângulo (o pulso resolve), arfar é distância, e
+	# empurrar meio braço para subir ficava lerdo ao lado da rolagem.
+	"input/guidao_curso": 0.12,
 	"input/guidao_zona_morta": 0.08,
 	"input/guidao_inverter_y": false,
 	# Leitura ao vivo dos eixos, na tela. Existe porque cada ida ao headset é

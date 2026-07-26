@@ -148,8 +148,10 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 	caixa.add_child(WidgetsVR.campo("Inclinação cheia", "quanto tombar para virar tudo",
 			WidgetsVR.slider(cfg, "input/guidao_angulo_max", 15.0, 60.0, 1.0,
 					func(v: float) -> String: return "%d°" % roundi(v))))
+	# O mínimo desce a 4 cm porque 10 cm ainda era lerdo para quem pilotou; o
+	# máximo antigo (50 cm) ninguém alcança sem sair da cadeira.
 	caixa.add_child(WidgetsVR.campo("Curso cheio", "quanto empurrar para subir/descer tudo",
-			WidgetsVR.slider(cfg, "input/guidao_curso", 0.1, 0.5, 0.01,
+			WidgetsVR.slider(cfg, "input/guidao_curso", 0.04, 0.30, 0.01,
 					func(v: float) -> String: return "%d cm" % roundi(v * 100.0))))
 	caixa.add_child(WidgetsVR.campo("Zona morta", "ignora tremor de mão",
 			WidgetsVR.slider(cfg, "input/guidao_zona_morta", 0.0, 0.3, 0.01,

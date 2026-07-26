@@ -23,7 +23,11 @@ var _centro := Vector3.ZERO
 var _centrado := false
 
 var angulo_max := 35.0      ## graus de inclinação da barra que valem eixo cheio
-var curso := 0.25           ## metros de empurra-e-puxa que valem eixo cheio
+## Metros de empurra-e-puxa que valem eixo cheio. Bem menor que o palpite
+## inicial de 25 cm: rolar 35° é coisa de pulso, mas empurrar 25 cm é esticar o
+## braço inteiro, e a assimetria fazia a arfagem parecer lerda ao lado da
+## rolagem. 12 cm cabe no cotovelo.
+var curso := 0.12
 var zona_morta := 0.08      ## abaixo disto, zero — mão parada não é mão firme
 var inverter_y := false
 

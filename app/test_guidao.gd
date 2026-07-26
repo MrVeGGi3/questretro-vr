@@ -169,8 +169,19 @@ func _pose(avanco := 0.0, tombo := 0.0, guinada := 0.0) -> Dictionary:
 	}
 
 
+## Parâmetros do teste, fixados de propósito em vez de herdados do produto.
+##
+## As poses daqui foram escolhidas para cair na faixa linear destes valores. Se
+## o teste usasse os padrões de `Guidao`, baixar o curso (como foi feito depois
+## que alguém pilotou e achou a arfagem lerda) faria o y saturar em ±1 — e aí os
+## casos de corpo girado passariam comparando 1.0 com 1.0, sem poder de pegar
+## erro nenhum no eixo y. O teste ficaria verde e cego ao mesmo tempo.
 func _guidao() -> Guidao:
-	return Guidao.new()
+	var g := Guidao.new()
+	g.angulo_max = 35.0
+	g.curso = 0.25
+	g.zona_morta = 0.08
+	return g
 
 
 # ---------------------------------------------------------------------------
