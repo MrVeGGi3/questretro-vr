@@ -29,10 +29,14 @@ func _ready() -> void:
 	# conteúdo real em vez de estado vazio.
 	# `-- --rom /caminho/jogo.sfc` troca a ROM: útil para ver a página de Saves
 	# com um cartucho que tem bateria — a demo não tem.
-	emu.iniciar("res://cores/snes9x_libretro.so", _arg("--rom", "res://roms/demo.smc"))
+	# Core vazio: sai da extensão da ROM. Com o caminho do snes9x fixo aqui,
+	# passar uma .z64 renderizava a página de Input do N64 com o core errado —
+	# e é justamente essa página que muda mais com o sistema.
+	emu.iniciar("", _arg("--rom", "res://roms/demo.smc"))
 
 	await _renderizar_paginas(cfg, emu)
 	await _testar_clique(cfg, emu)
+	await _testar_rolagem(cfg, emu)
 	await _testar_oclusao(cfg, emu)
 	_testar_save_state(emu)
 	_testar_persistencia(cfg)
@@ -57,12 +61,27 @@ func _renderizar_paginas(cfg: ConfigEmu, emu: EmuCore) -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		var img := vp.get_texture().get_image()
-		var arquivo := "user://ui_%s.png" % _sem_acento(pagina)
-		img.save_png(arquivo)
-		print("SALVO ", arquivo, " ", img.get_width(), "x", img.get_height())
+		await _salvar(vp, _sem_acento(pagina))
+
+		# Página que não cabe também precisa ser vista por baixo: é lá que mora
+		# o que foi acrescentado por último, e um PNG só do topo não mostraria
+		# texto estourando no fim da página.
+		var rolagem := _achar_scroll(menu)
+		if rolagem != null and rolagem.get_v_scroll_bar().max_value > rolagem.size.y:
+			rolagem.scroll_vertical = int(rolagem.get_v_scroll_bar().max_value)
+			await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			await _salvar(vp, _sem_acento(pagina) + "_fim")
+			rolagem.scroll_vertical = 0
 
 	vp.queue_free()
+
+
+func _salvar(vp: SubViewport, nome: String) -> void:
+	var img := vp.get_texture().get_image()
+	var arquivo := "user://ui_%s.png" % nome
+	img.save_png(arquivo)
+	print("SALVO ", arquivo, " ", img.get_width(), "x", img.get_height())
 
 
 ## O laser em VR vira exatamente isto: mouse motion + clique empurrados no
@@ -85,6 +104,65 @@ func _testar_clique(cfg: ConfigEmu, emu: EmuCore) -> void:
 				"clique em '%s' na sidebar abre a página (deu '%s')" % [alvo_nome, ativa])
 
 	painel.queue_free()
+
+
+## O conteúdo abaixo da dobra tem que ser alcançável. No headset o laser só
+## emitia movimento e clique, então nada que passasse da altura da tela dava
+## para ler — e a página de Input do N64 não cabe inteira em tela nenhuma.
+## Este teste confere o outro lado do conserto: que a roda chega ao
+## ScrollContainer do PagBase. O lado do thumbstick (`PainelMenu._rolar`) só o
+## headset exercita.
+func _testar_rolagem(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var painel := PainelMenu.new(cfg, emu)
+	add_child(painel)
+	painel.abrir()
+	painel.menu.mostrar("Input")
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var rolagem := _achar_scroll(painel.menu)
+	if rolagem == null:
+		_conferir(false, "achei o ScrollContainer da página")
+		painel.queue_free()
+		return
+
+	_conferir(rolagem.get_v_scroll_bar().max_value > rolagem.size.y,
+			"a página de Input tem mais conteúdo do que cabe (é o caso que importa)")
+
+	var antes := rolagem.scroll_vertical
+	for i in 5:
+		_rodar(painel, MOUSE_BUTTON_WHEEL_DOWN)
+		await get_tree().process_frame
+	_conferir(rolagem.scroll_vertical > antes,
+			"roda para baixo rola a página (%d -> %d)" % [antes, rolagem.scroll_vertical])
+
+	var desceu := rolagem.scroll_vertical
+	for i in 10:
+		_rodar(painel, MOUSE_BUTTON_WHEEL_UP)
+		await get_tree().process_frame
+	_conferir(rolagem.scroll_vertical < desceu, "roda para cima volta")
+
+	painel.queue_free()
+
+
+func _rodar(painel: PainelMenu, botao: int) -> void:
+	for apertado in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = botao
+		ev.pressed = apertado
+		ev.position = TemaVR.PAINEL * 0.5
+		ev.global_position = ev.position
+		painel.entrada_desktop(ev)
+
+
+func _achar_scroll(no: Node) -> ScrollContainer:
+	if no is ScrollContainer and (no as Control).is_visible_in_tree():
+		return no
+	for filho in no.get_children():
+		var achou := _achar_scroll(filho)
+		if achou != null:
+			return achou
+	return null
 
 
 func _clicar(painel: PainelMenu, pos: Vector2) -> void:
@@ -180,8 +258,20 @@ func _testar_save_state(emu: EmuCore) -> void:
 	_conferir(divergiu != antes, "o jogo realmente avançou depois de gravar")
 
 	_conferir(emu._host.load_state(antes), "load_state aceita o estado gravado")
-	var depois := emu._host.save_state()
-	_conferir(depois == antes, "estado restaurado bate byte a byte com o original")
+
+	# Comparar estados byte a byte só diz alguma coisa se o core for
+	# determinístico sob o nosso step(). O mupen64plus não é: ele roda uma
+	# EmuThread própria, e refazer o mesmo trecho a partir do mesmo estado
+	# restaurado produz bytes diferentes. Aí a comparação não distingue uma
+	# restauração ruim de um core que simplesmente não repete — medido, não
+	# suposto (ver docs/EXPORT.md).
+	var deterministico := emu.sistema != "n64"
+	if not deterministico:
+		print("PULADO: %s não repete byte a byte; save state do N64 pende de conferência visual"
+				% emu.sistema)
+	if deterministico:
+		var depois := emu._host.save_state()
+		_conferir(depois == antes, "estado restaurado bate byte a byte com o original")
 
 	# E o caminho completo pelo disco, que é o que a página de Saves usa.
 	_conferir(emu.gravar_estado(1), "gravar_estado escreve o slot 1")
@@ -190,7 +280,8 @@ func _testar_save_state(emu: EmuCore) -> void:
 	for i in 120:
 		emu.step()
 	_conferir(emu.carregar_estado(1), "carregar_estado lê o slot 1")
-	_conferir(emu._host.save_state() == antes, "slot 1 restaura o mesmo estado")
+	if deterministico:
+		_conferir(emu._host.save_state() == antes, "slot 1 restaura o mesmo estado")
 
 
 ## A promessa do ConfigEmu é sobreviver ao fechamento do app, então o teste

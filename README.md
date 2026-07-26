@@ -111,6 +111,37 @@ direito.
 Esse mapa não é decorado: sai dos descritores que o próprio core declara
 (`SET_INPUT_DESCRIPTORS`), e eles surpreendem — no N64, `JOYPAD_B` é o **A**.
 
+Com o painel aberto, o **analógico direito rola a página** — sem isso nada
+abaixo da dobra seria alcançável, porque o laser só sabe apontar e clicar.
+
+### Guidão de nave (N64)
+
+Ligue na página **Input** e o manche do N64 deixa de sair do thumbstick e passa
+a sair da **pose das duas mãos**: segure os controles como o guidão de uma nave.
+Inclinar a barra imaginária entre as mãos rola; empurrar e puxar sobe e desce.
+Com ele ligado, o analógico esquerdo fica livre e o **clique dele recentra** —
+o repouso é onde suas mãos estiverem naquele momento, e vale recentrar sempre
+que mudar de posição.
+
+Tudo é medido no referencial da sua guinada, não no do quarto: virar o corpo não
+troca o significado dos comandos. Inclinar a cabeça também não — olhar em volta
+não é pilotar.
+
+Inclinação cheia, curso, zona morta e inverter subir/descer são ajustáveis na
+mesma página. Os padrões são chute educado até alguém pilotar de verdade; o
+Star Fox 64 já nasce com controle invertido, e a preferência varia, então
+"Inverter subir/descer" existe em vez de eu ter escolhido por você.
+
+A conta vive em `app/vr/guidao.gd`, sem nenhuma dependência de XR — entra
+`Transform3D`, sai `Vector2`. É o que permite verificá-la sem headset:
+
+```bash
+godot --headless --xr-mode off --path app res://test_guidao.tscn
+```
+
+O mapa **por jogo** que o roadmap pede ainda não existe: hoje o guidão é uma
+configuração do sistema N64, não um perfil por cartucho.
+
 ## ROMs
 
 **Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
@@ -140,8 +171,12 @@ da bateria e quando ela foi gravada pela última vez.
   `docs/EXPORT.md` traz o rastro, a tabela do que foi descartado e as duas
   trilhas que sobraram para quem voltar nisso.
 
-  A seguir: mapeamento pose→eixo por jogo (controles físicos), integração com
-  `romkeep`, salas/arcade virtual.
+  Controles físicos começaram: o **guidão de nave** do N64 mapeia a pose das
+  duas mãos nos eixos do manche (ver "Controles no headset"). Falta o perfil
+  **por jogo** — hoje é uma configuração do sistema.
+
+  A seguir: perfis de controle por cartucho, integração com `romkeep`,
+  salas/arcade virtual.
 
 ## Menu dentro do headset
 

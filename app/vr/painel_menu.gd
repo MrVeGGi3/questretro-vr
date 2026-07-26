@@ -17,6 +17,13 @@ const LARGURA := 1.0                ## metros
 const DIST := 1.6                   ## à frente do jogador quando abre
 const ABERTURA := 0.14              ## segundos da animação de escala
 
+## Rolagem pelo thumbstick: quanto empurrar para valer, e o intervalo entre
+## "cliques" de roda enquanto está empurrado. A roda do mouse é discreta, então
+## um eixo contínuo precisa virar pulsos — sem intervalo, um frame de stick
+## empurrado rolaria a página inteira.
+const ROLAR_ZONA := 0.35
+const ROLAR_INTERVALO := 0.06
+
 var menu: MenuRaiz
 
 var _viewport: SubViewport
@@ -32,6 +39,7 @@ var _controle: XRController3D
 var _aberto := false
 var _gatilho_antes := false
 var _ultimo_pos := Vector2(-1, -1)
+var _desde_rolagem := 0.0
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
@@ -85,12 +93,13 @@ func fechar() -> void:
 	)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _aberto:
 		return
 	_encarar_camera()
 	if _controle != null:
 		_apontar()
+		_rolar(delta)
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +266,40 @@ func _apontar() -> void:
 		clique.global_position = pos
 		_viewport.push_input(clique)
 		_gatilho_antes = gatilho
+
+
+## Rolagem da página pelo thumbstick do controle que aponta.
+##
+## O laser só sabia mover e clicar, e o ScrollContainer do PagBase precisa de
+## evento de roda: sem isto, tudo abaixo da dobra era **inalcançável no
+## headset** — a página de Input do N64 não cabe inteira em nenhuma tela.
+##
+## Este stick está livre justamente aqui: `xr_main._ler_input_vr()` chama
+## `limpar_input()` enquanto o painel está aberto, então ele não disputa com o
+## jogo.
+func _rolar(delta: float) -> void:
+	var y := _controle.get_vector2(&"primary").y
+	if absf(y) < ROLAR_ZONA:
+		# Soltar rearma: o próximo empurrão rola na hora, sem esperar o
+		# intervalo de um pulso que não veio.
+		_desde_rolagem = ROLAR_INTERVALO
+		return
+
+	_desde_rolagem += delta
+	if _desde_rolagem < ROLAR_INTERVALO:
+		return
+	_desde_rolagem = 0.0
+
+	var roda := MOUSE_BUTTON_WHEEL_UP if y > 0.0 else MOUSE_BUTTON_WHEEL_DOWN
+	# O ScrollContainer age no "pressed" e ignora o resto, mas soltar depois
+	# evita deixar um botão presente no estado do viewport.
+	for pressionado in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = roda
+		ev.pressed = pressionado
+		ev.position = _ultimo_pos
+		ev.global_position = _ultimo_pos
+		_viewport.push_input(ev)
 
 
 ## Ponto no espaço local do quad -> pixel do SubViewport. O quad é centrado na

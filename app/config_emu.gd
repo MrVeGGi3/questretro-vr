@@ -34,6 +34,15 @@ const PADROES := {
 	"input/dpad_engaja": 0.5,
 	"input/dpad_solta": 0.32,
 	"input/dpad_meia_cardeal": 55.0,
+	# Guidão de nave: pose dos controles no lugar do thumbstick, no N64.
+	# Desligado por padrão — quem já usa o app continua com o mapa de sempre
+	# até pedir o contrário. Ângulo e curso são chute educado até alguém
+	# pilotar de verdade; a página Input existe para corrigi-los sem rebuild.
+	"input/n64_guidao": false,
+	"input/guidao_angulo_max": 35.0,
+	"input/guidao_curso": 0.25,
+	"input/guidao_zona_morta": 0.08,
+	"input/guidao_inverter_y": false,
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
 }

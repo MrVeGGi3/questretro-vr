@@ -63,6 +63,9 @@ var _menu_desde := 0.0
 var _menu_consumido := false
 var _start_restante := 0
 
+var _guidao := Guidao.new()
+var _recentrar_antes := false   # borda do clique do thumbstick esquerdo
+
 var _acumulador := 0.0          # sobra de tempo entre frames emulados
 var _diag_ligado := false
 var _diag_t := 0.0
@@ -240,6 +243,10 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 		_aplicar_video()
 	elif chave.begins_with("audio/"):
 		_aplicar_audio()
+	elif chave == "input/n64_guidao" or chave.begins_with("input/guidao_"):
+		# Mexer nos ajustes recentra: a sensibilidade nova vale a partir do
+		# repouso novo, e o jogador está com as mãos no menu, não no manche.
+		_centrar_guidao()
 
 
 func _aplicar_tudo() -> void:
@@ -323,6 +330,9 @@ func _trocar_rom(caminho: String) -> void:
 		_cfg.registrar_recente(caminho)
 		_painel.fechar()
 		_mostrar("")
+		# Jogo novo, repouso novo: o centro da sessão anterior foi capturado com
+		# o jogador em outra posição, e herdá-lo faria a nave sair torta.
+		_centrar_guidao()
 
 
 # ---------------------------------------------------------------------------
@@ -397,10 +407,9 @@ func _input_snes() -> void:
 ## O segundo ponto é o que faz o stick direito do Touch cair direto nos C, sem
 ## conversão para setores.
 func _input_n64() -> void:
-	# O Y do thumbstick cresce para cima; o do libretro, para baixo.
-	var stick := _ctrl_esq.get_vector2(&"primary")
-	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, stick.x)
-	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_Y, -stick.y)
+	var manche := _manche_do_n64()
+	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, manche.x)
+	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_Y, manche.y)
 
 	var c := _ctrl_dir.get_vector2(&"primary")
 	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_X, c.x)
@@ -418,6 +427,43 @@ func _input_n64() -> void:
 	# aparece em menu de jogo de N64; esquerda/direita quase nunca.
 	_emu.set_button(0, LibretroHost.JOYPAD_UP, _ctrl_esq.is_button_pressed(&"by_button"))
 	_emu.set_button(0, LibretroHost.JOYPAD_DOWN, _ctrl_esq.is_button_pressed(&"ax_button"))
+
+
+## O manche do N64 vem do thumbstick ou da pose dos controles, conforme
+## `input/n64_guidao`. Os dois entregam a mesma coisa — eixos em [-1, 1] na
+## convenção do libretro, com y crescendo para baixo — então quem chama não
+## precisa saber de qual dos dois veio.
+func _manche_do_n64() -> Vector2:
+	if not _cfg.obter("input/n64_guidao"):
+		# O Y do thumbstick cresce para cima; o do libretro, para baixo.
+		var stick := _ctrl_esq.get_vector2(&"primary")
+		return Vector2(stick.x, -stick.y)
+
+	# Clique do thumbstick esquerdo recentra. Em modo guidão ele está livre —
+	# era ele o manche —, então não disputa com nada do mapa do N64.
+	var clique := _ctrl_esq.is_button_pressed(&"primary_click")
+	if clique and not _recentrar_antes:
+		_centrar_guidao("Guidão centralizado")
+	_recentrar_antes = clique
+
+	return _guidao.eixos(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
+			_camera.global_transform)
+
+
+## Captura a pose atual como repouso e aplica os ajustes da página Input. Os
+## ajustes entram aqui, e não no _process, porque só valem a partir do próximo
+## centro — mudar a sensibilidade sem recentrar deslocaria o repouso.
+func _centrar_guidao(msg := "") -> void:
+	if not _xr_ativo or _camera == null:
+		return
+	_guidao.angulo_max = _cfg.obter("input/guidao_angulo_max")
+	_guidao.curso = _cfg.obter("input/guidao_curso")
+	_guidao.zona_morta = _cfg.obter("input/guidao_zona_morta")
+	_guidao.inverter_y = _cfg.obter("input/guidao_inverter_y")
+	_guidao.centrar(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
+			_camera.global_transform)
+	if not msg.is_empty():
+		_mostrar(msg)
 
 
 ## Start segurado pelo grip, ou pulsado pelo toque curto no botão de menu. O

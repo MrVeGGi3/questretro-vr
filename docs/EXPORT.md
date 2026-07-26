@@ -272,7 +272,22 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de
   derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
   confiável: a SRAM depende da gravação periódica, não dele.
+- **Save state do N64 não está conferido**: `retro_serialize` devolve 16 MB e o
+  `load_state` aceita de volta, mas o estado **não repete byte a byte** — nem
+  logo depois de restaurar, nem refazendo o mesmo trecho a partir do estado
+  restaurado. Medido com Star Fox 64 no desktop.
+
+  Isso não prova que está quebrado: o mupen roda uma `EmuThread` própria, então
+  o nosso `step()` pode não avançar uma quantidade fixa de trabalho, e aí a
+  comparação não distingue restauração ruim de core que não repete. Prova, sim,
+  que a asserção não serve para o N64 — por isso `test_ui.gd` a pula neste
+  sistema (e a mantém no SNES, onde ela passa).
+
+  Conferir de verdade pede o caminho visual: gravar num ponto reconhecível,
+  jogar, restaurar e ver se o jogo volta ao mesmo lugar. Enquanto isso não for
+  feito, a página de Saves oferece save state de N64 sem garantia.
+
 - **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
-  deixa remapear (ver o comentário em `ui/paginas/pag_input.gd`). Zona morta do
-  D-pad já é ajustável.
+  deixa remapear (ver o comentário em `ui/paginas/pag_input.gd`). O que dá para
+  ajustar são os contínuos: zona morta do D-pad (SNES) e o guidão de nave (N64).
 - **Integração com `romkeep`**: prevista para depois desta fase.
