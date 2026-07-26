@@ -30,11 +30,16 @@ para o SDK e o JDK 17.
    B=https://buildbot.libretro.com/nightly/android/latest/arm64-v8a
    curl -fsSL -O $B/snes9x_libretro_android.so.zip
    curl -fsSL -O $B/mupen64plus_next_gles3_libretro_android.so.zip
+   curl -fsSL -O $B/mupen64plus_next_gles2_libretro_android.so.zip   # só para comparar
    unzip -o '*.so.zip' && rm -f *.so.zip
    ```
    No Android o mupen vem separado por versão de GL (`gles2`/`gles3`); o Quest
    usa o **gles3**. O nome não bate com o do desktop, por isso `EmuCore.CORES`
    escreve os dois por extenso em vez de montar por sufixo.
+
+   O `gles2` não é usado por padrão — está aí porque o `include_filter` leva
+   `cores/*_android.so` inteiro, e com ele no APK dá para comparar as duas
+   variantes pela chave `core` do `opcoes_core.cfg`, sem novo export.
 
 ## Gerar o APK
 
@@ -170,24 +175,66 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
 - **Core carregado no Android**: `EmuCore._preparar_core()` copia o `.so` de
   `res://` para `user://` porque `dlopen` não abre de dentro do APK. ✅ Testado
   em device (Quest 3S).
-- **GLideN64 derruba o app no Quest**: com `rdp-plugin=gliden64`, o Star Fox 64
-  morre no primeiro frame com `SIGSEGV` (null deref) dentro de
-  `libGLESv2_adreno.so`, chamado pelo core. O rastro é um `memcpy` de 64 bytes
-  com origem nula — o tamanho de uma matriz 4x4.
+- **GLideN64 derruba o app no Quest** — investigado a fundo e **sem solução por
+  configuração**. Com `rdp-plugin=gliden64`, o Star Fox 64 morre no primeiro
+  frame com `SIGSEGV` (null deref) dentro de `libGLESv2_adreno.so`, chamado pelo
+  core:
 
-  O que **não** é a causa, por eliminação já feita no device: nosso FBO sobe
+  ```
+  #00 __memcpy_aarch64_simd (libc)     x1 (origem) = 0x0, x2 (tamanho) = 0x40
+  #01 libGLESv2_adreno.so +0x1b2a04
+  #02 libGLESv2_adreno.so +0x1f6d60
+  #03 libGLESv2_adreno.so +0x1f5908
+  #04 libGLESv2_adreno.so +0x1c8b88
+  #05 libGLESv2_adreno.so +0x1e2320
+  #06 mupen64plus_next_..._libretro_android.so   <- daqui pra baixo, o core
+  ```
+
+  Os cinco quadros do driver são **byte a byte iguais em todas as execuções** —
+  inclusive entre as variantes `gles2` e `gles3`, que são binários diferentes —
+  enquanto os quadros do core mudam. É uma única chamada de GL, atingida de
+  vários pontos do GLideN64, sempre com 64 bytes de dado nulo.
+
+  O `memcpy` é chamado **pelo driver**, não pelo core: quem é nulo é o *dado*,
+  não o ponteiro de função. Isso importa porque afasta a hipótese de resolução
+  de símbolos — e, de todo modo, o core nem usa a nossa: ele linka direto contra
+  `libGLESv3.so`/`libGLESv2.so` (102 símbolos `gl*` resolvidos pelo linker
+  dinâmico), então `gl_funcs.cpp` nunca esteve nesse caminho.
+
+  Também **não** é a causa, por eliminação feita no device: nosso FBO sobe
   (`hw render em FBO 640x480`), o `context_reset()` do core retorna limpo, a ROM
   abre a 640x480@60 e o dynarec inicia. Com `rdp-plugin=angrylion` — software
   puro, sem GL — o mesmo jogo roda fluido, grava `.srm` e responde ao controle.
-  Ou seja: core, ROM, input, áudio, SRAM e o empréstimo de contexto estão de pé;
-  o problema é o GLideN64 sobre o driver da Adreno.
+  Ou seja: core, ROM, input, áudio, SRAM e o empréstimo de contexto estão de pé.
 
-  Por isso `EmuCore.OPCOES` usa `angrylion` no Android e `gliden64` no desktop.
+  Por isso `EmuCore.rdp_do_n64()` usa `angrylion` no Android e `gliden64` no
+  desktop.
 
-  Já descartados como causa: pasta de sistema faltando (era bug real, corrigido)
-  e cache de shaders em disco (`EnableShadersStorage=False` não mudou nada).
-  A investigar: `EnableFBEmulation=False`, desligar as cópias de cor/profundidade
-  para a RDRAM, e a variante `gles2` do core.
+  **Descartados como causa** (cada um medido no Quest, com o crash inalterado):
+
+  | hipótese | resultado |
+  |---|---|
+  | pasta de sistema faltando | era bug real, corrigido — não era o crash |
+  | `EnableShadersStorage=False` | sem efeito (e o core nem declara a opção no Android) |
+  | resolução de símbolos de GL | o core não usa a nossa; linka GL direto |
+  | `EnableFBEmulation=False` | sem efeito — e isso já cobre as cópias para RDRAM, que são sub-recursos dela |
+  | `EnableHWLighting=False` | sem efeito |
+  | `MultiSampling=0` | sem efeito |
+  | `EnableLODEmulation=False` | sem efeito |
+  | `EnableTextureCache=False` | sem efeito |
+  | `EnableLegacyBlending=True` | sem efeito |
+  | `EnableFragmentDepthWrite=False` | sem efeito |
+  | variante `gles2` do core | crash idêntico, mesmos quadros do driver |
+
+  As oito opções acima foram aplicadas **todas de uma vez**, na configuração mais
+  defensiva que o core aceita, e o crash saiu bit a bit igual ao da rodada com
+  só uma delas. Não há combinação dessas opções que salve o GLideN64 aqui.
+
+  **Quem voltar nisto** tem duas trilhas que não foram andadas: (1) rodar o
+  GLideN64 no RetroArch do mesmo headset — se crashar igual, o bug é do core
+  sobre a Adreno e não há nada nosso nele; se não crashar, o problema volta a
+  ser o FBO/contexto que emprestamos; (2) um build do core com símbolos, que
+  daria o nome da chamada de GL em vez do offset.
 
 - **Testar opções de core sem rebuild**: `user://opcoes_core.cfg` sobrescreve
   `EmuCore.OPCOES`, uma seção por sistema. No Android o `user://` é a pasta
@@ -199,7 +246,23 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   adb shell run-as com.questretro.vr cat files/opcoes_core.cfg   # conferir
   ```
   O app imprime no log cada opção que leu do arquivo, para o teste dizer com que
-  configuração rodou.
+  configuração rodou. Opção que o core não declara vira aviso
+  (`libretrogd: opção desconhecida: ...`) em vez de silêncio — foi assim que se
+  viu que `EnableShadersStorage` e `EnableN64DepthCompare` nunca valeram no
+  Android, apesar de existirem como texto dentro do `.so`.
+
+  A chave reservada **`core`** escolhe o `.so` em vez de uma opção, e serve para
+  comparar variantes do mesmo core sem export+install:
+  ```bash
+  printf '[n64]\ncore="mupen64plus_next_gles2_libretro_android.so"\nmupen64plus-rdp-plugin="gliden64"\n' \
+      > /tmp/oc.cfg
+  adb push /tmp/oc.cfg /data/local/tmp/oc.cfg
+  adb shell "run-as com.questretro.vr sh -c 'cat /data/local/tmp/oc.cfg > files/opcoes_core.cfg'"
+  ```
+  Vale só para `.so` que estejam no APK — o `include_filter` do preset leva
+  `cores/*_android.so` inteiro, então basta ter baixado a variante antes do
+  export. Nome que não existe vira aviso e cai no padrão, em vez de medir a
+  variante errada em silêncio.
 - **Lançar por `adb` exige controles ligados**: com eles desligados o Quest
   intercepta e mostra *controller required* — no logcat,
   `common_system_dialog_app_launch_blocked_controller_required`. Não é crash do

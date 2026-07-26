@@ -86,6 +86,10 @@ static func rdp_do_n64() -> String:
 ## GLideN64 e não do nosso empréstimo de contexto.
 const ARQUIVO_OPCOES := "user://opcoes_core.cfg"
 
+## Chave reservada dentro da seção do sistema: escolhe o `.so` do core em vez de
+## uma opção dele. Ver `_core_do_arquivo`.
+const CHAVE_CORE := "core"
+
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
 var altura: int = 0
@@ -112,7 +116,35 @@ static func core_para_rom(rom_path: String) -> String:
 	var sis := NavegadorRoms.sistema_de(rom_path)
 	if not CORES.has(sis):
 		return ""
+	var escolhido := _core_do_arquivo(sis)
+	if not escolhido.is_empty():
+		return escolhido
 	return CORES[sis]["android" if OS.has_feature("android") else "desktop"]
+
+
+## Troca o `.so` do core sem rebuild, pelo mesmo arquivo que já sobrescreve as
+## opções: `core = "nome_do_arquivo.so"` na seção do sistema.
+##
+## Existe pelo mesmo motivo que a sobrescrita de opções: no headset cada
+## export+install custa dez minutos, e descobrir se o crash do GLideN64 muda
+## entre as variantes `gles2` e `gles3` do mupen não vale esse preço por
+## tentativa. As duas variantes já vão no APK — o `include_filter` do preset
+## leva `cores/*_android.so` inteiro.
+static func _core_do_arquivo(sistema_novo: String) -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(ARQUIVO_OPCOES) != OK:
+		return ""
+	var nome := str(cfg.get_value(sistema_novo, CHAVE_CORE, ""))
+	if nome.is_empty():
+		return ""
+	var caminho := "res://cores/" + nome
+	if not FileAccess.file_exists(caminho):
+		# Nome errado não pode virar "sem core": cair no padrão dá um teste que
+		# mede a variante errada em silêncio, que é pior que não rodar.
+		push_warning("EmuCore: core pedido pelo arquivo não existe: " + caminho)
+		return ""
+	print("EmuCore: core de %s vindo do arquivo: %s" % [sistema_novo, nome])
+	return caminho
 
 
 ## `core_path` vazio faz o core sair da extensão da ROM — é o caminho normal.
@@ -221,6 +253,8 @@ func _aplicar_opcoes_do_arquivo(sistema_novo: String) -> void:
 	if not cfg.has_section(sistema_novo):
 		return
 	for chave in cfg.get_section_keys(sistema_novo):
+		if chave == CHAVE_CORE:
+			continue   # escolhe o .so, não é opção do core (ver _core_do_arquivo)
 		var valor := str(cfg.get_value(sistema_novo, chave))
 		print("EmuCore: opção de %s vinda do arquivo: %s = %s" % [sistema_novo, chave, valor])
 		_host.set_option(chave, valor)
