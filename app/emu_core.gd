@@ -54,7 +54,6 @@ const CORES := {
 ## faz o N64 funcionar no Quest hoje.
 const OPCOES := {
 	"n64": {
-		"mupen64plus-rdp-plugin": "angrylion" if OS.has_feature("android") else "gliden64",
 		# Resolução interna. 640x480 é o dobro da nativa e é o que sobra
 		# legível numa tela grande dentro do headset.
 		"mupen64plus-43screensize": "640x480",
@@ -67,6 +66,12 @@ const OPCOES := {
 		"mupen64plus-EnableCopyColorToRDRAM": "Sync",
 	},
 }
+
+## Renderizador do N64, que depende da plataforma e por isso não cabe numa
+## `const` — ela exige expressão constante.
+static func rdp_do_n64() -> String:
+	return "angrylion" if OS.has_feature("android") else "gliden64"
+
 
 ## Sobrescreve `OPCOES` sem rebuild: um ConfigFile com uma seção por sistema.
 ## Existe para o ciclo de teste no headset, onde cada rebuild custa dez minutos
@@ -181,6 +186,8 @@ func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 	# ROM, e as que ele já leu não voltam atrás.
 	for chave: String in OPCOES.get(sistema_novo, {}):
 		_host.set_option(chave, OPCOES[sistema_novo][chave])
+	if sistema_novo == "n64":
+		_host.set_option("mupen64plus-rdp-plugin", rdp_do_n64())
 	_aplicar_opcoes_do_arquivo(sistema_novo)
 	return true
 
