@@ -9,6 +9,15 @@ extends PagBase
 const SLOTS := 4
 const PASTA := "user://states"
 
+## Altura do slot, escolhida para os quatro caberem sem rolar: sobram 556 px de
+## área rolável, e 4×112 mais as separações e a linha da bateria fecham em 550.
+## Um save que só aparece depois de rolar é um save que o jogador esquece.
+const ALT_SLOT := 112
+
+## Largura da miniatura. Cabe um frame 4:3 na altura interna do slot (80 px) com
+## folga de sobra.
+const LARG_MINIATURA := 120
+
 var _emu: EmuCore
 var _grade: GridContainer
 var _bateria: Label
@@ -25,9 +34,12 @@ func _init(emu: EmuCore) -> void:
 	_bateria.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	conteudo.add_child(_bateria)
 
+	# Uma coluna, e não duas. Em duas, um slot ocupado precisa de miniatura mais
+	# "Carregar" mais "Gravar" — larguras que somadas passam da metade do painel,
+	# e a coluna da direita saía pela borda com os botões cortados. Como a rolagem
+	# horizontal é desligada no PagBase, aquilo ficava inalcançável.
 	_grade = GridContainer.new()
-	_grade.columns = 2
-	_grade.add_theme_constant_override("h_separation", 18)
+	_grade.columns = 1
 	_grade.add_theme_constant_override("v_separation", 18)
 	_grade.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	conteudo.add_child(_grade)
@@ -82,11 +94,14 @@ func _slot(numero: int) -> Control:
 
 	var caixa := PanelContainer.new()
 	caixa.add_theme_stylebox_override("panel", estilo)
-	caixa.custom_minimum_size.y = 148
-	# Sem isto o GridContainer encolhe as colunas ao conteúdo e os slots ficam
-	# amontoados à esquerda em vez de dividir a largura.
+	caixa.custom_minimum_size.y = ALT_SLOT
+	# Sem isto o GridContainer encolhe a coluna ao conteúdo e os slots ficam
+	# amontoados à esquerda em vez de ocupar a largura.
 	caixa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+	# Tudo numa linha só: miniatura, identificação, e as ações à direita. Empilhar
+	# os botões debaixo do texto é o que exigia um slot alto, e quatro deles altos
+	# não cabiam na página sem rolar.
 	var linha := HBoxContainer.new()
 	linha.add_theme_constant_override("separation", 20)
 	caixa.add_child(linha)
@@ -94,8 +109,8 @@ func _slot(numero: int) -> Control:
 	linha.add_child(_miniatura(numero, existe))
 
 	var info := VBoxContainer.new()
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_theme_constant_override("separation", 4)
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.add_theme_constant_override("separation", 2)
 	linha.add_child(info)
 
 	var titulo := Label.new()
@@ -109,10 +124,12 @@ func _slot(numero: int) -> Control:
 		quando.text = "%02d/%02d · %02d:%02d" % [d.day, d.month, d.hour, d.minute]
 	info.add_child(quando)
 
+	linha.add_child(espacador())
+
 	var acoes := HBoxContainer.new()
 	acoes.add_theme_constant_override("separation", 10)
-	acoes.size_flags_vertical = Control.SIZE_SHRINK_END
-	info.add_child(acoes)
+	acoes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	linha.add_child(acoes)
 
 	if existe:
 		var bt_carregar := WidgetsVR.botao("Carregar")
@@ -131,12 +148,38 @@ func _slot(numero: int) -> Control:
 	)
 	acoes.add_child(bt_gravar)
 
+	if existe:
+		acoes.add_child(_botao_apagar(numero))
+
 	return caixa
+
+
+## Apagar pede duas batidas: a primeira arma e o botão passa a perguntar. Não é
+## cerimônia — apagar um save state não tem desfazer, e no headset o clique sai
+## de um laser apontado à distância, que erra o alvo com mais facilidade que um
+## mouse. O estado mora no próprio botão, então sair da página desarma sozinho.
+func _botao_apagar(numero: int) -> Button:
+	var bt := WidgetsVR.botao("Apagar")
+	bt.custom_minimum_size = Vector2(0, 52)
+	# Nomeado porque quatro botões iguais só se distinguem pelo slot, e quem
+	# procura por texto acha o primeiro — que foi como o teste deste botão
+	# nasceu errado, armando um slot e conferindo outro.
+	bt.name = "ApagarSlot%d" % numero
+	bt.pressed.connect(func() -> void:
+		if not bt.get_meta("armado", false):
+			bt.set_meta("armado", true)
+			bt.text = "Confirmar?"
+			bt.add_theme_color_override("font_color", TemaVR.BTN_A)
+			return
+		if _emu.apagar_estado(numero):
+			atualizar()
+	)
+	return bt
 
 
 func _miniatura(numero: int, existe: bool) -> Control:
 	var tr := TextureRect.new()
-	tr.custom_minimum_size = Vector2(172, 0)
+	tr.custom_minimum_size = Vector2(LARG_MINIATURA, 0)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -153,7 +196,7 @@ func _miniatura(numero: int, existe: bool) -> Control:
 	vazio.text = "vazio" if not existe else "sem imagem"
 	vazio.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vazio.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	vazio.custom_minimum_size = Vector2(172, 0)
+	vazio.custom_minimum_size = Vector2(LARG_MINIATURA, 0)
 	vazio.add_theme_font_size_override("font_size", TemaVR.TXT_DESC)
 	vazio.add_theme_color_override("font_color", TemaVR.DIM)
 	return vazio

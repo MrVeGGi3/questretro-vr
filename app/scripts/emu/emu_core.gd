@@ -339,6 +339,25 @@ func carregar_estado(slot: int) -> bool:
 	return true
 
 
+## Apaga um slot: o estado e a miniatura junto. É a única saída de um slot
+## ocupado — gravar por cima exige ter o jogo naquele ponto de novo, e sem isto
+## um save ruim fica lá para sempre.
+func apagar_estado(slot: int) -> bool:
+	var caminho := caminho_estado(slot)
+	if not FileAccess.file_exists(caminho):
+		return false
+	if DirAccess.remove_absolute(caminho) != OK:
+		falhou.emit("Não consegui apagar o slot %d" % slot)
+		return false
+
+	# A miniatura sozinha não é save nenhum, mas se ficar para trás o slot vazio
+	# mostra a imagem de um estado que não existe mais.
+	var png := caminho_miniatura(slot)
+	if FileAccess.file_exists(png):
+		DirAccess.remove_absolute(png)
+	return true
+
+
 ## Nome de arquivo seguro derivado da ROM, para os slots de um jogo não
 ## colidirem com os de outro.
 func _base_rom() -> String:

@@ -39,6 +39,7 @@ func _ready() -> void:
 	await _testar_rolagem(cfg, emu)
 	await _testar_oclusao(cfg, emu)
 	_testar_save_state(emu)
+	await _testar_apagar_estado(cfg, emu)
 	_testar_persistencia(cfg)
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
@@ -165,6 +166,8 @@ func _achar_scroll(no: Node) -> ScrollContainer:
 	return null
 
 
+
+
 func _clicar(painel: PainelMenu, pos: Vector2) -> void:
 	var mover := InputEventMouseMotion.new()
 	mover.position = pos
@@ -282,6 +285,51 @@ func _testar_save_state(emu: EmuCore) -> void:
 	_conferir(emu.carregar_estado(1), "carregar_estado lê o slot 1")
 	if deterministico:
 		_conferir(emu._host.save_state() == antes, "slot 1 restaura o mesmo estado")
+
+
+## Apagar um slot pede duas batidas, e é a **primeira** que este teste protege:
+## ela não pode apagar nada. É a única defesa contra um laser que escorregou para
+## o botão errado, e um save state apagado não tem desfazer. Uma regressão aqui
+## não apareceria em PNG nenhum — só na primeira vez que alguém perdesse um save.
+func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
+	if not emu.suporta_estado():
+		print("PULADO: o core não implementa save states")
+		return
+
+	_conferir(emu.gravar_estado(2), "gravou o slot 2 para ter o que apagar")
+	var estado := emu.caminho_estado(2)
+	var png := emu.caminho_miniatura(2)
+
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("Saves")
+	await get_tree().process_frame
+
+	# Pelo nome, e não pelo texto: os quatro botões dizem "Apagar", e procurar por
+	# texto acha o do slot 1 — foi assim que este teste nasceu errado, armando um
+	# slot e conferindo os arquivos de outro.
+	var bt := menu.find_child("ApagarSlot2", true, false) as Button
+	if bt == null:
+		_conferir(false, "achei o botão Apagar do slot 2")
+		vp.queue_free()
+		return
+
+	bt.pressed.emit()
+	await get_tree().process_frame
+	_conferir(FileAccess.file_exists(estado), "uma batida só NÃO apaga")
+	_conferir(bt.text == "Confirmar?", "e o botão passa a perguntar")
+
+	bt.pressed.emit()
+	await get_tree().process_frame
+	_conferir(not FileAccess.file_exists(estado), "a segunda batida apaga o estado")
+	_conferir(not FileAccess.file_exists(png), "e leva a miniatura junto")
+	_conferir(not emu.apagar_estado(2), "apagar slot vazio devolve false, não finge")
+
+	vp.queue_free()
+	await get_tree().process_frame
 
 
 ## A promessa do ConfigEmu é sobreviver ao fechamento do app, então o teste
