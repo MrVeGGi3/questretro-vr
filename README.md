@@ -118,19 +118,35 @@ abaixo da dobra seria alcançável, porque o laser só sabe apontar e clicar.
 
 Ligue na página **Input** e o manche do N64 deixa de sair do thumbstick e passa
 a sair da **pose das duas mãos**: segure os controles como o guidão de uma nave.
-Inclinar a barra imaginária entre as mãos rola; empurrar e puxar sobe e desce.
-Com ele ligado, o analógico esquerdo fica livre e o **clique dele recentra** —
-o repouso é onde suas mãos estiverem naquele momento, e vale recentrar sempre
-que mudar de posição.
+A barra imaginária entre as mãos gira como um volante — para ir à esquerda, a
+mão direita sobe e a esquerda desce. Empurrar e puxar sobe e desce o nariz.
+
+O repouso é capturado quando você **fecha o painel**, e não quando mexe num
+ajuste: com o menu aberto sua mão está esticada apontando para ele, e capturar
+aquela pose deixaria a arfagem grudada no batente. Com o guidão ligado o
+analógico esquerdo fica livre, e o **clique dele recentra** a qualquer momento —
+vale usar sempre que mudar de posição.
 
 Tudo é medido no referencial da sua guinada, não no do quarto: virar o corpo não
 troca o significado dos comandos. Inclinar a cabeça também não — olhar em volta
 não é pilotar.
 
-Inclinação cheia, curso, zona morta e inverter subir/descer são ajustáveis na
-mesma página. Os padrões são chute educado até alguém pilotar de verdade; o
-Star Fox 64 já nasce com controle invertido, e a preferência varia, então
-"Inverter subir/descer" existe em vez de eu ter escolhido por você.
+Ajustes, todos na mesma página:
+
+| ajuste | o que faz |
+|---|---|
+| **Inclinação cheia** | quantos graus de tombo valem eixo cheio |
+| **Curso cheio** | quantos centímetros de empurrão valem eixo cheio |
+| **Zona morta** | ignora tremor de mão (radial, não por eixo) |
+| **Curva** | acima de 1 reage mais no começo do movimento; abaixo, controle fino perto do centro |
+| **Inverter subir/descer** | o Star Fox 64 já nasce invertido, e a preferência varia |
+| **Mostrar leitura** | os eixos ao vivo na tela, para diagnosticar sem adivinhar |
+
+Curso e inclinação decidem *onde* o eixo satura; a **curva** decide como a
+resposta se distribui até lá. Zero e cheio são pontos fixos dela, então mexer na
+curva nunca custa alcance — só muda o caminho até o batente. É por isso que ela
+existe em vez de um multiplicador de sensibilidade, que seria só outro nome para
+mexer no curso.
 
 A conta vive em `app/vr/guidao.gd`, sem nenhuma dependência de XR — entra
 `Transform3D`, sai `Vector2`. É o que permite verificá-la sem headset:
