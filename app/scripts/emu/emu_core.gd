@@ -426,7 +426,13 @@ func _notification(what: int) -> void:
 	# Android pode matá-lo sem mais aviso. É a última chance de gravar — e é
 	# assim que a maioria das sessões termina no headset, não pelo botão de sair.
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
-		gravar_sram()
+		# Impresso porque este gatilho é invisível de qualquer outra forma: ele só
+		# dispara quando ninguém está olhando a tela, e o que ele faz (ou deixa de
+		# fazer) só aparece na sessão seguinte, como progresso perdido. No logcat
+		# a linha responde de uma vez se a notificação chegou e se havia o que
+		# gravar.
+		var quem := "pausa" if what == NOTIFICATION_APPLICATION_PAUSED else "fechamento"
+		print("EmuCore: %s — SRAM %s" % [quem, "gravada" if gravar_sram() else "sem mudança"])
 
 
 # ---------------------------------------------------------------------------
