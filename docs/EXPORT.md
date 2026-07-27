@@ -273,11 +273,18 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
   confiável: a SRAM depende da gravação periódica, não dele.
 
-  Um detalhe do rastro que ninguém puxou ainda: `project.godot` pede
-  `gl_compatibility` nas duas plataformas (linhas 19 e 24), e o crash é numa
-  `GodotVulkanRenderView`. Pode ser só nome de classe do Godot no Android, mas
-  se o runtime estiver mesmo em Vulkan lá, isso explica mais coisa que o crash —
-  e é um `grep` no logcat de quem já estiver com o headset na cabeça.
+  **Suspeita de que esta pendência esteja vencida.** O rastro é de uma
+  `GodotVulkanRenderView`, mas no logcat de hoje o nosso processo instancia
+  `GLSurfaceView` e `OpenGLRenderer` — GL, como `project.godot` pede nas linhas
+  19 e 24. (As linhas de Vulkan no log são do compositor do Horizon OS, pid
+  separado, não nossas.) Isso encaixa com o crash ser **anterior** ao commit que
+  pôs o Quest em `gl_compatibility`, quando o Android ainda subia em Vulkan.
+
+  Não está confirmado: com o headset ocioso o app não chega a rodar de verdade —
+  o `vrshell` fica com o foco e o nosso processo vai de `OnResume` a `OnPause`
+  na hora —, então não dá para provocar a pausa de um app *em execução* por
+  `adb`. Quem estiver de headset confirma em dez segundos: pausar e ver se o app
+  sobrevive.
 
 - **Janela de perda da SRAM**: como o app morre ao ser pausado, o que protege o
   progresso na prática é só a gravação periódica. `cenas/test_sram.tscn` mede o
