@@ -19,14 +19,34 @@ libretrogd/        GDExtension C++ que hospeda cores libretro
   CMakeLists.txt       build (usa godot-cpp branch 4.5)
   godot-cpp/           dependência clonada (não versionada)
 app/               projeto Godot
-  libretrogd.gdextension
-  main.tscn / main.gd  cena de teste desktop (Fase 0)
-  test_load.gd         teste headless do pipeline
-  bin/                 .so da GDExtension (gerado)
-  cores/               cores libretro .so (baixados; não versionados)
+  project.godot / export_presets.cfg / libretrogd.gdextension
+  openxr_action_map.tres   ações do OpenXR (o que cada botão do Touch envia)
+
+  cenas/           todos os .tscn
+    vr_main.tscn       a cena principal (project.godot aponta para ela)
+    main.tscn          cena de teste desktop (Fase 0)
+    test_*.tscn        cenas dos testes
+
+  scripts/         todos os .gd, subdivididos por assunto
+    main.gd            par da cena desktop
+    emu/               emu_core.gd, config_emu.gd — o emulador e a configuração
+    vr/                xr_main.gd, painel_menu.gd, guidao.gd
+    ui/                menu_raiz, tema, widgets, navegador_roms
+      paginas/           uma por página do menu
+    testes/            test_*.gd (inclusive test_load.gd e test_shot.gd,
+                       que rodam por `-s` e não têm cena)
+
+  assets/          icon.png, logo.png
+  bin/             .so da GDExtension (gerado)
+  cores/           cores libretro .so (baixados; não versionados)
+  roms/            demo.smc (homebrew freeware, essa vai no APK)
 cores/             (reservado)
 docs/
 ```
+
+Cena e script ficam em árvores separadas por escolha de organização. Ao abrir um
+`.tscn`, o script dele está no caminho espelhado sob `scripts/` — `cenas/vr_main.tscn`
+usa `scripts/vr/xr_main.gd`.
 
 ## Por que Godot (e não Unity), godot-cpp 4.5, cores libretro
 
@@ -73,7 +93,7 @@ O N64 desenha por GPU, num FBO que a GDExtension empresta ao core — ver
 
 ```bash
 godot --headless --path app --import           # 1ª vez, para escanear a GDExtension
-godot --headless --xr-mode off --path app -s res://test_load.gd -- --rom /caminho/jogo.sfc
+godot --headless --xr-mode off --path app -s res://scripts/testes/test_load.gd -- --rom /caminho/jogo.sfc
 ```
 
 `--xr-mode off` não é opcional nos testes, porque o projeto liga OpenXR e nenhum
@@ -148,11 +168,11 @@ curva nunca custa alcance — só muda o caminho até o batente. É por isso que
 existe em vez de um multiplicador de sensibilidade, que seria só outro nome para
 mexer no curso.
 
-A conta vive em `app/vr/guidao.gd`, sem nenhuma dependência de XR — entra
+A conta vive em `app/scripts/vr/guidao.gd`, sem nenhuma dependência de XR — entra
 `Transform3D`, sai `Vector2`. É o que permite verificá-la sem headset:
 
 ```bash
-godot --headless --xr-mode off --path app res://test_guidao.tscn
+godot --headless --xr-mode off --path app res://cenas/test_guidao.tscn
 ```
 
 O mapa **por jogo** que o roadmap pede ainda não existe: hoje o guidão é uma
@@ -207,7 +227,7 @@ sem build e sideload.
 Para ver as páginas do menu sem headset nenhum:
 
 ```bash
-xvfb-run -a godot --xr-mode off --path app res://test_ui.tscn   # -> user://ui_*.png
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_ui.tscn   # -> user://ui_*.png
 ```
 
 Esse mesmo teste confere o caminho de clique do laser, o round-trip dos save
@@ -223,7 +243,7 @@ Trocar de ROM tem teste próprio, porque o mupen64plus recusa um segundo
 argumento:
 
 ```bash
-xvfb-run -a godot --xr-mode off --path app res://test_troca_rom.tscn -- \
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_troca_rom.tscn -- \
     --n64 "$ROMS/N64/Star Fox 64 (USA).z64" \
     --n64b "$ROMS/N64/Super Mario 64 (USA).z64" \
     --snes "$ROMS/SNES/Chrono Trigger (USA).sfc"

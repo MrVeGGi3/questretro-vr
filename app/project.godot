@@ -6,9 +6,9 @@ config_version=5
 [application]
 
 config/name="QuestRetro"
-run/main_scene="res://vr/vr_main.tscn"
+run/main_scene="res://cenas/vr_main.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/icon="res://ui/icon.png"
+config/icon="res://assets/icon.png"
 
 [audio]
 

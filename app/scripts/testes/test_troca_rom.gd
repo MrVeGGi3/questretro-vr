@@ -10,7 +10,7 @@ extends Node
 ##
 ## As ROMs não são versionadas, então vêm por argumento:
 ##
-##   xvfb-run -a godot --xr-mode off --path app res://test_troca_rom.tscn -- \
+##   xvfb-run -a godot --xr-mode off --path app res://cenas/test_troca_rom.tscn -- \
 ##       --n64 "/caminho/Star Fox 64 (USA).z64" \
 ##       --n64b "/caminho/Super Mario 64 (USA).z64" \
 ##       --snes "/caminho/jogo.sfc"

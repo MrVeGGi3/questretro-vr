@@ -5,7 +5,7 @@ extends Node
 ## Precisa de um renderizador de verdade (o headless não desenha em textura),
 ## mas não precisa de janela visível:
 ##
-##   xvfb-run -a godot --xr-mode off --path app res://test_ui.tscn
+##   xvfb-run -a godot --xr-mode off --path app res://cenas/test_ui.tscn
 ##   # -> user://ui_<pagina>.png
 ##
 ## O `--xr-mode off` não é opcional: o projeto liga OpenXR, e sem um runtime

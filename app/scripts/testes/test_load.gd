@@ -1,7 +1,7 @@
 extends SceneTree
 ## Teste headless da Fase 0: prova que a GDExtension registra a classe,
 ## que o dlopen do core funciona e que retro_init roda.
-## Rodar: godot --headless --path app -s res://test_load.gd
+## Rodar: godot --headless --path app -s res://scripts/testes/test_load.gd
 
 func _initialize() -> void:
 	print("=== teste libretrogd ===")

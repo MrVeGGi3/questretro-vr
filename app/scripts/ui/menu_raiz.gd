@@ -9,7 +9,7 @@ extends Control
 signal fechar_pedido
 signal rom_escolhida(caminho: String)
 
-const LOGO := "res://ui/logo.png"
+const LOGO := "res://assets/logo.png"
 
 var _cfg: ConfigEmu
 var _emu: EmuCore

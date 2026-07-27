@@ -2,7 +2,7 @@ extends Node
 ## Prova a conta do guidão sem headset nenhum. É aritmética pura, então roda em
 ## `--headless` (ao contrário do test_troca_rom, que precisa de GPU):
 ##
-##   godot --headless --xr-mode off --path app res://test_guidao.tscn
+##   godot --headless --xr-mode off --path app res://cenas/test_guidao.tscn
 ##
 ## Roda como cena e não com `-s` pelo mesmo motivo do test_ui: script de
 ## MainLoop trava na inicialização com a GDExtension carregada.

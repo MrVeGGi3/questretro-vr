@@ -288,6 +288,6 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   feito, a página de Saves oferece save state de N64 sem garantia.
 
 - **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
-  deixa remapear (ver o comentário em `ui/paginas/pag_input.gd`). O que dá para
+  deixa remapear (ver o comentário em `scripts/ui/paginas/pag_input.gd`). O que dá para
   ajustar são os contínuos: zona morta do D-pad (SNES) e o guidão de nave (N64).
 - **Integração com `romkeep`**: prevista para depois desta fase.
