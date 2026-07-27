@@ -267,8 +267,8 @@ func _testar_save_state(emu: EmuCore) -> void:
 	# suposto (ver docs/EXPORT.md).
 	var deterministico := emu.sistema != "n64"
 	if not deterministico:
-		print("PULADO: %s não repete byte a byte; save state do N64 pende de conferência visual"
-				% emu.sistema)
+		print("PULADO: %s não repete byte a byte; quem confere o N64 é o test_estado, "
+				% emu.sistema + "que compara a imagem em vez dos bytes")
 	if deterministico:
 		var depois := emu._host.save_state()
 		_conferir(depois == antes, "estado restaurado bate byte a byte com o original")

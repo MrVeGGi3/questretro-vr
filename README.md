@@ -189,6 +189,10 @@ automática (a cada 5 s, se algo mudou) e também ao trocar de ROM, ao fechar o 
 e quando o Quest suspende a sessão. A página **Saves** do menu mostra o tamanho
 da bateria e quando ela foi gravada pela última vez.
 
+Os save states dos quatro slots valem também no N64: que restaurar devolve o
+jogo ao ponto gravado está conferido por imagem em `test_estado` (o teste de
+bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
+
 ## Roadmap
 
 - **Fase 0 ✅** — GDExtension libretro rodando no Godot desktop.
@@ -251,3 +255,20 @@ xvfb-run -a godot --xr-mode off --path app res://cenas/test_troca_rom.tscn -- \
 
 Também não roda em `--headless`: o N64 desenha por GPU, e sem contexto de GL o
 FBO emprestado ao core não sobe.
+
+Save state também tem teste próprio, pela mesma razão de fundo: no N64 o estado
+serializado **não repete byte a byte** (o mupen roda uma `EmuThread` própria), e
+comparar bytes ali não distingue restauração ruim de core que não repete. Então
+este compara a **imagem** — grava, avança, restaura, e pergunta se o frame de
+volta é o do ponto gravado:
+
+```bash
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_estado.tscn -- \
+    --n64 "$ROMS/N64/Star Fox 64 (USA).z64" \
+    --snes "$ROMS/SNES/Chrono Trigger (USA).sfc"
+```
+
+O SNES entra como controle: ele é determinístico e sabidamente restaura, então
+reprovar nele acusa a métrica e não o emulador — foi assim que o teste se
+corrigiu duas vezes. Os frames comparados ficam em `user://estado_*.png`, porque
+quando um teste de imagem falha só a imagem diz o motivo.

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotestestado"]
+
+[ext_resource type="Script" path="res://scripts/testes/test_estado.gd" id="1_estado"]
+
+[node name="TestEstado" type="Node"]
+script = ExtResource("1_estado")

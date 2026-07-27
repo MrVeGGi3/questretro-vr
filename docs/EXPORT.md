@@ -272,20 +272,54 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de
   derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
   confiável: a SRAM depende da gravação periódica, não dele.
-- **Save state do N64 não está conferido**: `retro_serialize` devolve 16 MB e o
-  `load_state` aceita de volta, mas o estado **não repete byte a byte** — nem
-  logo depois de restaurar, nem refazendo o mesmo trecho a partir do estado
-  restaurado. Medido com Star Fox 64 no desktop.
+- **Save state do N64: conferido** (antes era a pendência de que a página de
+  Saves oferecia os slots sem garantia). O estado **não repete byte a byte** —
+  nem logo depois de restaurar, nem refazendo o mesmo trecho —, mas isso nunca
+  provou defeito: o mupen roda uma `EmuThread` própria, o nosso `step()` não
+  avança uma quantidade fixa de trabalho, e a comparação de bytes não distingue
+  restauração ruim de core que não repete. A asserção era inconclusiva, não
+  falsa. `test_ui.gd` segue pulando ela no N64 e mantendo no SNES.
 
-  Isso não prova que está quebrado: o mupen roda uma `EmuThread` própria, então
-  o nosso `step()` pode não avançar uma quantidade fixa de trabalho, e aí a
-  comparação não distingue restauração ruim de core que não repete. Prova, sim,
-  que a asserção não serve para o N64 — por isso `test_ui.gd` a pula neste
-  sistema (e a mantém no SNES, onde ela passa).
+  Quem confere agora é `cenas/test_estado.tscn`, que mede a **imagem** em vez
+  dos bytes: grava, colhe uma janela de frames de referência, avança 180 frames,
+  restaura e pergunta se o frame de volta cai na janela. Tudo em unidades de "o
+  quanto um frame emulado muda", que o próprio teste mede na janela — assim o
+  limiar não é calibrado por ROM.
 
-  Conferir de verdade pede o caminho visual: gravar num ponto reconhecível,
-  jogar, restaurar e ver se o jogo volta ao mesmo lugar. Enquanto isso não for
-  feito, a página de Saves oferece save state de N64 sem garantia.
+  Medido no desktop, resíduo em frames de distância:
+
+  | ROM | renderizador | restaurado | 180 frames depois |
+  |---|---|---|---|
+  | Star Fox 64 | `gliden64` | 0,0 | 107,3 |
+  | Star Fox 64 | `angrylion` | 0,7 | 31,7 |
+  | Super Mario 64 | `gliden64` | 0,1 | 4,0 |
+  | Chrono Trigger (controle SNES) | — | 0,0 | 4,2 |
+
+  A linha do `angrylion` não é zelo: é o renderizador que roda **no Quest**, e
+  provar o save state só sob `gliden64` deixaria de fora justamente a
+  configuração que vai para o headset. Rodou no desktop sem rebuild, pela
+  sobrescrita de `user://opcoes_core.cfg` descrita acima.
+
+  Com a restauração salteada de propósito, o Star Fox 64 dá 107,2 em vez de 0,0
+  — a asserção reprova quando deve.
+
+  Duas armadilhas que custaram caro e estão codificadas no teste, porque o
+  controle do SNES reprovou com a restauração comprovadamente correta:
+
+  1. **Onde gravar.** Num fade a distância entre imagens satura: na intro do
+     Star Fox 64, dois frames vizinhos se afastam 0,018 enquanto 180 frames se
+     afastam 0,026. Ali nenhum limiar significa nada. O teste tenta trechos em
+     sequência e só aceita aquele em que o frame distante está mesmo distante.
+  2. **Escolher olhando para trás não serve.** Um buscador que procura mudança
+     acumulada nas amostras já vistas pousa sempre logo depois de um corte de
+     cena — onde a mudança recente é enorme e não diz nada sobre o que vem. A
+     escolha é feita medindo para a frente, o que também evita usar save state
+     para decidir onde testar save state.
+
+  E conferido **no headset**, que era a outra pergunta — o teste mede o
+  framebuffer, não a experiência de gravar, jogar um trecho e voltar ao ponto
+  com o controle respondendo. Com isso a pendência está fechada nas duas pontas:
+  a medida no desktop e o uso no Quest.
 
 - **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
   deixa remapear (ver o comentário em `scripts/ui/paginas/pag_input.gd`). O que dá para
