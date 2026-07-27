@@ -298,17 +298,24 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   é de 290 KB). Checar mais vezes é quase de graça — sem mudança a função sai na
   comparação de buffer, sem tocar no disco.
 
-  No headset, o caminho está de pé mas o veredito **ainda não veio**. Numa
-  sessão de Chrono Trigger (bateria de 64 Kbit, ~2 min de jogo), as três pausas
-  imprimiram `EmuCore: pausa — SRAM sem mudança` e nenhum `.srm` mudou de mtime.
-  Isso é o comportamento correto para o que aconteceu — sem salvar *dentro* do
-  jogo a bateria não muda, e não havia o que gravar —, mas é uma sessão que não
-  testa a pergunta.
+  **Conferido no headset**, salvando dentro do Chrono Trigger:
 
-  Falta repetir chegando a um ponto de save do jogo e salvando lá: uma vez com
-  alguns segundos de folga antes de tirar o headset, outra tirando na hora.
-  Atenção à ROM: a demo que abre por padrão (`Classic Kong`) tem `SRAM: 0 Kbit`
-  e nunca gravaria nada.
+  | 18:32:28 | pausa — `SRAM sem mudança` (nada salvo ainda) |
+  |---|---|
+  | **18:32:47,409** | o `.srm` é escrito: 8192 bytes, 41,5% não-zero |
+  | 18:32:50 | pausa — `SRAM sem mudança`, 3 s depois da escrita |
+
+  O save saiu do jogo por volta de 18:32:46 e estava em disco ~1 s depois. O
+  `sem mudança` da segunda pausa não é ausência de save: é a prova de que a
+  gravação periódica já tinha feito o trabalho antes de o headset sair. Que é
+  exatamente o que se quer — a sobrevivência do progresso não depende do
+  caminho de morte do app.
+
+  Duas armadilhas para quem for repetir. A demo que abre por padrão
+  (`Classic Kong`) tem `SRAM: 0 Kbit` e nunca gravaria nada — tem que ser um
+  cartucho com bateria. E não adianta só jogar: sem salvar *dentro* do jogo a
+  SRAM não muda, e todas as pausas dizem `sem mudança` sem que isso signifique
+  problema nenhum.
 - **Save state do N64: conferido** (antes era a pendência de que a página de
   Saves oferecia os slots sem garantia). O estado **não repete byte a byte** —
   nem logo depois de restaurar, nem refazendo o mesmo trecho —, mas isso nunca
