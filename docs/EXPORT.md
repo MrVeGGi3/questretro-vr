@@ -267,24 +267,28 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   intercepta e mostra *controller required* — no logcat,
   `common_system_dialog_app_launch_blocked_controller_required`. Não é crash do
   app; é preciso estar de headset com os controles ativos.
-- **Crash ao pausar**: o Godot segfalta em
-  `GodotVulkanRenderView.lambda$onActivityPaused$0` (VkThread) quando o app é
-  pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de
-  derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
-  confiável: a SRAM depende da gravação periódica, não dele.
+- **Crash ao pausar: não reproduz mais.** O registro antigo era um segfault em
+  `GodotVulkanRenderView.lambda$onActivityPaused$0` (VkThread) ao pausar, que
+  além de derrubar o app tornava o `NOTIFICATION_APPLICATION_PAUSED` não
+  confiável.
 
-  **Suspeita de que esta pendência esteja vencida.** O rastro é de uma
-  `GodotVulkanRenderView`, mas no logcat de hoje o nosso processo instancia
-  `GLSurfaceView` e `OpenGLRenderer` — GL, como `project.godot` pede nas linhas
-  19 e 24. (As linhas de Vulkan no log são do compositor do Horizon OS, pid
-  separado, não nossas.) Isso encaixa com o crash ser **anterior** ao commit que
-  pôs o Quest em `gl_compatibility`, quando o Android ainda subia em Vulkan.
+  Medido de headset, em três pausas seguidas (tirar o Quest da cabeça): **nenhum
+  `Fatal signal`, nenhum SIGSEGV, nenhum tombstone**. A saída é ordeira —
+  `OnPause` → o nosso handler → `OnStop` → `onActivityDestroyed` → `OnDestroy` →
+  o processo termina.
 
-  Não está confirmado: com o headset ocioso o app não chega a rodar de verdade —
-  o `vrshell` fica com o foco e o nosso processo vai de `OnResume` a `OnPause`
-  na hora —, então não dá para provocar a pausa de um app *em execução* por
-  `adb`. Quem estiver de headset confirma em dez segundos: pausar e ver se o app
-  sobrevive.
+  O que explica: o crash era do tempo em que o Android subia em Vulkan. Hoje o
+  log do device diz `OpenGL API OpenGL ES 3.2 ... Adreno (TM) 740`, ou seja
+  `gl_compatibility` valendo como `project.godot` pede (linhas 19 e 24). As
+  linhas de Vulkan que aparecem no logcat são do compositor do Horizon OS, de
+  outro pid. O rastro antigo é anterior ao commit que fez essa troca.
+
+  Duas consequências práticas. A primeira: **tirar o headset destrói a
+  atividade**, não só pausa — o processo termina de vez, então não existe
+  "voltar para onde estava"; a próxima sessão é um arranque novo. A segunda: o
+  `APPLICATION_PAUSED` **chega até nós e dá tempo de agir** — a nossa linha sai
+  4 ms depois da notificação e uns 70 ms antes do `OnStop`. Ele voltou a ser um
+  gatilho de verdade, e não só um enfeite ao lado da gravação periódica.
 
 - **Janela de perda da SRAM**: como o app morre ao ser pausado, o que protege o
   progresso na prática é só a gravação periódica. `cenas/test_sram.tscn` mede o
@@ -294,9 +298,17 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   é de 290 KB). Checar mais vezes é quase de graça — sem mudança a função sai na
   comparação de buffer, sem tocar no disco.
 
-  Falta o veredito no headset, que é outra pergunta: salvar dentro do jogo,
-  tirar o Quest da cabeça, reabrir e ver se o progresso está lá — uma vez com
-  alguns segundos de folga e outra tirando o headset logo depois de salvar.
+  No headset, o caminho está de pé mas o veredito **ainda não veio**. Numa
+  sessão de Chrono Trigger (bateria de 64 Kbit, ~2 min de jogo), as três pausas
+  imprimiram `EmuCore: pausa — SRAM sem mudança` e nenhum `.srm` mudou de mtime.
+  Isso é o comportamento correto para o que aconteceu — sem salvar *dentro* do
+  jogo a bateria não muda, e não havia o que gravar —, mas é uma sessão que não
+  testa a pergunta.
+
+  Falta repetir chegando a um ponto de save do jogo e salvando lá: uma vez com
+  alguns segundos de folga antes de tirar o headset, outra tirando na hora.
+  Atenção à ROM: a demo que abre por padrão (`Classic Kong`) tem `SRAM: 0 Kbit`
+  e nunca gravaria nada.
 - **Save state do N64: conferido** (antes era a pendência de que a página de
   Saves oferecia os slots sem garantia). O estado **não repete byte a byte** —
   nem logo depois de restaurar, nem refazendo o mesmo trecho —, mas isso nunca
