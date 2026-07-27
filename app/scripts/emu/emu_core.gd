@@ -17,7 +17,13 @@ const PASTA_SAVES := "user://saves"
 ## Intervalo entre checagens da SRAM. O jogo escreve na bateria sem avisar
 ## ninguém, então a única forma de saber é comparar de tempos em tempos — este
 ## número é o teto do progresso que se perde num crash.
-const INTERVALO_SRAM := 5.0
+##
+## Um segundo, e não cinco, porque no Quest o app **morre** ao ser pausado (o
+## Godot segfalta em `onActivityPaused`, ver docs/EXPORT.md) e tirar o headset é
+## como quase toda sessão termina. Checar mais vezes é quase de graça: quando
+## nada mudou a função sai na comparação de buffer, sem tocar no disco. Medido em
+## `test_sram`: com 5 s a gravação saía 4,9 s depois de salvar.
+const INTERVALO_SRAM := 1.0
 
 ## Core por sistema e plataforma: `android` é o binário aarch64 do Quest,
 ## `desktop` o x86_64. Os nomes não seguem um padrão comum — o mupen do

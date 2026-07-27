@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotestsram"]
+
+[ext_resource type="Script" path="res://scripts/testes/test_sram.gd" id="1_sram"]
+
+[node name="TestSram" type="Node"]
+script = ExtResource("1_sram")

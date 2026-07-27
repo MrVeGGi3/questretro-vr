@@ -185,9 +185,14 @@ o catálogo `romkeep` está prevista na Fase 3.
 
 Jogos com bateria gravam sozinhos em `user://saves/<jogo>.srm`, no mesmo formato
 do RetroArch — dá para levar um save de lá para cá e vice-versa. A gravação é
-automática (a cada 5 s, se algo mudou) e também ao trocar de ROM, ao fechar o app
+automática (a cada 1 s, se algo mudou) e também ao trocar de ROM, ao fechar o app
 e quando o Quest suspende a sessão. A página **Saves** do menu mostra o tamanho
 da bateria e quando ela foi gravada pela última vez.
+
+Um segundo, e não cinco, porque no Quest o app morre ao ser pausado — e tirar o
+headset é como quase toda sessão acaba, então o timer é o que de fato protege o
+progresso. Checar mais vezes é quase de graça: sem mudança, a gravação sai na
+comparação de buffer sem tocar no disco. `test_sram` mede esse atraso.
 
 Os save states dos quatro slots valem também no N64: que restaurar devolve o
 jogo ao ponto gravado está conferido por imagem em `test_estado` (o teste de
@@ -272,3 +277,15 @@ O SNES entra como controle: ele é determinístico e sabidamente restaura, entã
 reprovar nele acusa a métrica e não o emulador — foi assim que o teste se
 corrigiu duas vezes. Os frames comparados ficam em `user://estado_*.png`, porque
 quando um teste de imagem falha só a imagem diz o motivo.
+
+A bateria tem o seu, que mede o atraso entre o jogo salvar e os bytes chegarem
+ao disco — o que se perde se o app morrer, que no Quest é o normal:
+
+```bash
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_sram.tscn -- \
+    --rom "$ROMS/SNES/Chrono Trigger (USA).sfc"
+```
+
+O caminho do `.srm` sai do nome da ROM, então o teste faz backup do save que já
+existir e o devolve no fim — inclusive se falhar no meio. Testar a segurança do
+save destruindo um save seria irônico demais.

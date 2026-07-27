@@ -272,6 +272,24 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   pausado — tirar o headset, ou subir por `adb` com o headset ocioso. Além de
   derrubar o app, torna o gatilho `NOTIFICATION_APPLICATION_PAUSED` não
   confiável: a SRAM depende da gravação periódica, não dele.
+
+  Um detalhe do rastro que ninguém puxou ainda: `project.godot` pede
+  `gl_compatibility` nas duas plataformas (linhas 19 e 24), e o crash é numa
+  `GodotVulkanRenderView`. Pode ser só nome de classe do Godot no Android, mas
+  se o runtime estiver mesmo em Vulkan lá, isso explica mais coisa que o crash —
+  e é um `grep` no logcat de quem já estiver com o headset na cabeça.
+
+- **Janela de perda da SRAM**: como o app morre ao ser pausado, o que protege o
+  progresso na prática é só a gravação periódica. `cenas/test_sram.tscn` mede o
+  atraso entre o jogo salvar e os bytes chegarem ao disco; com o
+  `INTERVALO_SRAM` de 5 s ele dava **4,9 s**, ou seja, a janela inteira.
+  Baixado para 1 s (medido: **0,9 s**, tanto no SNES quanto no N64, cujo buffer
+  é de 290 KB). Checar mais vezes é quase de graça — sem mudança a função sai na
+  comparação de buffer, sem tocar no disco.
+
+  Falta o veredito no headset, que é outra pergunta: salvar dentro do jogo,
+  tirar o Quest da cabeça, reabrir e ver se o progresso está lá — uma vez com
+  alguns segundos de folga e outra tirando o headset logo depois de salvar.
 - **Save state do N64: conferido** (antes era a pendência de que a página de
   Saves oferecia os slots sem garantia). O estado **não repete byte a byte** —
   nem logo depois de restaurar, nem refazendo o mesmo trecho —, mas isso nunca
