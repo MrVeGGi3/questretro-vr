@@ -31,6 +31,15 @@ var curso := 0.12
 var zona_morta := 0.08      ## abaixo disto, zero — mão parada não é mão firme
 var inverter_y := false
 
+## Forma da resposta dentro do curso. 1.0 é linear; acima disso o começo do
+## movimento rende mais e o fim do curso fica reservado para manobra forte;
+## abaixo, o contrário — controle fino perto do centro.
+##
+## Isto é o que os sliders de curso e ângulo **não** dão. Eles decidem *onde* o
+## eixo satura; baixá-los para ganhar sensibilidade deixa tudo nervoso, extremos
+## inclusive, e aí não se segura a nave reta. A curva mexe só na distribuição.
+var curva := 1.0
+
 
 ## Marca a pose atual como o repouso. Chamar ao ligar o modo, ao carregar uma
 ## ROM e quando o jogador pedir: o centro depende de como ele está sentado, e
@@ -111,11 +120,24 @@ func _normalizar(valor: float, cheio: float) -> float:
 
 
 ## Zona morta radial, não por eixo: cortar eixo a eixo deixaria um quadrado de
-## repouso, e a diagonal pequena escaparia por ele.
+## repouso, e a diagonal pequena escaparia por ele. A curva também é radial,
+## pelo mesmo motivo — aplicada eixo a eixo, ela entortaria as diagonais.
 func _com_zona_morta(v: Vector2) -> Vector2:
 	var mag := v.length()
 	if mag <= zona_morta:
 		return Vector2.ZERO
 	# Reescala para a saída começar em zero na borda da zona morta, em vez de
 	# saltar para o valor cheio assim que sai dela.
-	return v.normalized() * minf((mag - zona_morta) / (1.0 - zona_morta), 1.0)
+	var util := minf((mag - zona_morta) / (1.0 - zona_morta), 1.0)
+	return v.normalized() * _curvar(util)
+
+
+## Aplica a curva a um módulo já normalizado em [0, 1]. Os extremos são pontos
+## fixos: zero continua zero e cheio continua cheio, então mudar a curva nunca
+## tira o alcance do manche — só redistribui o caminho até ele.
+func _curvar(m: float) -> float:
+	if curva <= 0.0 or is_equal_approx(curva, 1.0):
+		return m
+	# Expoente invertido para o número da interface crescer com a agressividade:
+	# curva 2 vira expoente 0,5, que rende mais no começo do movimento.
+	return pow(m, 1.0 / curva)

@@ -44,6 +44,9 @@ const PADROES := {
 	# empurrar meio braço para subir ficava lerdo ao lado da rolagem.
 	"input/guidao_curso": 0.12,
 	"input/guidao_zona_morta": 0.08,
+	# 1.0 = linear. Padrão neutro de propósito: a curva mexe no gosto, e não
+	# tenho nada além de uma pessoa pilotando para chutar um valor melhor.
+	"input/guidao_curva": 1.0,
 	"input/guidao_inverter_y": false,
 	# Leitura ao vivo dos eixos, na tela. Existe porque cada ida ao headset é
 	# cara: com o número à vista, "não responde" e "responde ao contrário" e

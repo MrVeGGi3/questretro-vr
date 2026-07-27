@@ -470,6 +470,7 @@ func _aplicar_ajustes_guidao() -> void:
 	_guidao.angulo_max = _cfg.obter("input/guidao_angulo_max")
 	_guidao.curso = _cfg.obter("input/guidao_curso")
 	_guidao.zona_morta = _cfg.obter("input/guidao_zona_morta")
+	_guidao.curva = _cfg.obter("input/guidao_curva")
 	_guidao.inverter_y = _cfg.obter("input/guidao_inverter_y")
 
 

@@ -156,6 +156,13 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 	caixa.add_child(WidgetsVR.campo("Zona morta", "ignora tremor de mão",
 			WidgetsVR.slider(cfg, "input/guidao_zona_morta", 0.0, 0.3, 0.01,
 					func(v: float) -> String: return "%.2f" % v)))
+	# Acima de 1 o começo do movimento rende mais; abaixo, controle fino perto
+	# do centro. Os extremos não mudam — o eixo cheio continua alcançável em
+	# qualquer curva, então mexer aqui nunca custa manobra.
+	caixa.add_child(WidgetsVR.campo("Curva", "acima de 1: reage mais no começo",
+			WidgetsVR.slider(cfg, "input/guidao_curva", 0.5, 3.0, 0.1,
+					func(v: float) -> String:
+						return "linear" if is_equal_approx(v, 1.0) else "%.1f" % v)))
 	# O Star Fox 64 já nasce invertido, e a preferência varia de pessoa para
 	# pessoa: não é escolha que dê para acertar por padrão.
 	caixa.add_child(WidgetsVR.campo("Inverter subir/descer", "empurrar mergulha",

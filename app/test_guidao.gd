@@ -29,6 +29,9 @@ func _ready() -> void:
 	_satura_em_um()
 	_zona_morta_e_exatamente_zero()
 	_sem_centrar_nao_comanda()
+	_curva_rende_mais_no_comeco()
+	_curva_nao_tira_alcance()
+	_curva_nao_entorta_a_diagonal()
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -142,6 +145,62 @@ func _sem_centrar_nao_comanda() -> void:
 	var g := _guidao()
 	var p := _pose(-0.15, deg_to_rad(20.0))
 	_perto(g.eixos(p.esq, p.dir, p.cam), Vector2.ZERO, "sem centrar, pose nenhuma comanda")
+
+
+## A promessa da curva: meio caminho de movimento rende mais que meio eixo.
+func _curva_rende_mais_no_comeco() -> void:
+	var meio := _pose(-0.06)     # pouco menos de meio curso
+
+	var linear := _guidao()
+	linear.centrar(_pose().esq, _pose().dir, _pose().cam)
+	var y_linear := linear.eixos(meio.esq, meio.dir, meio.cam).y
+
+	var agressiva := _guidao()
+	agressiva.curva = 2.0
+	agressiva.centrar(_pose().esq, _pose().dir, _pose().cam)
+	var y_agressiva := agressiva.eixos(meio.esq, meio.dir, meio.cam).y
+
+	_verdade(y_agressiva > y_linear + 0.1,
+			"curva 2.0 rende mais no começo (%.2f contra %.2f)" % [y_agressiva, y_linear])
+
+	var fina := _guidao()
+	fina.curva = 0.5
+	fina.centrar(_pose().esq, _pose().dir, _pose().cam)
+	var y_fina := fina.eixos(meio.esq, meio.dir, meio.cam).y
+	_verdade(y_fina < y_linear - 0.1,
+			"curva 0.5 rende menos no começo (%.2f contra %.2f)" % [y_fina, y_linear])
+
+
+## Curva nenhuma pode custar alcance: no fim do curso o eixo tem que chegar
+## cheio, senão mexer nela viraria uma nave que não vira direito.
+func _curva_nao_tira_alcance() -> void:
+	for c in [0.5, 1.0, 2.0, 3.0]:
+		var g := _guidao()
+		g.curva = c
+		g.centrar(_pose().esq, _pose().dir, _pose().cam)
+		var longe := _pose(-1.0)
+		var y := g.eixos(longe.esq, longe.dir, longe.cam).y
+		_verdade(y > 0.99, "curva %.1f ainda alcança o eixo cheio (deu %.3f)" % [c, y])
+
+
+## A curva é radial. Aplicada eixo a eixo, ela mudaria a proporção entre x e y
+## e a diagonal sairia torta — a nave viraria mais do que subiria num gesto que
+## pede os dois igualmente.
+func _curva_nao_entorta_a_diagonal() -> void:
+	var p := _pose(-0.08, deg_to_rad(15.0))
+
+	var linear := _guidao()
+	linear.centrar(_pose().esq, _pose().dir, _pose().cam)
+	var a := linear.eixos(p.esq, p.dir, p.cam)
+
+	var curvada := _guidao()
+	curvada.curva = 2.5
+	curvada.centrar(_pose().esq, _pose().dir, _pose().cam)
+	var b := curvada.eixos(p.esq, p.dir, p.cam)
+
+	_verdade(b.length() > a.length() + 0.05, "a curva de fato mudou o módulo")
+	_verdade(absf(a.angle() - b.angle()) < 0.01,
+			"e manteve a direção (%.3f rad contra %.3f)" % [a.angle(), b.angle()])
 
 
 # ---------------------------------------------------------------------------
