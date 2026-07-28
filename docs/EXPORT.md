@@ -392,4 +392,49 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
 
   Os analógicos ficam de fora: não são botões para o core. Conferido no headset
   e no desktop nos dois sistemas.
+- **Passthrough: falta conferir no device.** O modo Passthrough da página Sala
+  liga `xr_features/passthrough=1` no preset (o `enable_meta_plugin` já estava
+  ligado, e o addon `godotopenxrvendors` 5.1.0 está no projeto), e em runtime põe
+  o OpenXR em `XR_ENV_BLEND_MODE_ALPHA_BLEND` com `transparent_bg` no viewport.
+
+  O que **não** dá para afirmar do desktop: se isso compõe sobre
+  `gl_compatibility`, que é o renderizador que o `project.godot` fixa nos dois
+  alvos. Sem runtime de XR na máquina não há o que medir, e o histórico do
+  GLideN64 nesta mesma pasta mostra que `gl_compatibility` no Quest guarda
+  surpresas que nenhuma leitura de documentação antecipa.
+
+  Conferir no headset:
+
+  ```bash
+  adb logcat | grep -i "Sala:"     # "passthrough ligado (alpha blend)"
+  ```
+
+  Se não subir, a linha é `Sala: passthrough indisponível — caindo no Vazio`, e o
+  app avisa na tela em vez de ficar preto em silêncio — um preto calado seria
+  indistinguível de um preto proposital. Se subir no log e mesmo assim a imagem
+  das câmeras não aparecer, o suspeito é a composição em `gl_compatibility`, e o
+  resultado vale registro aqui mesmo que o modo acabe caindo fora.
+
+- **Orçamento de frame do fliperama: falta medir no device.** O salão é estático,
+  unshaded, sem luz nem sombra, e cabe em seis chamadas de desenho — mas isso é
+  hipótese até o número sair do Quest. A instrumentação já existe:
+
+  ```bash
+  adb logcat | grep DIAG      # o app precisa ter subido com `-- --diag`
+  ```
+
+  Critério: com o Fliperama ligado, `render` segue em 72 fps e `passos do emu`
+  seguem batendo com o fps que o core pede. A CPU é o recurso escasso aqui
+  (emulação, mais o angrylion por software no N64); a GPU hoje desenha um quad e
+  deve ter folga, que é exatamente a parte que precisa ser confirmada e não
+  suposta.
+
+- **A tela grande passa do salão.** No topo do slider de tamanho a tela chega a
+  11,2 m de largura, e nenhum salão de proporção plausível a contém — o teto e o
+  chão a cortam antes. O salão é dimensionado a partir do alcance da tela (a
+  parede do fundo fica além da distância máxima, e há asserção segurando isso),
+  mas o extremo continua sendo extremo. A saída é o modo Vazio, que existe para
+  isso. Se de dentro do headset isso incomodar antes do extremo, a correção
+  natural é a parede do fundo recuar junto com a escala.
+
 - **Integração com `romkeep`**: prevista para depois desta fase.

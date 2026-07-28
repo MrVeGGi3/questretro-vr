@@ -30,7 +30,7 @@ app/               projeto Godot
   scripts/         todos os .gd, subdivididos por assunto
     main.gd            par da cena desktop
     emu/               emu_core.gd, config_emu.gd — o emulador e a configuração
-    vr/                xr_main.gd, painel_menu.gd, guidao.gd
+    vr/                xr_main.gd, painel_menu.gd, guidao.gd, mapa_input.gd, sala.gd
     ui/                menu_raiz, tema, widgets, navegador_roms
       paginas/           uma por página do menu
     testes/            test_*.gd (inclusive test_load.gd e test_shot.gd,
@@ -215,10 +215,49 @@ lugares diferentes para consertar a mesma coisa.
 Cada perfil é um `user://perfis/<jogo>.cfg`, com o mesmo nome que o `.srm` e os
 slots de estado daquele cartucho.
 
+## A sala
+
+Onde a tela flutua. Página **Sala** do menu, três modos:
+
+| modo | o que é |
+|---|---|
+| **Vazio** | só a tela, o resto preto — o padrão |
+| **Fliperama** | um salão de arcade em volta: carpete, neon nas quinas, gabinetes acesos nas paredes |
+| **Passthrough** | o seu quarto de verdade, pelas câmeras do Quest 3S |
+
+Nasce no Vazio porque uma atualização não deve trocar o cenário debaixo de
+quem já usa o app — a mesma razão pela qual o guidão nasce desligado. E o modo
+fica **fora** do perfil do cartucho: onde você joga é preferência sua, não do
+jogo, como já valia para tamanho de tela, brilho e volume.
+
+O salão é construído em código, sem asset nenhum, e é dimensionado a partir do
+**alcance da tela** e não do que pareceria um fliperama plausível: a tela vai de
+portátil a cinema, e num salão de proporção realista a tela grande atravessaria
+a parede do fundo. Mesmo assim há um limite — no topo do slider de tamanho a
+tela passa do salão, e aí a saída é o Vazio, que existe para isso.
+
+Nada de luz em tempo real, sombra ou glow: o projeto roda em `gl_compatibility`
+nos dois alvos, onde isso é caro ou não existe. A iluminação está **pintada nos
+vértices**, o que num fliperama escuro é justamente o efeito que se quer, e o
+salão inteiro cabe em seis malhas.
+
+Para ver a sala sem headset — porque "ficou escuro demais" e "a parede está
+virada para fora" nenhuma asserção pega:
+
+```bash
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_sala.tscn   # -> user://sala_*.png
+```
+
+O mesmo teste afirma o que a foto não mostra: que trocar de modo não deixa
+geometria para trás (um vazamento só apareceria no headset, como queda de fps
+sem causa aparente), que o salão sai igual a cada arranque, e que a parede do
+fundo continua além da distância máxima da tela — esta última para quando
+alguém resolver "arrumar" as proporções do salão.
+
 ## ROMs
 
 **Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
-o catálogo `romkeep` está prevista na Fase 3.
+o catálogo `romkeep` está prevista para depois da Fase 4.
 
 Jogos com bateria gravam sozinhos em `user://saves/<jogo>.srm`, no mesmo formato
 do RetroArch — dá para levar um save de lá para cá e vice-versa. A gravação é
@@ -242,7 +281,7 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
   input dos controllers Touch.
 - **Fase 2 ✅** — menu in-VR: navegador de ROMs, configurações persistentes de
   tela/vídeo/áudio/input e save states.
-- **Fase 3** — saves de bateria (SRAM) ✅; core N64 ✅ — Star Fox 64 roda no
+- **Fase 3 ✅** — saves de bateria (SRAM) ✅; core N64 ✅ — Star Fox 64 roda no
   Quest 3S e no desktop, com um porém: no headset o renderizador por GPU do
   mupen (GLideN64) derruba o app na Adreno, então lá ele usa o renderizador
   por software, que roda fluido.
@@ -258,7 +297,11 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
   isso pode virar **perfil por cartucho** — o mapa que serve ao Star Fox 64 não
   vai junto para o Mario 64 (ver "Controles no headset").
 
-  A seguir: integração com `romkeep`, salas/arcade virtual.
+- **Fase 4** — a **sala**: a tela deixou de flutuar no vazio e passou a ter um
+  lugar em volta (ver "A sala"). Três modos, um deles um salão de arcade — o
+  "arcade virtual" do plano.
+
+  A seguir: integração com `romkeep`.
 
 ## Menu dentro do headset
 
