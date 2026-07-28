@@ -4,9 +4,12 @@ Emulador **VR-nativo** para Meta Quest 3S, feito em **Godot 4** com cores
 **libretro**. Diferenciais de projeto: tela redimensionável (de portátil a
 cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fox).
 
-> Status: **Fase 0 concluída** — o pipeline de emulação (GDExtension + core
-> libretro) carrega e roda dentro do Godot no desktop. Fase 1 (cena VR + APK
-> Quest) é o próximo passo. Ver `docs/` e o plano.
+> Status: **Fases 0 a 6 concluídas**, todas conferidas no Quest 3S. Rodam
+> **SNES, N64, Mega Drive, Sega CD e Nintendo DS** (quatro cores libretro), com
+> menu in-VR, save states e saves de bateria, controles remapeáveis com perfil
+> por cartucho, o "guidão de nave" do N64, a **sala** em volta da tela (vazio,
+> fliperama ou passthrough) e a **caneta** do DS. A seguir: integração com o
+> catálogo `romkeep`. Ver o Roadmap abaixo e `docs/EXPORT.md`.
 
 ## Estrutura
 
@@ -30,7 +33,8 @@ app/               projeto Godot
   scripts/         todos os .gd, subdivididos por assunto
     main.gd            par da cena desktop
     emu/               emu_core.gd, config_emu.gd — o emulador e a configuração
-    vr/                xr_main.gd, painel_menu.gd, guidao.gd, mapa_input.gd, sala.gd
+    vr/                xr_main.gd, painel_menu.gd, guidao.gd, mapa_input.gd,
+                       sala.gd, caneta_ds.gd
     ui/                menu_raiz, tema, widgets, navegador_roms
       paginas/           uma por página do menu
     testes/            test_*.gd (inclusive test_load.gd e test_shot.gd,
@@ -56,7 +60,9 @@ usa `scripts/vr/xr_main.gd`.
   forward-compatible (`compatibility_minimum = 4.5`), então carrega no Godot
   4.6/4.7 sem rebuild. Buildar contra `master` casaria a ABI do 4.7 mas é alvo
   móvel — sem ganho pro nosso uso.
-- **libretro**: não reinventar emulação. Um core `.so` por sistema (snes9x no MVP).
+- **libretro**: não reinventar emulação. Um core `.so` por sistema — quase: o
+  `genesis_plus_gx` cobre Mega Drive e Sega CD sozinho, e é por isso que os dois
+  entram como um sistema só aqui. Hoje são quatro cores para cinco consoles.
 
 ## Build da GDExtension (desktop)
 
@@ -148,8 +154,18 @@ quatro botões. Com o direito ocupado, a tela se ajusta pelos sliders da página
 Tela. Z fica no grip esquerdo, L/R nos gatilhos, A/B nos botões do controle
 direito.
 
+O **Mega Drive** (e o Sega CD, que usa o mesmo controle) segue o desenho do SNES:
+analógico esquerdo vira D-pad, e a mão direita fica com o controle de 3 botões
+inteiro — A, B, C e Start —, que é tudo o que Sonic pede. Os extras do controle
+de 6 botões vão para a esquerda.
+
+O **Nintendo DS** tem seção própria mais abaixo, porque a tela de baixo é caneta
+e isso muda o mapa: o gatilho direito nasce em "Nada" por ser a ponta da caneta.
+
 Esse mapa não é decorado: sai dos descritores que o próprio core declara
-(`SET_INPUT_DESCRIPTORS`), e eles surpreendem — no N64, `JOYPAD_B` é o **A**.
+(`SET_INPUT_DESCRIPTORS`), e eles surpreendem em dois dos quatro cores — no N64
+`JOYPAD_B` é o **A**, e no Mega Drive o "A" do controle é `JOYPAD_Y` e o "C" é
+`JOYPAD_A`. Só o SNES e o DS batem com o nome.
 
 Com o painel aberto, o **analógico direito rola a página** — sem isso nada
 abaixo da dobra seria alcançável, porque o laser só sabe apontar e clicar.
@@ -250,6 +266,12 @@ gatilho direito é a ponta encostando. Por isso ele nasce em **Nada** no mapa de
 botões do DS — mapeado em R, todo toque apertaria R junto. O R fica no grip, e
 Start continua vindo do toque curto no botão de menu, como em todo sistema.
 
+O DS é o sistema mais pesado que roda aqui — dois processadores e um GPU 3D, tudo
+em software — e ainda assim fica no alvo: **71,6 fps de média** num alvo de 72,
+medidos com Trauma Center ao longo de 255 amostras de um segundo. Isso depende de
+uma opção que o core traz desligada (`melonds_threaded_renderer`); os detalhes e
+o que a medição mostrou sobre o áudio estão em `docs/EXPORT.md`.
+
 A conta que converte o ponto no quad em toque vive em `scripts/vr/caneta_ds.gd`,
 sem nenhuma dependência de XR, e o que a torna traiçoeira é o libretro querer a
 posição sobre o **framebuffer inteiro** enquanto o quad mostra só metade dele.
@@ -314,7 +336,7 @@ alguém resolver "arrumar" as proporções do salão.
 ## ROMs
 
 **Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
-o catálogo `romkeep` está prevista para depois da Fase 4.
+o catálogo `romkeep` é o próximo passo do roadmap.
 
 Jogos com bateria gravam sozinhos em `user://saves/<jogo>.srm`, no mesmo formato
 do RetroArch — dá para levar um save de lá para cá e vice-versa. A gravação é

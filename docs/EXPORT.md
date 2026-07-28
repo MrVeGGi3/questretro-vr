@@ -526,6 +526,35 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   reclamou de som picotado, mas está registrado porque o mecanismo é o mesmo que
   já causou o problema de 16 % descrito em "Rodar" no README.
 
+- **Nintendo DS: medido, e o DS confirma o mecanismo do áudio.** Trauma Center no
+  Quest 3S — o mais pesado dos cinco jogos de DS, e o que puxa mais 3D —, com
+  `melonds_threaded_renderer` ligado, **255 amostras de 1 s**:
+
+  | | |
+  |---|---|
+  | render | média **71,6** fps, máx 74 — alvo 72 |
+  | passos do emu | média **60,6**/s, mín 51 — o core pede 59,9 |
+  | segundos < 65 fps | 5 (**2,0 %**) |
+  | emulação atrasada (< 58 passos) | 3 (**1,2 %**) |
+  | áudio descartado | 7271 amostras (~0,16 s em 4,2 min) |
+
+  O DS roda liso. As quedas são três segundos isolados em quatro minutos.
+
+  O que o olho não pega e a série mostra: **as duas piores amostras são
+  exatamente as que descartaram áudio pesado** — 2398 e 4753 amostras, com os
+  passos do emu caindo para 52 e 51. As outras quedas de render, com os passos
+  firmes em 60, descartaram **zero**.
+
+  Isso fecha o mecanismo descrito no item acima por outro lado: lá o descarte
+  vinha do emulador **adiantando** um passo (61 em vez de 60), aqui vem de ele
+  **atrasar** (51). Nos dois casos o que sobra é dessincronia entre o que o core
+  gera e o que o `AudioStreamGenerator` consome — e é por isso que
+  `audio descartado` no DIAG vale como sintoma de ritmo, não de volume.
+
+  A medida foi tirada **depois** de ligar a rasterização em thread, então ela não
+  diz quanto a opção ajudou: não há linha de base com ela desligada. O que se
+  sabe é que, com ela, o sistema mais pesado do app fica no alvo.
+
 - **A tela grande passa do salão.** No topo do slider de tamanho a tela chega a
   11,2 m de largura, e nenhum salão de proporção plausível a contém — o teto e o
   chão a cortam antes. O salão é dimensionado a partir do alcance da tela (a
