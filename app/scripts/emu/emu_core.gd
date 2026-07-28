@@ -293,11 +293,11 @@ func suporta_estado() -> bool:
 
 
 func caminho_estado(slot: int) -> String:
-	return "%s/%s_%d.state" % [PASTA_ESTADOS, _base_rom(), slot]
+	return "%s/%s_%d.state" % [PASTA_ESTADOS, id_rom(), slot]
 
 
 func caminho_miniatura(slot: int) -> String:
-	return "%s/%s_%d.png" % [PASTA_ESTADOS, _base_rom(), slot]
+	return "%s/%s_%d.png" % [PASTA_ESTADOS, id_rom(), slot]
 
 
 func gravar_estado(slot: int) -> bool:
@@ -358,9 +358,11 @@ func apagar_estado(slot: int) -> bool:
 	return true
 
 
-## Nome de arquivo seguro derivado da ROM, para os slots de um jogo não
-## colidirem com os de outro.
-func _base_rom() -> String:
+## Nome de arquivo seguro derivado da ROM, para os arquivos de um jogo não
+## colidirem com os de outro. É o id do cartucho em todo o resto do app: nomeia
+## os slots de estado, o `.srm` e o perfil de controle, então os arquivos de um
+## jogo ficam todos com o mesmo nome na pasta.
+func id_rom() -> String:
 	if rom_atual.is_empty():
 		return "sem_rom"
 	return rom_atual.get_file().get_basename().validate_filename()
@@ -376,7 +378,7 @@ func _base_rom() -> String:
 ## `.srm` é a convenção do RetroArch e o conteúdo é o buffer cru, então os
 ## arquivos são intercambiáveis com uma instalação existente.
 func caminho_sram() -> String:
-	return "%s/%s.srm" % [PASTA_SAVES, _base_rom()]
+	return "%s/%s.srm" % [PASTA_SAVES, id_rom()]
 
 
 ## Bytes de bateria deste jogo; 0 quando o cartucho não tem.

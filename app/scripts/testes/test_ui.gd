@@ -41,6 +41,8 @@ func _ready() -> void:
 	_testar_save_state(emu)
 	await _testar_apagar_estado(cfg, emu)
 	_testar_persistencia(cfg)
+	_testar_perfil()
+	await _testar_botao_perfil(cfg, emu)
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -353,6 +355,114 @@ func _testar_persistencia(cfg: ConfigEmu) -> void:
 
 	# Não deixa o config de teste sujando a próxima execução do app.
 	DirAccess.remove_absolute(ConfigEmu.ARQUIVO)
+
+
+## Perfil de controle por cartucho. O que este teste protege não aparece em PNG
+## nenhum: que ajustar o guidão de um jogo **não** vaza para os outros. Sem ele,
+## a regressão só apareceria no headset, com o Mario 64 herdando o manche do
+## Star Fox — e depois de dez minutos de export.
+func _testar_perfil() -> void:
+	var c := ConfigEmu.new()
+	c.carregar()
+	c.definir("input/guidao_curva", 1.4)   # geral, com nenhum jogo ativo
+
+	c.usar_perfil("teste_a")
+	_conferir(not c.tem_perfil(), "jogo sem arquivo de perfil segue o geral")
+	c.criar_perfil()
+	_conferir(c.tem_perfil(), "criar_perfil liga o perfil")
+	# Ligar não pode mudar o comportamento no mesmo instante: o perfil nasce
+	# copiando o que a pessoa já estava sentindo.
+	_conferir(is_equal_approx(c.obter("input/guidao_curva"), 1.4),
+			"o perfil nasce igual ao geral")
+
+	c.definir("input/guidao_curva", 2.5)
+	c.definir("tela/escala", 2.2)          # não é input: vai para o geral
+	c.salvar()
+
+	c.usar_perfil("teste_b")
+	_conferir(is_equal_approx(c.obter("input/guidao_curva"), 1.4),
+			"outro cartucho NÃO herda o ajuste do primeiro")
+	_conferir(not c.tem_perfil(), "e continua sem perfil próprio")
+
+	# O sinal é o mecanismo inteiro: é por ele que a cena reaplica o guidão ao
+	# trocar de jogo. Sem ele o perfil estaria certo no disco e errado no ar.
+	var vistas: Array[String] = []
+	c.mudou.connect(func(k: String, _v: Variant) -> void: vistas.append(k))
+	c.usar_perfil("teste_a")
+	_conferir("input/guidao_curva" in vistas, "trocar de cartucho avisa quem escuta")
+	_conferir(is_equal_approx(c.obter("input/guidao_curva"), 2.5), "e devolve o ajuste do jogo")
+
+	# Relê do disco com uma instância nova: a promessa é sobreviver ao app.
+	var d := ConfigEmu.new()
+	d.carregar()
+	d.usar_perfil("teste_a")
+	_conferir(is_equal_approx(d.obter("input/guidao_curva"), 2.5), "o perfil persiste em disco")
+
+	var arq := ConfigFile.new()
+	_conferir(arq.load(c.caminho_perfil("teste_a")) == OK, "o perfil virou arquivo")
+	_conferir(arq.has_section_key("input", "guidao_curva"), "o arquivo do perfil guarda input")
+	_conferir(not arq.has_section("tela"), "e não guarda tela — perfil é só de controle")
+	_conferir(is_equal_approx(d.obter("tela/escala"), 2.2), "a escala foi para o geral")
+
+	c.apagar_perfil()
+	_conferir(not c.tem_perfil(), "apagar desliga o perfil")
+	_conferir(is_equal_approx(c.obter("input/guidao_curva"), 1.4), "e o jogo volta ao geral")
+	_conferir(not FileAccess.file_exists(c.caminho_perfil("teste_a")), "o arquivo some junto")
+
+	d.free()
+	c.free()
+	DirAccess.remove_absolute(ConfigEmu.ARQUIVO)
+
+
+## A outra metade: o botão da página de Input. Apagar um perfil não tem desfazer,
+## então a primeira batida não pode apagar nada — mesmo contrato dos saves.
+func _testar_botao_perfil(cfg: ConfigEmu, emu: EmuCore) -> void:
+	# Quem roda o teste pode ter um perfil de verdade para esta ROM. Guarda e
+	# devolve: testar perfil destruindo o perfil de alguém seria irônico demais.
+	cfg.usar_perfil(emu.id_rom())
+	var arquivo := cfg.caminho_perfil(emu.id_rom())
+	var backup := PackedByteArray()
+	if FileAccess.file_exists(arquivo):
+		backup = FileAccess.get_file_as_bytes(arquivo)
+		cfg.apagar_perfil()
+
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("Input")
+	await get_tree().process_frame
+
+	var bt := menu.find_child("PerfilJogo", true, false) as Button
+	if bt == null:
+		_conferir(false, "achei o botão de perfil na página de Input")
+		vp.queue_free()
+		return
+
+	bt.pressed.emit()
+	await get_tree().process_frame
+	_conferir(cfg.tem_perfil(), "o botão cria o perfil deste jogo")
+	_conferir(FileAccess.file_exists(arquivo), "e o arquivo aparece na pasta")
+
+	bt.pressed.emit()
+	await get_tree().process_frame
+	_conferir(cfg.tem_perfil(), "uma batida só NÃO apaga o perfil")
+	_conferir(bt.text == "Apagar mesmo?", "e o botão passa a perguntar")
+
+	bt.pressed.emit()
+	await get_tree().process_frame
+	_conferir(not cfg.tem_perfil(), "a segunda batida apaga")
+	_conferir(not FileAccess.file_exists(arquivo), "e o arquivo some")
+
+	vp.queue_free()
+	await get_tree().process_frame
+
+	if not backup.is_empty():
+		var f := FileAccess.open(arquivo, FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(backup)
+			f.close()
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

@@ -109,7 +109,13 @@ func _ready() -> void:
 	if not ok:
 		_mostrar("Sem ROM. Segure o botão de menu para escolher uma.")
 
+	# Depois de iniciar: o id do perfil sai do nome da ROM, que só existe agora.
+	_cfg.usar_perfil(_emu.id_rom())
 	_aplicar_tudo()
+	# usar_perfil() já emite `mudou` para o que o perfil sobrescreve, mas isso
+	# depende da conexão do sinal logo acima; aplicar à mão aqui tira a ordem de
+	# inicialização da conta.
+	_aplicar_ajustes_guidao()
 
 
 func _process(delta: float) -> void:
@@ -330,6 +336,9 @@ func _mostrar(msg: String) -> void:
 func _trocar_rom(caminho: String) -> void:
 	if _emu.trocar_rom(caminho):
 		_cfg.registrar_recente(caminho)
+		# Antes do recentro: o guidão precisa recentrar com os ajustes do jogo
+		# novo, não com os do cartucho que acabou de sair.
+		_cfg.usar_perfil(_emu.id_rom())
 		_painel.fechar()
 		_mostrar("")
 		# Jogo novo, repouso novo: o centro da sessão anterior foi capturado com

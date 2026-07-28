@@ -7,10 +7,29 @@ extends Node
 ## isso evita que o slider e o analógico briguem pelo mesmo estado.
 ##
 ## As chaves são "secao/nome" e viram seção/chave do ConfigFile.
+##
+## Por cima do valor geral pode haver um **perfil do cartucho** (ver
+## `usar_perfil`), que sobrescreve as chaves de input. Ele entra por baixo do
+## contrato acima: quem lê continua chamando obter() e quem reage continua
+## escutando `mudou`, então nem a cena nem as páginas precisam saber que
+## perfis existem.
 
 signal mudou(chave: String, valor: Variant)
 
+## Emitido quando o jogo passa a ter (ou deixa de ter) perfil próprio. Só a
+## página de Input escuta: o interruptor dela não está ligado a chave nenhuma,
+## porque "ter perfil" é estado do arquivo, não valor de configuração.
+signal perfil_mudou(ativo: bool)
+
 const ARQUIVO := "user://config.cfg"
+const PASTA_PERFIS := "user://perfis"
+
+## O que um perfil de cartucho pode sobrescrever. Só input: o guidão e a zona
+## morta são ajustes do corpo contra *aquele* jogo — o Star Fox 64 nasce com Y
+## invertido e o Mario 64 não. Tamanho de tela e volume são preferência de quem
+## joga, não do cartucho, e duplicá-los por jogo só criaria lugares diferentes
+## para consertar a mesma coisa.
+const PERFIL_PREFIXO := "input/"
 
 ## Intervalo mínimo entre gravações. Arrastar um slider dispara dezenas de
 ## definir() por segundo; sem isso seria um write em disco por frame.
@@ -60,13 +79,20 @@ var _valores: Dictionary = {}
 var _sujo := false
 var _desde_salvar := 0.0
 
+## Perfil do cartucho em uso: id do jogo (o mesmo de `EmuCore.id_rom()`) e as
+## chaves que ele sobrescreve. `_overrides` vazio com `_perfil_id` preenchido
+## significa jogo carregado *sem* perfil — que é o caso comum.
+var _perfil_id := ""
+var _overrides: Dictionary = {}
+var _perfil_sujo := false
+
 
 func _ready() -> void:
 	carregar()
 
 
 func _process(delta: float) -> void:
-	if not _sujo:
+	if not _sujo and not _perfil_sujo:
 		return
 	_desde_salvar += delta
 	if _desde_salvar >= INTERVALO_SALVAR:
@@ -74,25 +100,158 @@ func _process(delta: float) -> void:
 
 
 func obter(chave: String) -> Variant:
+	if _overrides.has(chave):
+		return _overrides[chave]
 	return _valores.get(chave, PADROES.get(chave))
 
 
+## Grava no layer ativo: no perfil do cartucho quando há um e a chave é
+## perfilável, no geral caso contrário.
 func definir(chave: String, valor: Variant) -> void:
 	if not PADROES.has(chave):
 		push_error("ConfigEmu: chave desconhecida: " + chave)
 		return
-	if _valores.get(chave) == valor:
+	# Compara com o valor *efetivo*, e não com o geral: com perfil ativo, uma
+	# sobrescrita que por acaso coincide com o geral também precisa ser gravada,
+	# ou o perfil ficaria sem a chave e voltaria a seguir o geral na sessão
+	# seguinte.
+	if obter(chave) == valor and (not _perfilavel(chave) or _overrides.has(chave)):
 		return
-	_valores[chave] = valor
-	_sujo = true
+	if _perfilavel(chave):
+		_overrides[chave] = valor
+		_perfil_sujo = true
+	else:
+		_valores[chave] = valor
+		_sujo = true
 	mudou.emit(chave, valor)
 
 
 ## Volta uma seção inteira ao padrão (o "Restaurar padrões" de cada página).
+## Age no layer ativo: com perfil ligado, restaura o perfil e deixa o geral —
+## que outros jogos usam — intacto.
 func restaurar(secao: String) -> void:
 	for chave in PADROES:
 		if chave.begins_with(secao + "/"):
 			definir(chave, PADROES[chave])
+
+
+func _perfilavel(chave: String) -> bool:
+	return tem_perfil() and chave.begins_with(PERFIL_PREFIXO)
+
+
+# ---------------------------------------------------------------------------
+# Perfil por cartucho
+# ---------------------------------------------------------------------------
+## Um arquivo por jogo, `user://perfis/<id>.cfg` — o mesmo id que nomeia o
+## `.srm` e os slots de estado, então os arquivos de um cartucho ficam todos com
+## o mesmo nome e legíveis para quem abrir a pasta. Um arquivo único com uma
+## seção por jogo economizaria um open, mas o nome do cartucho viraria nome de
+## seção (`[Star Fox 64 (USA)]`) e passaria a depender do escape do ConfigFile.
+func caminho_perfil(id: String) -> String:
+	return "%s/%s.cfg" % [PASTA_PERFIS, id]
+
+
+func tem_perfil() -> bool:
+	return not _overrides.is_empty()
+
+
+func perfil_id() -> String:
+	return _perfil_id
+
+
+## Troca o cartucho em uso. Emite `mudou` para cada chave cujo valor **efetivo**
+## mudou — é esse laço que faz a cena reaplicar o guidão e os sliders abertos se
+## corrigirem sozinhos, sem que nenhum dos dois saiba de perfis.
+func usar_perfil(id: String) -> void:
+	if id == _perfil_id:
+		return
+	# O perfil que sai pode ter ajustes de segundos atrás: o timer de gravação
+	# não terminou, e trocar de jogo não pode ser o jeito de perder o tuning.
+	if _perfil_sujo:
+		_salvar_perfil()
+
+	var antes := _overrides
+	_perfil_id = id
+	_overrides = _ler_perfil(id)
+	_avisar_diferencas(antes)
+
+
+## Cria o perfil deste jogo copiando os valores efetivos de agora. Nasce igual
+## ao que a pessoa já estava sentindo: ligar "ajustes deste jogo" não pode mudar
+## o comportamento no mesmo instante, senão o interruptor viraria um sorteio.
+func criar_perfil() -> void:
+	if _perfil_id.is_empty() or tem_perfil():
+		return
+	for chave: String in PADROES:
+		if chave.begins_with(PERFIL_PREFIXO):
+			_overrides[chave] = obter(chave)
+	_perfil_sujo = true
+	_salvar_perfil()
+	perfil_mudou.emit(true)
+
+
+## Apaga o perfil: o jogo volta a seguir os ajustes gerais.
+func apagar_perfil() -> void:
+	if not tem_perfil():
+		return
+	var antes := _overrides
+	_overrides = {}
+	_perfil_sujo = false
+	if FileAccess.file_exists(caminho_perfil(_perfil_id)):
+		DirAccess.remove_absolute(caminho_perfil(_perfil_id))
+	_avisar_diferencas(antes)
+	perfil_mudou.emit(false)
+
+
+func _ler_perfil(id: String) -> Dictionary:
+	var fora := {}
+	if id.is_empty():
+		return fora
+	var cfg := ConfigFile.new()
+	if cfg.load(caminho_perfil(id)) != OK:
+		return fora  # jogo sem perfil: segue o geral
+	for chave: String in PADROES:
+		if not chave.begins_with(PERFIL_PREFIXO):
+			continue
+		var partes := chave.split("/", false, 1)
+		if not cfg.has_section_key(partes[0], partes[1]):
+			continue
+		var lido: Variant = cfg.get_value(partes[0], partes[1])
+		# Mesma defesa do geral: arquivo de outra versão ou editado à mão traz
+		# tipo errado, e o valor de fora vale mais que um crash adiante.
+		if typeof(lido) == typeof(PADROES[chave]):
+			fora[chave] = lido
+		else:
+			push_warning("ConfigEmu: tipo inesperado em %s do perfil %s" % [chave, id])
+	return fora
+
+
+## Emite `mudou` para as chaves cujo valor efetivo mudou entre dois conjuntos de
+## sobrescritas. Sem isto, trocar de jogo mudaria os valores em silêncio e a
+## cena continuaria pilotando com os ajustes do cartucho anterior.
+func _avisar_diferencas(antes: Dictionary) -> void:
+	for chave: String in PADROES:
+		if not chave.begins_with(PERFIL_PREFIXO):
+			continue
+		var v_antes: Variant = antes.get(chave, _valores.get(chave))
+		var v_agora: Variant = obter(chave)
+		if v_antes != v_agora:
+			mudou.emit(chave, v_agora)
+
+
+func _salvar_perfil() -> void:
+	if _perfil_id.is_empty() or _overrides.is_empty():
+		_perfil_sujo = false
+		return
+	DirAccess.make_dir_recursive_absolute(PASTA_PERFIS)
+	var cfg := ConfigFile.new()
+	for chave: String in _overrides:
+		var partes := chave.split("/", false, 1)
+		cfg.set_value(partes[0], partes[1], _overrides[chave])
+	var err := cfg.save(caminho_perfil(_perfil_id))
+	if err != OK:
+		push_error("ConfigEmu: falha ao salvar o perfil de %s (erro %d)" % [_perfil_id, err])
+	_perfil_sujo = false
 
 
 ## Proporção largura/altura para o aspecto escolhido. `nativo` é a do core,
@@ -135,17 +294,20 @@ func carregar() -> void:
 
 
 func salvar() -> void:
-	var cfg := ConfigFile.new()
-	for chave: String in _valores:
-		var partes := chave.split("/", false, 1)
-		cfg.set_value(partes[0], partes[1], _valores[chave])
-	var err := cfg.save(ARQUIVO)
-	if err != OK:
-		push_error("ConfigEmu: falha ao salvar %s (erro %d)" % [ARQUIVO, err])
-	_sujo = false
+	if _perfil_sujo:
+		_salvar_perfil()
+	if _sujo:
+		var cfg := ConfigFile.new()
+		for chave: String in _valores:
+			var partes := chave.split("/", false, 1)
+			cfg.set_value(partes[0], partes[1], _valores[chave])
+		var err := cfg.save(ARQUIVO)
+		if err != OK:
+			push_error("ConfigEmu: falha ao salvar %s (erro %d)" % [ARQUIVO, err])
+		_sujo = false
 	_desde_salvar = 0.0
 
 
 func _exit_tree() -> void:
-	if _sujo:
+	if _sujo or _perfil_sujo:
 		salvar()

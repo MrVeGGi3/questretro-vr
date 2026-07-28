@@ -68,6 +68,8 @@ var _cfg: ConfigEmu
 var _linhas: VBoxContainer
 var _secao_dpad: VBoxContainer
 var _secao_guidao: VBoxContainer
+var _bt_perfil: Button
+var _perfil_lab: Label
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
@@ -77,6 +79,11 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 	_linhas = VBoxContainer.new()
 	conteudo.add_child(_linhas)
+
+	# Antes dos ajustes, e não depois: tudo o que vem abaixo pertence ou ao jogo
+	# ou ao geral, e quem mexe num slider precisa saber qual dos dois está
+	# editando *antes* de mexer.
+	conteudo.add_child(_montar_perfil())
 
 	# As duas seções de ajuste são mutuamente exclusivas, e não por economia de
 	# espaço: a zona morta do D-pad só alimenta `xr_main._dpad_do_stick()`, que
@@ -95,6 +102,8 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 		if chave == "input/n64_guidao":
 			atualizar())
 
+	cfg.perfil_mudou.connect(func(_ativo: bool) -> void: _atualizar_perfil())
+
 	# Depois de montar as seções: atualizar() decide qual delas aparece.
 	atualizar()
 
@@ -103,6 +112,84 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	var bt := WidgetsVR.botao("Restaurar padrões")
 	bt.pressed.connect(func() -> void: cfg.restaurar("input"))
 	rodape.add_child(bt)
+
+
+## Perfil do cartucho: com ele ligado, tudo o que esta página ajusta vale só
+## para o jogo em execução. É o que o Star Fox 64 pede e o Super Mario 64 não —
+## a pose das mãos no lugar do manche não faz sentido num jogo de plataforma, e
+## até aqui ligar o guidão para um ligava para os dois.
+##
+## Botão, e não interruptor: apagar um perfil não tem desfazer, então precisa de
+## confirmação, e um interruptor que pergunta antes de desligar passa a sessão
+## inteira mostrando o estado errado enquanto espera resposta.
+func _montar_perfil() -> Control:
+	var caixa := VBoxContainer.new()
+	caixa.add_child(WidgetsVR.divisoria(TemaVR.LINE))
+
+	_perfil_lab = WidgetsVR.mono("")
+	_bt_perfil = WidgetsVR.botao("")
+	# Nomeado pelo mesmo motivo dos botões de apagar save: o teste precisa achar
+	# este e não outro qualquer com o mesmo texto.
+	_bt_perfil.name = "PerfilJogo"
+	_bt_perfil.custom_minimum_size.x = 300
+	_bt_perfil.pressed.connect(_ao_tocar_perfil)
+
+	var linha := HBoxContainer.new()
+	linha.add_theme_constant_override("separation", 20)
+	linha.custom_minimum_size.y = 88
+	var col := VBoxContainer.new()
+	col.custom_minimum_size.x = 300
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	var tit := Label.new()
+	tit.text = "Ajustes deste jogo"
+	col.add_child(tit)
+	col.add_child(_perfil_lab)
+	linha.add_child(col)
+	_bt_perfil.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	linha.add_child(_bt_perfil)
+
+	caixa.add_child(linha)
+	_atualizar_perfil()
+	return caixa
+
+
+## Primeira batida arma, segunda apaga — o mesmo contrato dos saves, pela mesma
+## razão: no headset o clique sai de um laser apontado à distância, que erra o
+## alvo com mais facilidade que um mouse. Sair da página desarma, porque o
+## estado mora no próprio botão.
+func _ao_tocar_perfil() -> void:
+	if not _cfg.tem_perfil():
+		_cfg.criar_perfil()
+		return
+	if not _bt_perfil.get_meta("armado", false):
+		_bt_perfil.set_meta("armado", true)
+		_bt_perfil.text = "Apagar mesmo?"
+		_bt_perfil.add_theme_color_override("font_color", TemaVR.BTN_A)
+		return
+	_cfg.apagar_perfil()
+
+
+func _atualizar_perfil() -> void:
+	if _bt_perfil == null:
+		return
+	_bt_perfil.set_meta("armado", false)
+	_bt_perfil.remove_theme_color_override("font_color")
+
+	var sem_rom := _emu == null or _emu.rom_atual.is_empty()
+	_bt_perfil.disabled = sem_rom
+	if sem_rom:
+		_bt_perfil.text = "Criar perfil"
+		_perfil_lab.text = "sem jogo carregado"
+		return
+
+	if _cfg.tem_perfil():
+		_bt_perfil.text = "Apagar perfil"
+		_perfil_lab.text = "perfis/%s.cfg" % _cfg.perfil_id()
+	else:
+		_bt_perfil.text = "Criar perfil"
+		_perfil_lab.text = "seguindo os ajustes gerais"
 
 
 ## Conversão analógico → D-pad, que só o SNES faz. No N64 o stick é eixo de
@@ -178,6 +265,10 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 func atualizar() -> void:
 	for filho in _linhas.get_children():
 		filho.queue_free()
+
+	# A ROM pode ter trocado desde a última abertura do painel, e com ela o
+	# perfil — o botão precisa falar do cartucho que está rodando agora.
+	_atualizar_perfil()
 
 	var sistema := _emu.sistema if _emu != null else ""
 	var mapa: Array = MAPAS.get(sistema, MAPAS["snes"])
