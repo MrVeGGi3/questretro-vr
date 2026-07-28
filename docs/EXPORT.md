@@ -365,7 +365,31 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   com o controle respondendo. Com isso a pendência está fechada nas duas pontas:
   a medida no desktop e o uso no Quest.
 
-- **Remap de input**: a página de Input mostra o mapa do controle mas ainda não
-  deixa remapear (ver o comentário em `scripts/ui/paginas/pag_input.gd`). O que dá para
-  ajustar são os contínuos: zona morta do D-pad (SNES) e o guidão de nave (N64).
+- **Remap de input: feito** (antes era a pendência de que a página de Input
+  mostrava o mapa sem deixar trocá-lo). O que segurava não era a interface e sim
+  o modo "aperte o botão que você quer": com o painel aberto o input do jogo fica
+  congelado, e um modo de captura teria de distinguir "apertei para escolher" de
+  "apertei para jogar". Escolher **apontando** contorna isso inteiro — tocar numa
+  linha abre os destinos ali embaixo dela, tocar num destino fecha —, e apontar
+  é o que o laser já faz.
+
+  Nada de `PopupMenu` nem `OptionButton`: eles abrem em outra janela, e a página
+  vive num `SubViewport` colado num quad. A janela apareceria fora do painel, ou
+  não apareceria.
+
+  A lista de destinos sai dos descritores que o core declara
+  (`SET_INPUT_DESCRIPTORS`), como já saíam os nomes — é o core que sabe que
+  `JOYPAD_L2` é o "Z Trigger" do N64 e não existe no SNES. **Nada** é destino de
+  primeira classe: é como se tira um botão do caminho sem perdê-lo.
+
+  O mapa virou chave de configuração (uma por origem do Touch e por sistema), o
+  que o põe sob o perfil do cartucho de graça. A conta mora em
+  `scripts/vr/mapa_input.gd`, sem dependência de XR, como o `guidao.gd` — é o que
+  permite testar sem headset os dois erros que só apareceriam lá: id que sai do
+  mapa é zerado a cada frame (senão remapear com o dedo no gatilho deixaria o
+  tiro preso ligado) e duas origens no mesmo destino somam em vez de uma anular
+  a outra.
+
+  Os analógicos ficam de fora: não são botões para o core. Conferido no headset
+  e no desktop nos dois sistemas.
 - **Integração com `romkeep`**: prevista para depois desta fase.
