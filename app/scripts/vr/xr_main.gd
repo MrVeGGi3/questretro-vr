@@ -226,12 +226,16 @@ func _montar_cena() -> void:
 	_tela = MeshInstance3D.new()
 	add_child(_tela)
 
+	# Filho da cena, e **não** da tela: como filho ele herdava `tela/escala`, e
+	# numa tela grande (2,86× medido no headset) o deslocamento de 0,7 virava 2 m
+	# — o texto ia parar na altura dos pés, junto com a fonte esticada na mesma
+	# proporção. Quem posiciona é `_posicionar_tela()`, em metros de verdade.
 	_label = Label3D.new()
-	_label.pixel_size = 0.002
+	_label.pixel_size = 0.0015
 	_label.modulate = Color.WHITE
 	_label.outline_size = 12
-	_tela.add_child(_label)
-	_label.position = Vector3(0, -0.7, 0.01)
+	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(_label)
 
 
 func _iniciar_xr() -> void:
@@ -261,6 +265,14 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 		# por segundo, então sem isto o último número ficaria parado na tela para
 		# sempre, parecendo travamento.
 		_mostrar("")
+		# E zerar os contadores, senão a primeira amostra depois de ligar despeja
+		# tudo o que se acumulou desde o arranque: `_avancar_emulacao` conta
+		# sempre, e quem zerava era o `_diagnostico`, que estava saindo cedo.
+		# Medido: 51589 passos numa amostra de 1 s, que são os 15 min de app.
+		_diag_t = 0.0
+		_diag_passos = 0
+		_emu.diag_audio_gerado = 0
+		_emu.diag_audio_descartado = 0
 	elif chave.begins_with("tela/") or chave == "video/aspecto":
 		_aplicar_tela()
 	elif chave.begins_with("video/"):
@@ -392,6 +404,18 @@ func _posicionar_tela() -> void:
 		0.0,
 		altura_olhos + _cfg.obter("tela/altura"),
 		-_cfg.obter("tela/distancia"))
+	_posicionar_label()
+
+
+## Logo abaixo da borda de baixo da tela, a uma distância fixa **em metros** —
+## que é o que faz o texto continuar legível e no mesmo lugar relativo, seja a
+## tela portátil ou de cinema.
+func _posicionar_label() -> void:
+	if _label == null:
+		return
+	var razao := _cfg.aspecto_como_razao(_aspecto_nativo)
+	var meia_altura: float = (LARGURA_BASE / razao) * _cfg.obter("tela/escala") * 0.5
+	_label.global_position = _tela.global_position - Vector3(0, meia_altura + 0.12, 0)
 
 
 func _atualizar_tela() -> void:
