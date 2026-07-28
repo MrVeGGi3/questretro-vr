@@ -487,13 +487,17 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   Ou seja: o salão **não** derruba o caso comum. A emulação acompanha o relógio
   e as quedas são raras.
 
-  As quedas que sobram acontecem em cena pesada — a explosão de chefe é a mais
-  visível. **Não** foram atribuídas ao salão: o mesmo tranco já existia antes do
-  fliperama, o que é observação de quem jogou, não medida — os dados acima não
-  separam os segundos de Fliperama dos de Vazio. Para a próxima medição isso está
-  resolvido: `_aplicar_sala()` passou a imprimir `Sala: modo <nome>`, então uma
-  captura de DIAG dá para fatiar por ambiente. Fazer o A/B com a **mesma cena**
-  nos dois modos é o que fecha a atribuição.
+  As quedas que sobram acontecem em cena pesada — a explosão de um chefe é a
+  mais visível. Duas observações de quem jogou, que não são medida mas apontam
+  para longe do salão: o mesmo tranco já existia **antes** do fliperama, e
+  **outro chefe rodou tranquilo com o fliperama ligado**. Se o salão fosse a
+  causa, ele estaria lá nos dois casos igualmente — o que varia é a cena.
+
+  Ninguém achou que valia a pena fechar isso com número, e concordo: o custo
+  aparece em segundos isolados, não atrapalha jogar, e a suspeita que sobra é da
+  emulação. Se um dia interessar, o A/B com a **mesma cena** nos dois modos
+  resolve, e a instrumentação já está pronta — `_aplicar_sala()` imprime
+  `Sala: modo <nome>`, então uma captura de DIAG fatia por ambiente sozinha.
 
   A explicação que sobra para as quedas, e que casa com a forma delas: no Quest o
   N64 roda por software, com a CPU desenhando o RDP pixel a pixel. Uma explosão
