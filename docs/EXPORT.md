@@ -16,6 +16,32 @@ para o SDK e o JDK 17.
    printf '4.6.3.stable.mono' > app/android/.build_version
    : > app/android/build/.gdignore
    ```
+
+   **E o passthrough no manifesto** — `app/android/` é gitignored, então isto se
+   perde num clone novo e o modo Passthrough para de funcionar sem erro nenhum
+   no build (o runtime só passa a oferecer OPAQUE). Ver "Passthrough" nas
+   pendências para por que não sai da opção do preset:
+   ```bash
+   python3 - <<'PY'
+   from pathlib import Path
+   p = Path("app/android/build/src/main/AndroidManifest.xml")
+   s = p.read_text()
+   if "com.oculus.feature.PASSTHROUGH" not in s:
+       alvo = '        android:required="true" />'
+       s = s.replace(alvo, alvo + """
+
+    <!-- Passthrough (modo Sala). À mão porque o godotopenxrvendors 5.1.0 não
+         emite o bloco de elemento de topo. required="false": o app roda sem. -->
+    <uses-feature
+        tools:node="replace"
+        android:name="com.oculus.feature.PASSTHROUGH"
+        android:required="false" />""", 1)
+       p.write_text(s)
+       print("manifesto: PASSTHROUGH adicionado")
+   else:
+       print("manifesto: PASSTHROUGH já estava lá")
+   PY
+   ```
 3. **Extensão arm64** e **core android** presentes:
    ```bash
    # extensão
@@ -392,28 +418,59 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
 
   Os analógicos ficam de fora: não são botões para o core. Conferido no headset
   e no desktop nos dois sistemas.
-- **Passthrough: falta conferir no device.** O modo Passthrough da página Sala
-  liga `xr_features/passthrough=1` no preset (o `enable_meta_plugin` já estava
-  ligado, e o addon `godotopenxrvendors` 5.1.0 está no projeto), e em runtime põe
-  o OpenXR em `XR_ENV_BLEND_MODE_ALPHA_BLEND` com `transparent_bg` no viewport.
+- **Passthrough: sobe no Quest 3S** — `Sala: passthrough ligado (alpha blend)`,
+  sobre `gl_compatibility`, com o OpenXR 1.1.54 do runtime Oculus 206.134.0.
+  Não foi de graça: **três** coisas precisam estar no lugar, e faltando qualquer
+  uma o runtime oferece só `OPAQUE` como blend mode.
 
-  O que **não** dá para afirmar do desktop: se isso compõe sobre
-  `gl_compatibility`, que é o renderizador que o `project.godot` fixa nos dois
-  alvos. Sem runtime de XR na máquina não há o que medir, e o histórico do
-  GLideN64 nesta mesma pasta mostra que `gl_compatibility` no Quest guarda
-  surpresas que nenhuma leitura de documentação antecipa.
+  1. **`xr/openxr/extensions/meta/passthrough=true`** no `project.godot`. É a
+     principal, e a menos óbvia: na Meta o passthrough **não** vem por blend mode
+     nativo. Sem esta chave o runtime lista só `[0]` (OPAQUE) em
+     `get_supported_environment_blend_modes()`, e não há o que ligar. Quem
+     destrava é a extensão `XR_FB_passthrough`, que esta chave registra e que
+     passa a aceitar o `ALPHA_BLEND` por cima do que o runtime declara.
 
-  Conferir no headset:
+  2. **`com.oculus.feature.PASSTHROUGH` no manifesto.** A opção certa para isso
+     seria `meta_xr_features/passthrough` no preset — e ela **é** lida (mexer nas
+     opções irmãs muda o manifesto gerado). Mas o `godotopenxrvendors` 5.1.0 não
+     emite o bloco de *manifest element contents* do plugin Meta para opção
+     nenhuma: no manifesto gerado só aparecem os blocos de *application* e de
+     *activity*. Conferido também com `meta_xr_features/hand_tracking=2`, que
+     igualmente não sai. Daí a linha ir à mão no template gradle — ver
+     "Pré-requisitos do projeto", passo 4.
+
+     (`xr_features/passthrough` é outra coisa: é a opção do export nativo do
+     Godot, inerte quando o plugin da Meta está no comando. Deixá-la em 1 não
+     produz nada.)
+
+  3. **Alpha blend mais `transparent_bg`**, que é o que o `xr_main` faz quando o
+     modo Passthrough entra, e o fundo transparente que a `Sala` põe no
+     `Environment`.
+
+  Conferir:
 
   ```bash
   adb logcat | grep -i "Sala:"     # "passthrough ligado (alpha blend)"
   ```
 
-  Se não subir, a linha é `Sala: passthrough indisponível — caindo no Vazio`, e o
-  app avisa na tela em vez de ficar preto em silêncio — um preto calado seria
-  indistinguível de um preto proposital. Se subir no log e mesmo assim a imagem
-  das câmeras não aparecer, o suspeito é a composição em `gl_compatibility`, e o
-  resultado vale registro aqui mesmo que o modo acabe caindo fora.
+  Se não subir, a linha é `Sala: passthrough indisponível — caindo no Vazio`,
+  com a lista do que o runtime ofereceu. O app avisa na tela em vez de ficar
+  preto em silêncio — um preto calado seria indistinguível de um preto
+  proposital.
+
+  **Armadilha de diagnóstico, que custou caro aqui.** Com o headset bloqueado ou
+  fora da cabeça, o app sobe, segura a sessão imersiva e **não imprime uma linha
+  sequer** — nem o `OpenXR: Created instance`, que é anterior a qualquer script.
+  Processo vivo, consumindo CPU, segurando tracking. É indistinguível de um
+  travamento na inicialização, e foi registrado aqui como se a extensão de
+  passthrough quebrasse o arranque — o que era falso: com o headset acordado o
+  mesmo build subiu em **1 segundo**. Pior: nesse estado o app fica por cima do
+  overlay do sistema e o headset não mostra nem a tela de desbloqueio.
+
+  Antes de culpar qualquer mudança por "travar o arranque", conferir se o
+  headset está na cabeça e destravado. E lançar por `adb` com uma rede: se o
+  `OpenXR: Created instance` não aparecer em ~25 s, `am force-stop`, senão o
+  headset fica preso.
 
 - **Orçamento de frame do fliperama: falta medir no device.** O salão é estático,
   unshaded, sem luz nem sombra, e cabe em seis chamadas de desenho — mas isso é

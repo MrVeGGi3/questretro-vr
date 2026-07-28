@@ -225,6 +225,12 @@ Onde a tela flutua. Página **Sala** do menu, três modos:
 | **Fliperama** | um salão de arcade em volta: carpete, neon nas quinas, gabinetes acesos nas paredes |
 | **Passthrough** | o seu quarto de verdade, pelas câmeras do Quest 3S |
 
+Os três conferidos no headset. O passthrough tem uma pegadinha que vale saber
+antes de mexer nele: na Meta ele **não** vem por blend mode nativo — o runtime
+oferece só `OPAQUE` até a extensão `XR_FB_passthrough` entrar, e ainda depende de
+uma linha no manifesto que o addon de vendors não emite sozinho. As três peças
+estão em `docs/EXPORT.md`; faltando qualquer uma, o modo cai no Vazio avisando.
+
 Nasce no Vazio porque uma atualização não deve trocar o cenário debaixo de
 quem já usa o app — a mesma razão pela qual o guidão nasce desligado. E o modo
 fica **fora** do perfil do cartucho: onde você joga é preferência sua, não do

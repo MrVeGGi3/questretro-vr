@@ -28,8 +28,10 @@ textures/vram_compression/import_etc2_astc=true
 
 openxr/enabled=true
 openxr/enabled.android=true
-; NÃO ligar `openxr/extensions/meta/passthrough` aqui: medido no Quest 3S, com
-; ela o app sobe, segura o tracking e **nunca chega ao main loop** — nenhuma
-; linha do Godot no logcat. Ver "Passthrough" em docs/EXPORT.md.
+; Passthrough (modo Sala). Na Meta o passthrough não vem por blend mode nativo —
+; o runtime só oferece OPAQUE, medido: `Sala: o runtime não oferece alpha blend
+; (tem: [0])`. Quem o destrava é a extensão XR_FB_passthrough, que esta chave
+; liga; com ela o ALPHA_BLEND passa a ser aceito.
+openxr/extensions/meta/passthrough=true
 shaders/enabled=true
 shaders/enabled.android=true
