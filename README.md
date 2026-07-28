@@ -77,12 +77,27 @@ cd app/cores
 B=https://buildbot.libretro.com/nightly/linux/x86_64/latest
 curl -fsSL -O $B/snes9x_libretro.so.zip                 # SNES
 curl -fsSL -O $B/mupen64plus_next_libretro.so.zip       # N64
+curl -fsSL -O $B/genesis_plus_gx_libretro.so.zip        # Mega Drive + Sega CD
 unzip -o '*.so.zip' && rm -f *.so.zip
 ```
 
+O Sega CD precisa da BIOS do Mega CD em `user://system/`, com os nomes que o
+core procura — `bios_CD_U.bin`, `bios_CD_E.bin`, `bios_CD_J.bin`. Sem ela o
+disco não abre.
+
 O core sai da extensão da ROM (`EmuCore.core_para_rom`): `.smc/.sfc/.fig/.swc/.zip`
-vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus. Trocar de ROM entre
+vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus, e
+`.md/.gen/.smd/.chd/.cue` para o genesis_plus_gx. Trocar de ROM entre
 sistemas troca o `.so` sozinho, gravando a SRAM do jogo anterior antes.
+
+Um core para dois consoles: o genesis_plus_gx roda cartucho de Mega Drive e
+disco de Sega CD, com o mesmo controle. Por isso os dois são **um** sistema aqui
+— um core, um mapa de botões, um nome —, e um `.chd` de Sonic CD aparece na lista
+como "Mega Drive", que é a máquina que roda o disco.
+
+`.bin` fica de fora de propósito: é cartucho de Mega Drive válido, mas também é a
+faixa de dados que acompanha um `.cue`, e oferecer as duas coisas na mesma lista
+faria escolher a faixa em vez do jogo.
 
 O N64 desenha por GPU, num FBO que a GDExtension empresta ao core — ver
 "Renderização por hardware" em `docs/EXPORT.md` para o que isso amarra.
@@ -320,6 +335,11 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
 - **Fase 4** — a **sala**: a tela deixou de flutuar no vazio e passou a ter um
   lugar em volta (ver "A sala"). Três modos, um deles um salão de arcade — o
   "arcade virtual" do plano.
+- **Fase 5** — mais consoles. **Mega Drive** e **Sega CD** pelo genesis_plus_gx,
+  que é um core só para os dois. Acrescentar um sistema toca em quatro lugares
+  (core, nome, linhas de eixo, mapa de botões) e esquecer um não dá erro nenhum —
+  dá controle morto no headset —, então `test_ui` passou a conferir os quatro
+  para todo sistema que o navegador reconhece.
 
   A seguir: integração com `romkeep`.
 

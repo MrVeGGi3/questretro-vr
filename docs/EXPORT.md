@@ -534,4 +534,43 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   isso. Se de dentro do headset isso incomodar antes do extremo, a correção
   natural é a parede do fundo recuar junto com a escala.
 
+- **Sega CD: um `.chd` corrompido parece bug do emulador.** Ao ligar o
+  genesis_plus_gx, `Sonic CD (USA).chd` falhava no `retro_load_game` sem o core
+  logar **nada** — e isso consumiu uma investigação inteira, porque o formato da
+  falha aponta para todo lado menos para o arquivo.
+
+  O que foi descartado, cada um medindo: `need_fullpath` e o
+  `SET_CONTENT_INFO_OVERRIDE` (chegamos a implementar o env 65 e depois a
+  reverter, porque o `need_fullpath` global do core já resolve — ver abaixo);
+  caminho com espaços e parênteses; opções do core (`system_hw`,
+  `region_detect`, `cd_loading_method`); e a BIOS, que está no lugar, com o
+  header `SEGA-CD BOOT ROM ... 1.10` e md5 de BIOS conhecida.
+
+  Quem fechou o caso foi o **`strace`**: o core abre o `.chd` (`openat ... = 40`)
+  e falha **sem nunca tocar nas BIOS** — ou seja, morre ao interpretar o arquivo.
+  E o `chdman info` do MAME, que é a ferramenta de referência do formato, dá
+  `Error opening CHD file: Input/output error` no mesmo arquivo, enquanto lê os
+  outros dois `.chd` da mesma pasta sem reclamar.
+
+  Dois cores independentes (genesis_plus_gx e picodrive) falham igual nele e
+  carregam os outros. O arquivo é que está quebrado.
+
+  **A lição de método**: quando dois cores diferentes falham do mesmo jeito, o
+  suspeito deixa de ser o core. Uma ferramenta de fora — `chdman`, `strace` — dá
+  a resposta mais rápido que qualquer hipótese sobre a nossa camada.
+
+  E uma sobre integridade: o `romkeep` marca esse arquivo como `status='ok'`,
+  porque ele confere se os bytes **mudaram** desde o catálogo. Detecta bit rot;
+  não detecta o que já chegou quebrado. Vale um `chdman info` ao catalogar CHDs.
+
+- **`SET_CONTENT_INFO_OVERRIDE` (env 65) não é implementado, e está tudo bem.**
+  É por ele que um core diz, por extensão, se quer o arquivo aberto por ele em
+  vez de receber os bytes. Foi implementado durante a investigação acima e
+  **revertido depois de medido**: sem o handler, o `need_fullpath` global do
+  genesis_plus_gx já é `true`, e tanto `.md` quanto `.chd` carregam. Manter o
+  código mudaria o caminho de carga de todos os cores para resolver nada.
+
+  Se um dia um core precisar, o sinal é `retro_load_game` falhando só para
+  algumas extensões — e o `need_fullpath` global sendo `false`.
+
 - **Integração com `romkeep`**: prevista para depois desta fase.

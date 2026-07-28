@@ -45,6 +45,7 @@ func _ready() -> void:
 	await _testar_botao_perfil(cfg, emu)
 	_testar_combinar()
 	await _testar_remap(cfg, emu)
+	_testar_sistemas_completos()
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -592,6 +593,37 @@ func _testar_remap(cfg: ConfigEmu, emu: EmuCore) -> void:
 	cfg.usar_perfil(emu.id_rom())
 	vp.queue_free()
 	await get_tree().process_frame
+
+
+## Todo sistema que o navegador reconhece precisa das quatro peças: core, nome,
+## linhas de eixo e mapa de botões completo.
+##
+## Acrescentar um sistema toca em quatro arquivos diferentes, e esquecer um deles
+## não dá erro nenhum — dá um jogo que abre com o controle morto, ou uma página
+## de Input em branco, e só no headset. Este teste é a lista de conferência que
+## não depende de eu lembrar dela.
+func _testar_sistemas_completos() -> void:
+	var sistemas := {}
+	for ext: String in NavegadorRoms.SISTEMAS:
+		sistemas[NavegadorRoms.SISTEMAS[ext]] = true
+
+	for sis: String in sistemas:
+		_conferir(EmuCore.CORES.has(sis), "%s tem core declarado" % sis)
+		_conferir(NavegadorRoms.NOMES_SISTEMA.has(sis), "%s tem nome legível" % sis)
+		_conferir(PagInput.EIXOS.has(sis), "%s declara as linhas de eixo" % sis)
+
+		if EmuCore.CORES.has(sis):
+			for plat: String in ["desktop", "android"]:
+				_conferir(EmuCore.CORES[sis].has(plat),
+						"%s tem core de %s" % [sis, plat])
+
+		var faltando: Array = []
+		for entrada in MapaInput.ORIGENS:
+			if not ConfigEmu.PADROES.has(MapaInput.chave(sis, entrada[0])):
+				faltando.append(entrada[0])
+		_conferir(faltando.is_empty(),
+				"%s mapeia as %d origens do Touch (faltam: %s)"
+						% [sis, MapaInput.ORIGENS.size(), str(faltando)])
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

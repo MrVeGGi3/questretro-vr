@@ -479,7 +479,7 @@ func _ler_input_vr(delta: float) -> void:
 	if _emu.sistema == "n64":
 		_input_n64()
 	else:
-		_input_snes()
+		_input_dpad_digital()
 		# Redimensionar/reposicionar com o thumbstick direito. No N64 esse stick
 		# são os C-buttons, e o jogo ganha: a tela se ajusta pelos sliders da
 		# página Tela, que é para onde este atalho é um atalho.
@@ -497,13 +497,19 @@ func _ajustar_tela_com_stick(rstick: Vector2) -> void:
 			PagTela.DIST_MIN, PagTela.DIST_MAX))
 
 
-## SNES: D-pad digital no analógico esquerdo; o resto sai do mapa de botões,
-## que a página de Input troca e o perfil do cartucho guarda por jogo.
-func _input_snes() -> void:
+## Consoles de D-pad: o analógico esquerdo vira as quatro direções por setores, e
+## o resto sai do mapa de botões, que a página de Input troca e o perfil do
+## cartucho guarda por jogo. Serve SNES e Mega Drive sem distinção — o que muda
+## entre eles é o mapa, que é dado, e não este caminho.
+##
+## O sistema vem do emulador em vez de ficar escrito aqui: com "snes" fixo, um
+## jogo de Mega Drive escreveria no mapa do SNES e leria o do Mega Drive, e o
+## controle simplesmente não responderia.
+func _input_dpad_digital() -> void:
 	# As quatro direções não passam por origem nenhuma: saem do analógico
 	# esquerdo, que não é remapeável.
 	var dpad := _dpad_do_stick(_ctrl_esq.get_vector2(&"primary"))
-	_aplicar_mapa("snes", {
+	_aplicar_mapa(_emu.sistema, {
 		LibretroHost.JOYPAD_LEFT: dpad.left,
 		LibretroHost.JOYPAD_RIGHT: dpad.right,
 		LibretroHost.JOYPAD_UP: dpad.up,

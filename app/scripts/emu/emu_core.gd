@@ -41,6 +41,13 @@ const CORES := {
 		"desktop": "res://cores/mupen64plus_next_libretro.so",
 		"android": "res://cores/mupen64plus_next_gles3_libretro_android.so",
 	},
+	# Um core para cartucho de Mega Drive e disco de Sega CD. O disco precisa da
+	# BIOS do Mega CD em `user://system` (`bios_CD_U.bin` e irmãos) — sem ela o
+	# core carrega e mostra tela preta, que é o formato mais confuso de falha.
+	"megadrive": {
+		"desktop": "res://cores/genesis_plus_gx_libretro.so",
+		"android": "res://cores/genesis_plus_gx_libretro_android.so",
+	},
 }
 
 ## Opções aplicadas ao core assim que ele carrega e antes da ROM — várias só

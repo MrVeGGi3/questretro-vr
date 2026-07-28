@@ -110,6 +110,21 @@ const PADROES := {
 	"input/mapa_n64_dir_trigger": LibretroHost.JOYPAD_R,
 	"input/mapa_n64_dir_grip": LibretroHost.JOYPAD_START,
 	"input/mapa_n64_esq_grip": LibretroHost.JOYPAD_L2,
+	# Mega Drive (e Sega CD, que usa o mesmo controle). Os nomes pregam a mesma
+	# peça do N64: no genesis_plus_gx o "A" do controle é `JOYPAD_Y`, o "C" é
+	# `JOYPAD_A`, e `JOYPAD_B` é o único que calha de bater.
+	#
+	# A mão direita fica com o controle de 3 botões inteiro — A, B, C e Start —,
+	# que é tudo o que Sonic pede. Os três extras do controle de 6 botões (X, Y,
+	# Z) e o Mode vão para a esquerda, onde só chegam em jogo que os use.
+	"input/mapa_megadrive_dir_ax": LibretroHost.JOYPAD_Y,        # A
+	"input/mapa_megadrive_dir_by": LibretroHost.JOYPAD_B,        # B
+	"input/mapa_megadrive_dir_trigger": LibretroHost.JOYPAD_A,   # C
+	"input/mapa_megadrive_dir_grip": LibretroHost.JOYPAD_START,
+	"input/mapa_megadrive_esq_ax": LibretroHost.JOYPAD_L,        # X
+	"input/mapa_megadrive_esq_by": LibretroHost.JOYPAD_X,        # Y
+	"input/mapa_megadrive_esq_trigger": LibretroHost.JOYPAD_R,   # Z
+	"input/mapa_megadrive_esq_grip": LibretroHost.JOYPAD_SELECT, # Mode
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
 }

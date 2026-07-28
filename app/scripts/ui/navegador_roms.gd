@@ -21,13 +21,24 @@ extends RefCounted
 ## `EmuCore.core_para_rom`) e qual mapa de controle vale (ver `xr_main`).
 ## `zip` fica no SNES porque é como as ROMs de SNES costumam circular; ROM de
 ## N64 zipada o mupen não abre, já que ele exige caminho de arquivo real.
+## O `genesis_plus_gx` cobre cartucho de Mega Drive **e** disco de Sega CD, com o
+## mesmo controle, então os dois caem no mesmo sistema: um core, um mapa de
+## botões, um nome. O Sega CD é um add-on do Mega Drive, então chamar Sonic CD de
+## "Mega Drive" na lista não é engano — é a máquina que roda o disco.
+##
+## `.bin` fica de fora de propósito, apesar de ser cartucho de Mega Drive válido:
+## ele é também a faixa de dados que acompanha um `.cue`, e oferecer as duas
+## coisas na mesma lista faria a pessoa escolher a faixa em vez do jogo. Quem tem
+## `.bin` de cartucho renomeia para `.md`.
 const SISTEMAS := {
 	"smc": "snes", "sfc": "snes", "fig": "snes", "swc": "snes", "zip": "snes",
 	"z64": "n64", "n64": "n64", "v64": "n64",
+	"md": "megadrive", "gen": "megadrive", "smd": "megadrive",
+	"chd": "megadrive", "cue": "megadrive",
 }
 
 ## Nome que a interface mostra para cada sistema.
-const NOMES_SISTEMA := {"snes": "SNES", "n64": "N64"}
+const NOMES_SISTEMA := {"snes": "SNES", "n64": "N64", "megadrive": "Mega Drive"}
 
 ## Precisa casar com `package/unique_name` do preset em export_presets.cfg: o
 ## Godot 4.6 não expõe o nome do pacote em runtime, e é ele que forma o caminho
