@@ -96,6 +96,12 @@ const OPCOES := {
 	"nds": {
 		"melonds_screen_layout": "Top/Bottom",
 		"melonds_screen_gap": "0",
+		# **Sem isto a caneta não existe.** O padrão do melonDS é `Mouse`, que lê
+		# `RETRO_DEVICE_MOUSE` — movimento relativo, de quem arrasta um mouse —
+		# e ignora o `RETRO_DEVICE_POINTER`, que é posição absoluta e é o que o
+		# laser produz. Medido: com `Mouse`, o ponteiro chega ao core com a
+		# coordenada certa e o jogo não responde a nada.
+		"melonds_touch_mode": "Touch",
 	},
 }
 

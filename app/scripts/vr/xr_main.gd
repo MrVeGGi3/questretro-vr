@@ -69,7 +69,14 @@ var _duas_telas := false
 ## Caneta: o raio do controle direito e o alvo colado na tela de baixo.
 var _raio_ds: RayCast3D
 var _corpo_ds: StaticBody3D
+var _laser_ds: MeshInstance3D
+var _mira_ds: MeshInstance3D
 var _tamanho_tela_ds := Vector2.ONE
+## Última leitura da caneta, para o diagnóstico. Existe porque "o laser não
+## funciona" tem três desfechos indistinguíveis de dentro do headset: o raio não
+## alcança a tela, alcança e cai no lugar errado, ou alcança certo e o gatilho
+## não conta. A linha diz qual dos três é.
+var _diag_caneta := ""
 var _label: Label3D
 
 var _xr_ativo := false
@@ -186,6 +193,8 @@ func _diagnostico(delta: float) -> void:
 	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | audio gerado=%d descartado=%d" % [
 		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
 		_emu.diag_audio_gerado, _emu.diag_audio_descartado]
+	if _duas_telas and not _diag_caneta.is_empty():
+		linha += "\n" + _diag_caneta
 	print("DIAG ", linha)
 	if not _painel.esta_aberto():
 		_mostrar(linha)
@@ -261,6 +270,39 @@ func _montar_cena() -> void:
 	_raio_ds.collide_with_areas = false
 	_raio_ds.enabled = false
 	_ctrl_dir.add_child(_raio_ds)
+
+	# Feixe e mira. **Não** são enfeite: sem eles a caneta é um laser invisível,
+	# e mirar vira adivinhação — foi assim que a primeira versão foi para o
+	# headset, e de lá não dava para distinguir "não estou acertando a tela" de
+	# "acerto mas o toque não chega". Mesmo arranjo do laser do menu.
+	var mat_laser := StandardMaterial3D.new()
+	mat_laser.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat_laser.albedo_color = Color(TemaVR.ACCENT, 0.6)
+	mat_laser.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Visível mesmo com a tela de cima entre a mão e a de baixo.
+	mat_laser.no_depth_test = true
+	mat_laser.render_priority = 2
+
+	var feixe := CylinderMesh.new()
+	feixe.top_radius = 0.002
+	feixe.bottom_radius = 0.002
+	feixe.height = 1.0
+	feixe.material = mat_laser
+	_laser_ds = MeshInstance3D.new()
+	_laser_ds.mesh = feixe
+	# O cilindro nasce em pé (eixo Y); deitar no -Z alinha com o controle.
+	_laser_ds.rotation_degrees.x = -90
+	_laser_ds.visible = false
+	_ctrl_dir.add_child(_laser_ds)
+
+	var esfera := SphereMesh.new()
+	esfera.radius = 0.008
+	esfera.height = 0.016
+	esfera.material = mat_laser
+	_mira_ds = MeshInstance3D.new()
+	_mira_ds.mesh = esfera
+	_mira_ds.visible = false
+	add_child(_mira_ds)
 
 	# Filho da cena, e **não** da tela: como filho ele herdava `tela/escala`, e
 	# numa tela grande (2,86× medido no headset) o deslocamento de 0,7 virava 2 m
@@ -400,6 +442,10 @@ func _material_tela() -> StandardMaterial3D:
 func _aplicar_tela() -> void:
 	_duas_telas = NavegadorRoms.tem_duas_telas(_emu.sistema)
 	_tela2.visible = _duas_telas
+	if not _duas_telas:
+		# Trocar de DS para outro console tem de levar o feixe junto, senão ele
+		# fica pendurado na mão apontando para uma tela que não existe mais.
+		_esconder_caneta()
 
 	var curvatura: float = _cfg.obter("tela/curvatura")
 	# Com duas telas, o aspecto de cada quad é o da tela **individual**, não o do
@@ -565,6 +611,7 @@ func _ler_input_vr(delta: float) -> void:
 	if _painel.esta_aberto():
 		# Com o menu aberto o gatilho direito é clique, não R: congela o jogo.
 		_emu.limpar_input()
+		_esconder_caneta()
 		_painel_antes = true
 		return
 
@@ -611,15 +658,53 @@ func _input_caneta() -> void:
 	_raio_ds.enabled = true
 	_raio_ds.force_raycast_update()
 
+	# O feixe fica visível sempre que há caneta, mesmo apontando para fora: é ele
+	# que mostra **onde** se está apontando, e escondê-lo quando erra o alvo
+	# tiraria a informação justamente na hora em que ela é necessária.
+	_laser_ds.visible = true
+
 	if not (_raio_ds.is_colliding() and _raio_ds.get_collider() == _corpo_ds):
 		# Fora da tela: a caneta se levanta. Manter a última posição encostada
 		# arrastaria o traço para onde o jogador só passou o laser de raspão.
 		_emu.set_pointer(0, 0.0, 0.0, false)
+		_mira_ds.visible = false
+		_esticar_laser(1.5)
+		_diag_caneta = "caneta fora (mão a %.2f m da tela)" % \
+				_ctrl_dir.global_position.distance_to(_tela2.global_position)
 		return
 
-	var local := _tela2.global_transform.affine_inverse() * _raio_ds.get_collision_point()
+	var ponto := _raio_ds.get_collision_point()
+	var local := _tela2.global_transform.affine_inverse() * ponto
 	var p := CanetaDS.para_ponteiro(local, _tamanho_tela_ds)
-	_emu.set_pointer(0, p.x, p.y, _ctrl_dir.get_float(&"trigger") > 0.6)
+	var encostada := _ctrl_dir.get_float(&"trigger") > 0.6
+	_emu.set_pointer(0, p.x, p.y, encostada)
+
+	# O feixe encurta até o ponto de toque, e a mira marca onde a caneta cai.
+	_mira_ds.visible = true
+	_mira_ds.global_position = ponto
+	_esticar_laser(_ctrl_dir.global_position.distance_to(ponto))
+
+	_diag_caneta = "caneta %+.2f %+.2f %s" % [p.x, p.y, "ENCOSTADA" if encostada else "no ar"]
+
+
+## Estica o feixe até `comprimento`, saindo **da mão**. O cilindro tem origem no
+## centro, então sem o deslocamento de meio comprimento metade dele ficaria para
+## trás do controle, atravessando o braço de quem joga.
+func _esticar_laser(comprimento: float) -> void:
+	_laser_ds.scale.y = comprimento
+	_laser_ds.position = Vector3(0, 0, -comprimento * 0.5)
+
+
+## Recolhe feixe, mira e caneta. Chamada quando o painel abre e quando a ROM
+## deixa de ser de duas telas — nos dois casos o `_input_caneta` para de rodar, e
+## sem isto o que ele desenhou por último ficaria na tela para sempre.
+func _esconder_caneta() -> void:
+	if _laser_ds == null:
+		return
+	_laser_ds.visible = false
+	_mira_ds.visible = false
+	_raio_ds.enabled = false
+	_diag_caneta = ""
 
 
 ## Consoles de D-pad: o analógico esquerdo vira as quatro direções por setores, e

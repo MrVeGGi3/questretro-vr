@@ -15,10 +15,14 @@ const DIST_MAX := 8.0
 const ALTURA_MIN := -1.0
 const ALTURA_MAX := 1.0
 
-## A tela de baixo é de mão: perto por definição, e o alcance do braço é o teto
-## útil. Deixá-la ir a 8 m como a de cima só daria uma caneta que não alcança.
-const DS_DIST_MIN := 0.4
-const DS_DIST_MAX := 1.5
+## A tela de baixo é de mão, e o alcance do braço é o teto útil — deixá-la ir a
+## 8 m como a de cima só daria uma caneta que não alcança.
+##
+## O piso não é 0,4 por acaso: abaixo de ~0,7 m a mão fica **à frente** do quad e
+## o laser, que só enxerga para diante, deixa de acertar. Perto demais a caneta
+## para de existir, que é o oposto do que a proximidade deveria dar.
+const DS_DIST_MIN := 0.7
+const DS_DIST_MAX := 2.0
 
 ## Predefinições: escala, distância. Cobrem os três usos que o projeto
 ## promete — do portátil ao cinema.

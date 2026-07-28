@@ -49,9 +49,14 @@ const PADROES := {
 	# valer só para a de cima quando há duas. Os padrões põem um DS na mão —
 	# perto, baixa e menor que a de cima, que é onde a caneta alcança sem
 	# esticar o braço.
+	# A distância não é só estética: a caneta é um **laser**, e um laser precisa
+	# de espaço entre a mão e o alvo. A 0,75 m — que era o padrão anterior, e a
+	# distância de um DS de verdade — a mão esticada passa do quad e o raio,
+	# começando depois do alvo, não acerta nada. 1,15 m mantém a tela ao alcance
+	# e deixa o braço atrás dela.
 	"tela/ds_escala": 0.8,
-	"tela/ds_distancia": 0.75,
-	"tela/ds_altura": -0.45,
+	"tela/ds_distancia": 1.15,
+	"tela/ds_altura": -0.35,
 	# Ambiente em volta da tela. Nasce no Vazio — que é o que a cena sempre fez —
 	# pela mesma razão que o guidão nasce desligado: uma atualização não troca o
 	# cenário debaixo de quem já usa o app. Fora do perfil do cartucho de
