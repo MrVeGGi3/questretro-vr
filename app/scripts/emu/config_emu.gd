@@ -45,6 +45,11 @@ const PADROES := {
 	"tela/distancia": 2.2,
 	"tela/altura": 0.0,
 	"tela/curvatura": 0.0,
+	# Ambiente em volta da tela. Nasce no Vazio — que é o que a cena sempre fez —
+	# pela mesma razão que o guidão nasce desligado: uma atualização não troca o
+	# cenário debaixo de quem já usa o app. Fora do perfil do cartucho de
+	# propósito: onde você joga é preferência sua, não do jogo.
+	"sala/modo": Sala.VAZIO,
 	"video/filtro_suave": false,
 	"video/aspecto": ASPECTO_4_3,
 	"video/brilho": 1.0,

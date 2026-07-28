@@ -56,6 +56,7 @@ func _criar_paginas() -> void:
 
 	_registrar("ROMs", roms)
 	_registrar("Tela", PagTela.new(_cfg))
+	_registrar("Sala", PagSala.new(_cfg))
 	_registrar("Vídeo", PagVideo.new(_cfg, _emu))
 	_registrar("Áudio", PagAudio.new(_cfg, _emu))
 	_registrar("Input", PagInput.new(_cfg, _emu))
@@ -101,7 +102,7 @@ func _sidebar() -> Control:
 
 	var nav := VBoxContainer.new()
 	nav.add_theme_constant_override("separation", 4)
-	for nome in ["ROMs", "Tela", "Vídeo", "Áudio", "Input", "Saves"]:
+	for nome in ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]:
 		var bt := _item_nav(nome)
 		_botoes[nome] = bt
 		nav.add_child(bt)

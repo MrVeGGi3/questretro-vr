@@ -14,7 +14,7 @@ extends Node
 ## Roda como cena, e não com `-s`, porque scripts de MainLoop travam na
 ## inicialização nesta versão do Godot com a GDExtension carregada.
 
-const PAGINAS := ["ROMs", "Tela", "Vídeo", "Áudio", "Input", "Saves"]
+const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
 
 var _falhas := 0
 

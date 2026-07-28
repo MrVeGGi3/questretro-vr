@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotestsala"]
+
+[ext_resource type="Script" path="res://scripts/testes/test_sala.gd" id="1_sala"]
+
+[node name="TestSala" type="Node"]
+script = ExtResource("1_sala")

@@ -16,8 +16,11 @@ extends Node3D
 ##   thumbstick direito  Y       -> aumenta/diminui a tela
 ##   thumbstick direito  X       -> aproxima/afasta a tela
 ##
-## Tamanho, distância, vídeo, áudio e zona morta vivem no ConfigEmu e
+## Tamanho, distância, sala, vídeo, áudio e zona morta vivem no ConfigEmu e
 ## persistem entre sessões; esta cena só reage a `mudou`.
+##
+## O ambiente em volta da tela é da `Sala` (`vr/sala.gd`), que roda sem XR. O
+## que fica aqui é só a negociação de passthrough com o OpenXR.
 
 # ROM demo embutida (homebrew freeware). Vazio => exige -- --rom no desktop.
 # O core sai da extensão da ROM (EmuCore.core_para_rom), não daqui.
@@ -45,6 +48,7 @@ const MAX_PASSOS := 4
 var _cfg: ConfigEmu
 var _emu: EmuCore
 var _painel: PainelMenu
+var _sala: Sala
 
 var _origin: XROrigin3D
 var _camera: XRCamera3D
@@ -185,14 +189,11 @@ func _unhandled_input(evento: InputEvent) -> void:
 # Construção da cena
 # ---------------------------------------------------------------------------
 func _montar_cena() -> void:
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.02, 0.02, 0.04)
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.3, 0.3, 0.35)
-	env.environment = e
-	add_child(env)
+	# O WorldEnvironment que ficava aqui passou a ser da Sala: o fundo é uma
+	# propriedade do ambiente escolhido, e no passthrough ele precisa ser
+	# transparente em vez de preto.
+	_sala = Sala.new()
+	add_child(_sala)
 
 	_origin = XROrigin3D.new()
 	add_child(_origin)
@@ -244,7 +245,9 @@ func _iniciar_xr() -> void:
 # Configuração -> cena
 # ---------------------------------------------------------------------------
 func _ao_mudar_config(chave: String, _valor: Variant) -> void:
-	if chave.begins_with("tela/") or chave == "video/aspecto":
+	if chave == "sala/modo":
+		_aplicar_sala()
+	elif chave.begins_with("tela/") or chave == "video/aspecto":
 		_aplicar_tela()
 	elif chave.begins_with("video/"):
 		_aplicar_video()
@@ -258,9 +261,58 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 
 
 func _aplicar_tudo() -> void:
+	_aplicar_sala()
 	_aplicar_tela()
 	_aplicar_video()
 	_aplicar_audio()
+
+
+## Monta o ambiente e, no passthrough, negocia com o OpenXR a composição com a
+## imagem das câmeras. Este é o único ponto do projeto que sabe de blend mode —
+## a `Sala` inteira roda sem runtime de XR, e é o que a torna testável no desktop.
+func _aplicar_sala() -> void:
+	var modo := int(_cfg.obter("sala/modo"))
+	if Sala.quer_transparencia(modo) and not _ligar_passthrough():
+		# Cair no Vazio **avisando**: um passthrough que não sobe e não diz nada
+		# é indistinguível de um preto proposital, e a pessoa ficaria mexendo no
+		# menu atrás de um modo que o aparelho não tem.
+		_mostrar("Passthrough indisponível neste aparelho — usando Vazio.")
+		# Também no log: no headset o rótulo some no frame seguinte, e depois só
+		# resta um preto que ninguém sabe explicar.
+		print("Sala: passthrough indisponível — caindo no Vazio")
+		modo = Sala.VAZIO
+		_cfg.definir("sala/modo", modo)
+		return   # definir() reentra aqui por `mudou`, já com o modo corrigido
+
+	if not Sala.quer_transparencia(modo):
+		_desligar_passthrough()
+	_sala.aplicar(modo)
+
+
+## Põe o OpenXR em alpha blend e abre o fundo do viewport. Devolve se conseguiu.
+func _ligar_passthrough() -> bool:
+	if not _xr_ativo:
+		return false
+	var xr := XRServer.find_interface("OpenXR")
+	if xr == null:
+		return false
+	if not xr.is_environment_blend_mode_supported(
+			XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND):
+		push_warning("Sala: o runtime não suporta alpha blend")
+		return false
+	xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+	get_viewport().transparent_bg = true
+	print("Sala: passthrough ligado (alpha blend)")
+	return true
+
+
+func _desligar_passthrough() -> void:
+	get_viewport().transparent_bg = false
+	if not _xr_ativo:
+		return
+	var xr := XRServer.find_interface("OpenXR")
+	if xr != null:
+		xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
 
 
 func _aplicar_tela() -> void:
