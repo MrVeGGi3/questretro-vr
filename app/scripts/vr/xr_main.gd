@@ -290,17 +290,24 @@ func _aplicar_sala() -> void:
 
 
 ## Põe o OpenXR em alpha blend e abre o fundo do viewport. Devolve se conseguiu.
+##
+## Perguntar antes, por `get_supported_environment_blend_modes()`, e não só
+## tentar: num runtime sem alpha blend o `set_` falharia e o modo ficaria preto,
+## que é indistinguível de um passthrough que subiu apontado para uma parede
+## escura.
 func _ligar_passthrough() -> bool:
 	if not _xr_ativo:
 		return false
 	var xr := XRServer.find_interface("OpenXR")
 	if xr == null:
 		return false
-	if not xr.is_environment_blend_mode_supported(
-			XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND):
-		push_warning("Sala: o runtime não suporta alpha blend")
+	if not XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND in xr.get_supported_environment_blend_modes():
+		print("Sala: o runtime não oferece alpha blend (tem: %s)"
+				% str(xr.get_supported_environment_blend_modes()))
 		return false
-	xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+	if not xr.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND):
+		print("Sala: o runtime recusou o alpha blend")
+		return false
 	get_viewport().transparent_bg = true
 	print("Sala: passthrough ligado (alpha blend)")
 	return true
@@ -312,7 +319,7 @@ func _desligar_passthrough() -> void:
 		return
 	var xr := XRServer.find_interface("OpenXR")
 	if xr != null:
-		xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
+		xr.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_OPAQUE)
 
 
 func _aplicar_tela() -> void:

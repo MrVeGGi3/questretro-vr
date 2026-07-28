@@ -30,13 +30,21 @@ const TAM_FOTO := Vector2i(960, 720)
 ## derrubar o teste: as asserções simplesmente não acontecem, e o final imprimia
 ## "TUDO OK" com o salão sem compilar. Zero falha só vale alguma coisa junto com
 ## a conta de quantas passaram.
-const CONFERENCIAS := 20
+const CONFERENCIAS := 24
+
+## Os métodos de `XRInterface` que o `xr_main` usa para ligar o passthrough.
+## Nomes, e não chamadas: sem runtime de XR não há o que chamar aqui.
+const API_BLEND := [
+	"get_supported_environment_blend_modes",
+	"set_environment_blend_mode",
+]
 
 var _falhas := 0
 var _feitas := 0
 
 
 func _ready() -> void:
+	_testar_api_de_blend()
 	_testar_transparencia()
 	_testar_geometria_por_modo()
 	_testar_troca_nao_vaza()
@@ -52,6 +60,27 @@ func _ready() -> void:
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
+
+
+## Que os métodos de blend que o `xr_main` chama **existam**.
+##
+## Parece trivial e não é: o passthrough só roda com runtime de XR, então nada
+## no desktop exercita aquele caminho, e uma chamada a método inexistente chega
+## ao headset intacta. Foi o que aconteceu — `is_environment_blend_mode_supported`
+## não existe no Godot 4.6.3, e o erro só apareceu depois de export, sideload e
+## uma sessão de headset. Perguntar ao ClassDB custa um milissegundo e não
+## precisa de XR nenhum, porque a assinatura é da classe e não do aparelho.
+func _testar_api_de_blend() -> void:
+	for metodo: String in API_BLEND:
+		_conferir(ClassDB.class_has_method("XRInterface", metodo),
+				"XRInterface.%s() existe nesta versão do Godot" % metodo)
+
+	# O modo em si: com o enum errado o passthrough sairia aditivo, que no Quest
+	# é outra coisa (e mais barata de confundir do que parece).
+	_conferir(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND == 2,
+			"ALPHA_BLEND continua sendo 2")
+	_conferir(XRInterface.XR_ENV_BLEND_MODE_OPAQUE == 0,
+			"OPAQUE continua sendo 0")
 
 
 ## Só o passthrough pede fundo transparente, e o Environment do modo tem de
