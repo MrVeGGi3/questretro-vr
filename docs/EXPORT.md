@@ -472,19 +472,55 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   `OpenXR: Created instance` não aparecer em ~25 s, `am force-stop`, senão o
   headset fica preso.
 
-- **Orçamento de frame do fliperama: falta medir no device.** O salão é estático,
-  unshaded, sem luz nem sombra, e cabe em seis chamadas de desenho — mas isso é
-  hipótese até o número sair do Quest. A instrumentação já existe:
+- **Orçamento de frame do fliperama: medido.** Star Fox 64 no Quest 3S (portanto
+  N64 com o `angrylion` por software, que é o caso pesado), Fliperama ligado,
+  tela em ~2,5×, **953 amostras de 1 s**:
+
+  | | |
+  |---|---|
+  | render | média **69,8** fps, máx 74 — alvo 72 |
+  | passos do emu | média **60,6**/s, mín 54 — o core pede 60 |
+  | segundos < 65 fps | 47 (**4,9 %**) |
+  | segundos < 55 fps | 4 (**0,4 %**) |
+  | emulação atrasada (< 58 passos) | 5 s (0,5 %) |
+
+  Ou seja: o salão **não** derruba o caso comum. A emulação acompanha o relógio
+  e as quedas são raras.
+
+  As quedas que sobram acontecem em cena pesada — a explosão de chefe é a mais
+  visível. **Não** foram atribuídas ao salão: o mesmo tranco já existia antes do
+  fliperama, o que é observação de quem jogou, não medida — os dados acima não
+  separam os segundos de Fliperama dos de Vazio. Para a próxima medição isso está
+  resolvido: `_aplicar_sala()` passou a imprimir `Sala: modo <nome>`, então uma
+  captura de DIAG dá para fatiar por ambiente. Fazer o A/B com a **mesma cena**
+  nos dois modos é o que fecha a atribuição.
+
+  A explicação que sobra para as quedas, e que casa com a forma delas: no Quest o
+  N64 roda por software, com a CPU desenhando o RDP pixel a pixel. Uma explosão
+  que toma a tela é o pior caso possível para isso, e não passa perto do que o
+  Godot desenha — o salão são seis malhas estáticas, sem luz nem sombra, numa GPU
+  que fora isso desenha um quad.
+
+  Como repetir:
 
   ```bash
-  adb logcat | grep DIAG      # o app precisa ter subido com `-- --diag`
+  adb logcat -s godot | grep -E "DIAG|Sala: modo"
   ```
 
-  Critério: com o Fliperama ligado, `render` segue em 72 fps e `passos do emu`
-  seguem batendo com o fps que o core pede. A CPU é o recurso escasso aqui
-  (emulação, mais o angrylion por software no N64); a GPU hoje desenha um quad e
-  deve ter folga, que é exatamente a parte que precisa ser confirmada e não
-  suposta.
+  O `-- --diag` do desktop não atravessa o `am start` no Android (medido), e por
+  isso existe o interruptor **Vídeo → Diagnóstico**, que também escreve os
+  números na tela. Ligá-lo zera os contadores: sem isso a primeira amostra
+  despeja tudo o que se acumulou desde o arranque (51589 passos num intervalo de
+  1 s, na primeira vez que isto foi medido).
+
+- **Áudio descartado em cena normal.** Na mesma captura, 47 das 953 amostras
+  descartaram áudio — 7619 amostras no total, ~0,17 s espalhados por 16 min.
+  Acontecem com o render em 69–72 fps, ou seja **não** são consequência de queda
+  de quadro, e quase sempre num segundo em que o emulador rodou 61 passos em vez
+  de 60: o acumulador adianta um passo, o core gera ~1,7 % mais áudio do que o
+  `AudioStreamGenerator` consome, e o excedente cai fora. É pequeno e ninguém
+  reclamou de som picotado, mas está registrado porque o mecanismo é o mesmo que
+  já causou o problema de 16 % descrito em "Rodar" no README.
 
 - **A tela grande passa do salão.** No topo do slider de tamanho a tela chega a
   11,2 m de largura, e nenhum salão de proporção plausível a contém — o teto e o

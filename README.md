@@ -247,6 +247,12 @@ nos dois alvos, onde isso é caro ou não existe. A iluminação está **pintada
 vértices**, o que num fliperama escuro é justamente o efeito que se quer, e o
 salão inteiro cabe em seis malhas.
 
+O salão cabe no orçamento de frame do Quest 3S, medido com Star Fox 64 — que é o
+caso pesado, N64 por software: **69,8 fps de média** num alvo de 72, ao longo de
+953 amostras de um segundo, com a emulação em dia com o relógio. Ligue
+**Vídeo → Diagnóstico** para ver os números na própria tela, sem cabo nem
+rebuild. Os detalhes e o que ainda não está atribuído estão em `docs/EXPORT.md`.
+
 Para ver a sala sem headset — porque "ficou escuro demais" e "a parede está
 virada para fora" nenhuma asserção pega:
 

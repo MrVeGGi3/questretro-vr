@@ -313,6 +313,11 @@ func _aplicar_sala() -> void:
 	if not Sala.quer_transparencia(modo):
 		_desligar_passthrough()
 	_sala.aplicar(modo)
+	# No log também, e não só na tela: sem esta linha uma captura de DIAG não tem
+	# como separar os segundos de um ambiente dos de outro, e a comparação entre
+	# salas vira relato em vez de medida — que foi exatamente o que aconteceu na
+	# primeira medição de verdade.
+	print("Sala: modo ", Sala.NOMES[modo])
 
 
 ## Põe o OpenXR em alpha blend e abre o fundo do viewport. Devolve se conseguiu.
