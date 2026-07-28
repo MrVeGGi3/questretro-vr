@@ -20,6 +20,9 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 			WidgetsVR.slider(cfg, "video/brilho", 0.4, 2.0, 0.05,
 					func(v: float) -> String: return "%.2f×" % v)))
 
+	conteudo.add_child(WidgetsVR.campo("Diagnóstico", "fps e ritmo do emulador na tela",
+			WidgetsVR.interruptor(cfg, "video/diag")))
+
 	rodape_de_ajuste(cfg, "video")
 	_atualizar_cabecalho()
 	emu.iniciado.connect(func(_w: int, _h: int, _fps: float) -> void: _atualizar_cabecalho())

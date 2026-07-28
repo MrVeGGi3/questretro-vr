@@ -155,17 +155,26 @@ func _avancar_emulacao(delta: float) -> void:
 		_acumulador = 0.0
 
 
-## Liga com `-- --diag`. Mostra se a emulação está no ritmo do core: passos/s
-## deve bater com o fps do core, e descartado deve ficar em zero.
+## Liga com `-- --diag` no desktop, ou pelo interruptor da página Vídeo — que é
+## o único caminho no headset, onde não há linha de comando. Mostra se a
+## emulação está no ritmo do core: passos/s deve bater com o fps do core, e
+## descartado deve ficar em zero.
+##
+## Vai para a tela **e** para o log: no headset o logcat só existe se alguém
+## estiver com o cabo na mão, e a pergunta "esta sala derruba o fps?" tem que ter
+## resposta olhando para a frente.
 func _diagnostico(delta: float) -> void:
-	if not _diag_ligado:
+	if not _diag_ligado and not _cfg.obter("video/diag"):
 		return
 	_diag_t += delta
 	if _diag_t < 1.0:
 		return
-	print("DIAG render=%.1f fps | passos do emu=%d/s (core pede %.1f) | audio gerado=%d descartado=%d" % [
+	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | audio gerado=%d descartado=%d" % [
 		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
-		_emu.diag_audio_gerado, _emu.diag_audio_descartado])
+		_emu.diag_audio_gerado, _emu.diag_audio_descartado]
+	print("DIAG ", linha)
+	if not _painel.esta_aberto():
+		_mostrar(linha)
 	_diag_t = 0.0
 	_diag_passos = 0
 	_emu.diag_audio_gerado = 0
@@ -247,6 +256,11 @@ func _iniciar_xr() -> void:
 func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 	if chave == "sala/modo":
 		_aplicar_sala()
+	elif chave == "video/diag":
+		# Desligar tem de apagar o que ficou escrito: o texto é reescrito uma vez
+		# por segundo, então sem isto o último número ficaria parado na tela para
+		# sempre, parecendo travamento.
+		_mostrar("")
 	elif chave.begins_with("tela/") or chave == "video/aspecto":
 		_aplicar_tela()
 	elif chave.begins_with("video/"):

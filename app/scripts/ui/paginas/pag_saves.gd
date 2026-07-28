@@ -150,14 +150,37 @@ func _slot(numero: int) -> Control:
 
 	if existe:
 		acoes.add_child(_botao_apagar(numero))
+	elif _emu.tem_na_lixeira(numero):
+		# Slot vazio com algo na lixeira: o desfazer ocupa o lugar do "Apagar",
+		# que é onde a mão acabou de estar. Uma batida só — pedir confirmação
+		# para desfazer seria pedir cerimônia para consertar um engano.
+		acoes.add_child(_botao_desfazer(numero))
 
 	return caixa
 
 
-## Apagar pede duas batidas: a primeira arma e o botão passa a perguntar. Não é
-## cerimônia — apagar um save state não tem desfazer, e no headset o clique sai
-## de um laser apontado à distância, que erra o alvo com mais facilidade que um
-## mouse. O estado mora no próprio botão, então sair da página desarma sozinho.
+## Traz de volta o último estado apagado deste slot. Só aparece com o slot vazio;
+## gravar por cima já é a maneira de dizer que o antigo não interessa mais.
+func _botao_desfazer(numero: int) -> Button:
+	var bt := WidgetsVR.botao("Desfazer")
+	bt.custom_minimum_size = Vector2(0, 52)
+	bt.name = "DesfazerSlot%d" % numero
+	bt.pressed.connect(func() -> void:
+		if _emu.desfazer_apagar(numero):
+			atualizar()
+	)
+	return bt
+
+
+## Apagar pede duas batidas: a primeira arma e o botão passa a perguntar. No
+## headset o clique sai de um laser apontado à distância, que erra o alvo com
+## mais facilidade que um mouse. O estado mora no próprio botão, então sair da
+## página desarma sozinho.
+##
+## As duas batidas não bastaram — um save state de verdade foi apagado por
+## engano —, e a resposta não foi uma terceira pergunta, que só treinaria a
+## pessoa a confirmar sem ler. O que apaga agora move para a lixeira, e o botão
+## "Desfazer" ocupa este mesmo canto enquanto o slot estiver vazio.
 func _botao_apagar(numero: int) -> Button:
 	var bt := WidgetsVR.botao("Apagar")
 	bt.custom_minimum_size = Vector2(0, 52)

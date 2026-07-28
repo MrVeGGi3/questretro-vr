@@ -11,6 +11,9 @@ signal falhou(msg: String)
 ## Master, para não silenciar junto sons de interface que venham depois.
 const BUS_AUDIO := "Emu"
 const PASTA_ESTADOS := "user://states"
+## Onde um estado apagado espera o desfazer. Dentro de `states/`, e não ao lado,
+## para quem abrir a pasta pelo `run-as` achar as duas coisas no mesmo lugar.
+const PASTA_LIXEIRA := "user://states/lixeira"
 ## Mesma pasta que o LibretroHost entrega ao core via GET_SAVE_DIRECTORY.
 const PASTA_SAVES := "user://saves"
 
@@ -342,20 +345,65 @@ func carregar_estado(slot: int) -> bool:
 ## Apaga um slot: o estado e a miniatura junto. É a única saída de um slot
 ## ocupado — gravar por cima exige ter o jogo naquele ponto de novo, e sem isto
 ## um save ruim fica lá para sempre.
+##
+## **Não desvincula o arquivo**: move para a lixeira, e `desfazer_apagar()` o
+## traz de volta. As duas batidas de confirmação não bastaram — um save state de
+## verdade foi apagado por engano no headset, e a duas batidas não há o que
+## acrescentar: o clique sai de um laser apontado à distância, e a terceira
+## pergunta só treinaria a pessoa a confirmar sem ler. Num Quest sem root, o
+## `remove_absolute` era definitivo; agora o engano custa um toque para desfazer.
 func apagar_estado(slot: int) -> bool:
 	var caminho := caminho_estado(slot)
 	if not FileAccess.file_exists(caminho):
 		return false
-	if DirAccess.remove_absolute(caminho) != OK:
+
+	DirAccess.make_dir_recursive_absolute(PASTA_LIXEIRA)
+	# Uma lixeira por slot e por jogo, e não uma pilha: o que se quer desfazer é
+	# sempre a última batida, e guardar histórico só encheria o disco de estados
+	# de 16 MB que ninguém vai procurar.
+	_limpar_lixeira(slot)
+	if DirAccess.rename_absolute(caminho, _caminho_lixeira(slot, "state")) != OK:
 		falhou.emit("Não consegui apagar o slot %d" % slot)
 		return false
 
 	# A miniatura sozinha não é save nenhum, mas se ficar para trás o slot vazio
-	# mostra a imagem de um estado que não existe mais.
+	# mostra a imagem de um estado que não existe mais. Vai junto para a lixeira
+	# porque sem ela o desfazer devolveria um save sem rosto.
 	var png := caminho_miniatura(slot)
 	if FileAccess.file_exists(png):
-		DirAccess.remove_absolute(png)
+		DirAccess.rename_absolute(png, _caminho_lixeira(slot, "png"))
 	return true
+
+
+## Se há o que desfazer neste slot.
+func tem_na_lixeira(slot: int) -> bool:
+	return FileAccess.file_exists(_caminho_lixeira(slot, "state"))
+
+
+## Traz de volta o último estado apagado deste slot. Recusa se o slot voltou a
+## ser ocupado: gravar por cima do que existe agora trocaria um engano por outro.
+func desfazer_apagar(slot: int) -> bool:
+	if not tem_na_lixeira(slot) or FileAccess.file_exists(caminho_estado(slot)):
+		return false
+	if DirAccess.rename_absolute(_caminho_lixeira(slot, "state"),
+			caminho_estado(slot)) != OK:
+		falhou.emit("Não consegui desfazer o slot %d" % slot)
+		return false
+	if FileAccess.file_exists(_caminho_lixeira(slot, "png")):
+		DirAccess.rename_absolute(_caminho_lixeira(slot, "png"),
+				caminho_miniatura(slot))
+	return true
+
+
+func _caminho_lixeira(slot: int, ext: String) -> String:
+	return "%s/%s_%d.%s" % [PASTA_LIXEIRA, id_rom(), slot, ext]
+
+
+func _limpar_lixeira(slot: int) -> void:
+	for ext in ["state", "png"]:
+		var f := _caminho_lixeira(slot, ext)
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(f)
 
 
 ## Nome de arquivo seguro derivado da ROM, para os arquivos de um jogo não

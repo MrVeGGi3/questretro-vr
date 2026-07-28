@@ -303,6 +303,10 @@ func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
 	_conferir(emu.gravar_estado(2), "gravou o slot 2 para ter o que apagar")
 	var estado := emu.caminho_estado(2)
 	var png := emu.caminho_miniatura(2)
+	# Guardado antes de apagar: o desfazer só vale alguma coisa se devolver
+	# **estes** bytes. Um desfazer que recria um arquivo vazio passaria em
+	# qualquer asserção de existência.
+	var antes := FileAccess.get_file_as_bytes(estado)
 
 	var vp := SubViewport.new()
 	vp.size = TemaVR.PAINEL
@@ -332,6 +336,33 @@ func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
 	_conferir(not FileAccess.file_exists(png), "e leva a miniatura junto")
 	_conferir(not emu.apagar_estado(2), "apagar slot vazio devolve false, não finge")
 
+	# O que apaga move para a lixeira, e é isso que torna o engano reversível.
+	# Sem esta parte, "apagar" e "apagar de verdade" seriam indistinguíveis daqui.
+	_conferir(emu.tem_na_lixeira(2), "o apagado foi para a lixeira")
+
+	menu.mostrar("Saves")
+	await get_tree().process_frame
+	var bt_undo := menu.find_child("DesfazerSlot2", true, false) as Button
+	_conferir(bt_undo != null, "o slot vazio oferece Desfazer")
+	if bt_undo != null:
+		bt_undo.pressed.emit()
+		await get_tree().process_frame
+
+	_conferir(FileAccess.file_exists(estado), "desfazer devolve o estado")
+	_conferir(FileAccess.file_exists(png), "e a miniatura junto")
+	_conferir(FileAccess.get_file_as_bytes(estado) == antes,
+			"e são os mesmos bytes, não um arquivo novo")
+	_conferir(not emu.tem_na_lixeira(2), "a lixeira fica vazia depois de desfazer")
+	_conferir(not emu.desfazer_apagar(2),
+			"desfazer sem nada na lixeira devolve false")
+
+	# Slot reocupado não aceita desfazer: seria trocar um engano por outro.
+	_conferir(emu.apagar_estado(2), "apaga de novo")
+	_conferir(emu.gravar_estado(2), "e o slot volta a ser ocupado por cima")
+	_conferir(not emu.desfazer_apagar(2),
+			"com o slot ocupado, desfazer se recusa")
+
+	emu.apagar_estado(2)
 	vp.queue_free()
 	await get_tree().process_frame
 

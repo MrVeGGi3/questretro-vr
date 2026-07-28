@@ -53,6 +53,11 @@ const PADROES := {
 	"video/filtro_suave": false,
 	"video/aspecto": ASPECTO_4_3,
 	"video/brilho": 1.0,
+	# Contadores de frame na tela e no log. Existe como chave, e não só como
+	# `-- --diag`, porque no Quest não há linha de comando: o argumento não
+	# atravessa o `am start` (medido), e sem isto medir o custo de uma sala nova
+	# custava export + sideload. Mesma razão do `input/guidao_diag`.
+	"video/diag": false,
 	"audio/volume": 0.8,
 	"audio/mudo": false,
 	"input/dpad_engaja": 0.5,

@@ -276,6 +276,14 @@ headset é como quase toda sessão acaba, então o timer é o que de fato proteg
 progresso. Checar mais vezes é quase de graça: sem mudança, a gravação sai na
 comparação de buffer sem tocar no disco. `test_sram` mede esse atraso.
 
+Apagar um save state **tem desfazer**: o slot vai para `user://states/lixeira/`
+e o botão "Desfazer" ocupa o mesmo canto enquanto o slot estiver vazio. As duas
+batidas de confirmação continuam lá, mas não bastaram — um save foi apagado por
+engano no headset, e num Quest sem root o `remove_absolute` era definitivo. A
+resposta não foi uma terceira pergunta, que só treinaria a pessoa a confirmar sem
+ler. Gravar por cima é o que diz que o antigo não interessa mais, e aí o desfazer
+se recusa.
+
 Os save states dos quatro slots valem também no N64: que restaurar devolve o
 jogo ao ponto gravado está conferido por imagem em `test_estado` (o teste de
 bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
