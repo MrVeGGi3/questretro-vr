@@ -573,4 +573,29 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   Se um dia um core precisar, o sinal é `retro_load_game` falhando só para
   algumas extensões — e o `need_fullpath` global sendo `false`.
 
+- **`RETRO_DEVICE_POINTER` é usado, e não é sobra.** O host implementa o ponteiro
+  (`set_pointer` mais os ids `X/Y/PRESSED/COUNT` em `_on_input_state`) porque é
+  por ele que o toque do DS entra — sem isso o melonDS roda e nenhum dos jogos de
+  caneta se joga.
+
+  Registrado aqui porque quase aconteceu o contrário com o env 65 logo acima:
+  código de host acrescentado numa investigação, que depois se mostrou
+  desnecessário e foi revertido. Este **não** é esse caso, e a prova é direta —
+  `test_caneta` exercita a conta, e os cinco jogos de DS da coleção dependem dela.
+
+  `POINTER_COUNT` merece nota: cores consultam quantos ponteiros estão encostados
+  antes de ler X/Y, e devolver 0 ali faz o toque ser ignorado mesmo com
+  `PRESSED` valendo 1 — uma falha silenciosa a mais na mesma família.
+
+  `clear_input()` zera o ponteiro junto com os botões. Quem chama é o menu
+  abrindo, e o menu abre com o gatilho na mão: sem isso a caneta ficaria
+  encostada na tela do jogo o tempo todo em que o painel estivesse aberto.
+
+- **As duas telas do DS dependem de duas opções do core.**
+  `EmuCore.OPCOES["nds"]` fixa `melonds_screen_layout = "Top/Bottom"` e
+  `melonds_screen_gap = 0`. São os padrões do core, e ainda assim estão escritos:
+  a divisão do framebuffer em dois quads recorta a metade exata, e um
+  `screen_gap` diferente de zero desloca tudo. O sintoma seria a caneta errando o
+  alvo por alguns pixels — que ninguém liga a uma opção de vídeo.
+
 - **Integração com `romkeep`**: prevista para depois desta fase.

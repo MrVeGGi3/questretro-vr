@@ -48,6 +48,13 @@ const CORES := {
 		"desktop": "res://cores/genesis_plus_gx_libretro.so",
 		"android": "res://cores/genesis_plus_gx_libretro_android.so",
 	},
+	# Nintendo DS. Arranca **sem** BIOS: o melonDS traz FreeBIOS e gera a firmware,
+	# então não é preciso ter bios7/bios9/firmware para jogar em modo DS —
+	# conferido carregando Ghost Trick sem nenhum arquivo de BIOS na pasta.
+	"nds": {
+		"desktop": "res://cores/melonds_libretro.so",
+		"android": "res://cores/melonds_libretro_android.so",
+	},
 }
 
 ## Opções aplicadas ao core assim que ele carrega e antes da ROM — várias só
@@ -80,6 +87,15 @@ const OPCOES := {
 		# Cópia assíncrona do framebuffer usa PBO; síncrona é mais lenta e
 		# muito menos exigente com o driver.
 		"mupen64plus-EnableCopyColorToRDRAM": "Sync",
+	},
+	# As duas telas do DS empilhadas, sem vão entre elas. É o padrão do core, e
+	# ainda assim está escrito aqui: a divisão do framebuffer em dois quads
+	# (`xr_main`) depende de a metade de baixo ser **exatamente** a metade. Um
+	# `screen_gap` diferente de zero desloca tudo, e o sintoma seria a caneta
+	# errando o alvo por alguns pixels — que ninguém liga a uma opção de vídeo.
+	"nds": {
+		"melonds_screen_layout": "Top/Bottom",
+		"melonds_screen_gap": "0",
 	},
 }
 
@@ -544,6 +560,15 @@ func set_button(port: int, id: int, pressed: bool) -> void:
 func set_analog(port: int, indice: int, eixo: int, valor: float) -> void:
 	if _host != null:
 		_host.set_analog(port, indice, eixo, valor)
+
+
+## Ponteiro (a caneta do DS). `x` e `y` em [-1,1] sobre o **framebuffer
+## inteiro**, com a origem no centro — quem converte a posição no quad para esta
+## escala é o `CanetaDS`, que faz a conta sabendo que a tela de baixo é só metade
+## do framebuffer.
+func set_pointer(port: int, x: float, y: float, encostado: bool) -> void:
+	if _host != null:
+		_host.set_pointer(port, x, y, encostado)
 
 
 ## Anuncia o tipo de controle da porta. O N64 precisa de DEVICE_ANALOG para o

@@ -55,7 +55,7 @@ func _criar_paginas() -> void:
 	roms.cancelado.connect(func() -> void: fechar_pedido.emit())
 
 	_registrar("ROMs", roms)
-	_registrar("Tela", PagTela.new(_cfg))
+	_registrar("Tela", PagTela.new(_cfg, _emu))
 	_registrar("Sala", PagSala.new(_cfg))
 	_registrar("Vídeo", PagVideo.new(_cfg, _emu))
 	_registrar("Áudio", PagAudio.new(_cfg, _emu))
@@ -84,8 +84,10 @@ func ao_abrir() -> void:
 	(_paginas["ROMs"] as PagRoms).atualizar()
 	(_paginas["Saves"] as PagSaves).atualizar()
 	# O mapa de controle muda com o sistema da ROM, e a ROM pode ter trocado
-	# desde a última vez que o painel abriu.
+	# desde a última vez que o painel abriu. A página de Tela pela mesma razão:
+	# os ajustes da segunda tela só existem nos sistemas que têm duas.
 	(_paginas["Input"] as PagInput).atualizar()
+	(_paginas["Tela"] as PagTela).atualizar()
 	_atualizar_rodape()
 
 

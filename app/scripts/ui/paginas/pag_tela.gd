@@ -1,6 +1,11 @@
 class_name PagTela
 extends PagBase
 ## Tamanho, posição e curvatura da tela do emulador no espaço.
+##
+## Nos sistemas de duas telas (o DS) a página ganha um segundo bloco, com a tela
+## de baixo — a da caneta — tendo posição própria. Ele aparece **só** quando há
+## duas telas: três sliders mortos num jogo de SNES seriam quatro linhas a mais
+## para rolar atrás do que interessa.
 
 # Limites que antes eram constantes em vr/xr_main.gd.
 const ESCALA_MIN := 0.3
@@ -9,6 +14,11 @@ const DIST_MIN := 0.8
 const DIST_MAX := 8.0
 const ALTURA_MIN := -1.0
 const ALTURA_MAX := 1.0
+
+## A tela de baixo é de mão: perto por definição, e o alcance do braço é o teto
+## útil. Deixá-la ir a 8 m como a de cima só daria uma caneta que não alcança.
+const DS_DIST_MIN := 0.4
+const DS_DIST_MAX := 1.5
 
 ## Predefinições: escala, distância. Cobrem os três usos que o projeto
 ## promete — do portátil ao cinema.
@@ -19,32 +29,58 @@ const PREDEFINICOES := {
 }
 
 var _cfg: ConfigEmu
+var _emu: EmuCore
 
 
-func _init(cfg: ConfigEmu) -> void:
+func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	super("Tela")
 	_cfg = cfg
-
-	conteudo.add_child(WidgetsVR.campo("Predefinição", "", _predefinicoes()))
-	conteudo.add_child(WidgetsVR.campo("Tamanho", "analógico direito ↕",
-			WidgetsVR.slider(cfg, "tela/escala", ESCALA_MIN, ESCALA_MAX, 0.05,
-					func(v: float) -> String: return "%.2f×" % v)))
-	conteudo.add_child(WidgetsVR.campo("Distância", "analógico direito ↔",
-			WidgetsVR.slider(cfg, "tela/distancia", DIST_MIN, DIST_MAX, 0.05,
-					func(v: float) -> String: return "%.2f m" % v)))
-	conteudo.add_child(WidgetsVR.campo("Altura", "relativa aos olhos",
-			WidgetsVR.slider(cfg, "tela/altura", ALTURA_MIN, ALTURA_MAX, 0.02,
-					func(v: float) -> String: return "%+.2f m" % v)))
-	conteudo.add_child(WidgetsVR.campo("Curvatura", "vira uma malha em arco",
-			WidgetsVR.slider(cfg, "tela/curvatura", 0.0, 1.0, 0.05,
-					func(v: float) -> String: return "%d %%" % roundi(v * 100.0))))
+	_emu = emu
 
 	rodape_de_ajuste(cfg, "tela")
-	_atualizar_cabecalho()
+	atualizar()
 	cfg.mudou.connect(func(k: String, _v: Variant) -> void:
 		if k.begins_with("tela/"):
 			_atualizar_cabecalho()
 	)
+
+
+## Remonta o conteúdo. Chamada ao abrir o painel, porque o que a página mostra
+## depende do sistema da ROM — e a ROM pode ter trocado desde a última vez.
+func atualizar() -> void:
+	for filho in conteudo.get_children():
+		filho.queue_free()
+		conteudo.remove_child(filho)
+
+	conteudo.add_child(WidgetsVR.campo("Predefinição", "", _predefinicoes()))
+	conteudo.add_child(WidgetsVR.campo("Tamanho", "analógico direito ↕",
+			WidgetsVR.slider(_cfg, "tela/escala", ESCALA_MIN, ESCALA_MAX, 0.05,
+					func(v: float) -> String: return "%.2f×" % v)))
+	conteudo.add_child(WidgetsVR.campo("Distância", "analógico direito ↔",
+			WidgetsVR.slider(_cfg, "tela/distancia", DIST_MIN, DIST_MAX, 0.05,
+					func(v: float) -> String: return "%.2f m" % v)))
+	conteudo.add_child(WidgetsVR.campo("Altura", "relativa aos olhos",
+			WidgetsVR.slider(_cfg, "tela/altura", ALTURA_MIN, ALTURA_MAX, 0.02,
+					func(v: float) -> String: return "%+.2f m" % v)))
+	conteudo.add_child(WidgetsVR.campo("Curvatura", "vira uma malha em arco",
+			WidgetsVR.slider(_cfg, "tela/curvatura", 0.0, 1.0, 0.05,
+					func(v: float) -> String: return "%d %%" % roundi(v * 100.0))))
+
+	if NavegadorRoms.tem_duas_telas(_emu.sistema):
+		conteudo.add_child(WidgetsVR.divisoria())
+		conteudo.add_child(WidgetsVR.campo("Tela de baixo", "a da caneta",
+				WidgetsVR.mono("posição própria")))
+		conteudo.add_child(WidgetsVR.campo("Tamanho", "",
+				WidgetsVR.slider(_cfg, "tela/ds_escala", ESCALA_MIN, 2.0, 0.05,
+						func(v: float) -> String: return "%.2f×" % v)))
+		conteudo.add_child(WidgetsVR.campo("Distância", "ao alcance do braço",
+				WidgetsVR.slider(_cfg, "tela/ds_distancia", DS_DIST_MIN, DS_DIST_MAX, 0.05,
+						func(v: float) -> String: return "%.2f m" % v)))
+		conteudo.add_child(WidgetsVR.campo("Altura", "relativa aos olhos",
+				WidgetsVR.slider(_cfg, "tela/ds_altura", ALTURA_MIN, ALTURA_MAX, 0.02,
+						func(v: float) -> String: return "%+.2f m" % v)))
+
+	_atualizar_cabecalho()
 
 
 func _predefinicoes() -> Control:

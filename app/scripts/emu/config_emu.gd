@@ -45,6 +45,13 @@ const PADROES := {
 	"tela/distancia": 2.2,
 	"tela/altura": 0.0,
 	"tela/curvatura": 0.0,
+	# Tela de baixo do DS, que tem posição própria: as chaves acima passam a
+	# valer só para a de cima quando há duas. Os padrões põem um DS na mão —
+	# perto, baixa e menor que a de cima, que é onde a caneta alcança sem
+	# esticar o braço.
+	"tela/ds_escala": 0.8,
+	"tela/ds_distancia": 0.75,
+	"tela/ds_altura": -0.45,
 	# Ambiente em volta da tela. Nasce no Vazio — que é o que a cena sempre fez —
 	# pela mesma razão que o guidão nasce desligado: uma atualização não troca o
 	# cenário debaixo de quem já usa o app. Fora do perfil do cartucho de
@@ -125,6 +132,23 @@ const PADROES := {
 	"input/mapa_megadrive_esq_by": LibretroHost.JOYPAD_X,        # Y
 	"input/mapa_megadrive_esq_trigger": LibretroHost.JOYPAD_R,   # Z
 	"input/mapa_megadrive_esq_grip": LibretroHost.JOYPAD_SELECT, # Mode
+	# Nintendo DS. Os nomes batem com os ids, ao contrário do N64 e do Mega Drive
+	# — conferido nos descritores do melonDS.
+	#
+	# O **gatilho direito fica em Nada**, e é a única escolha de peso aqui: ele é
+	# a caneta. Mapeá-lo em R faria todo toque na tela de baixo apertar R junto,
+	# e o jogo pareceria ter um botão fantasma. R vai para o grip.
+	#
+	# Start não entra no mapa porque não precisa: o toque curto no botão de menu
+	# vale como Start em qualquer sistema (ver `_start_com_pulso`).
+	"input/mapa_nds_dir_ax": LibretroHost.JOYPAD_A,
+	"input/mapa_nds_dir_by": LibretroHost.JOYPAD_B,
+	"input/mapa_nds_esq_ax": LibretroHost.JOYPAD_X,
+	"input/mapa_nds_esq_by": LibretroHost.JOYPAD_Y,
+	"input/mapa_nds_esq_trigger": LibretroHost.JOYPAD_L,
+	"input/mapa_nds_dir_trigger": MapaInput.NADA,
+	"input/mapa_nds_dir_grip": LibretroHost.JOYPAD_R,
+	"input/mapa_nds_esq_grip": LibretroHost.JOYPAD_SELECT,
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
 }

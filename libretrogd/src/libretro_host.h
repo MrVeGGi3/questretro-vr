@@ -114,6 +114,10 @@ public:
 	// Eixo analógico (RETRO_DEVICE_ANALOG). `valor` em [-1,1]; ver AnalogAxis
 	// para o sentido do Y.
 	void set_analog(int p_port, int p_index, int p_axis, double p_value);
+	// Ponteiro (RETRO_DEVICE_POINTER): a caneta do DS. `x`/`y` em [-1,1] sobre o
+	// **framebuffer inteiro**, com a origem no centro — a convenção do libretro,
+	// e não a do quad que o jogador está apontando. Quem converte é o CanetaDS.
+	void set_pointer(int p_port, double p_x, double p_y, bool p_pressed);
 	// Anuncia ao core que tipo de controle está ligado na porta. O N64 precisa
 	// de DEVICE_ANALOG; o SNES fica em DEVICE_JOYPAD.
 	void set_controller_device(int p_port, int p_device);
@@ -252,6 +256,11 @@ private:
 	uint32_t input_state[2] = { 0, 0 };
 	// eixos analógicos: [porta][manche][eixo], já na escala do libretro
 	int16_t analog_state[2][2][2] = {};
+	// ponteiro (caneta): posição já na escala do libretro e se está encostado.
+	// É por aqui que o toque do DS entra — ver set_pointer().
+	int16_t pointer_x[2] = { 0, 0 };
+	int16_t pointer_y[2] = { 0, 0 };
+	bool pointer_pressed[2] = { false, false };
 
 	// dados do jogo mantidos vivos enquanto o core roda (quando não é fullpath)
 	std::vector<uint8_t> game_data;

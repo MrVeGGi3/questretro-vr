@@ -40,6 +40,11 @@ const START_PULSO := 3
 const ARCO_MAX := 60.0
 const ARCO_SEGMENTOS := 24
 
+## Quanto a tela de baixo do DS se inclina para trás, em graus. Um console
+## apoiado nas mãos fica deitado, não de pé — e apontar a caneta para uma
+## superfície vertical na altura do peito cansa o pulso em minutos.
+const INCLINACAO_DS := 35.0
+
 ## Teto de frames emulados por frame renderizado. Impede a espiral da morte:
 ## se emular ficar mais caro que o tempo real, o acumulador cresceria sem fim.
 const MAX_PASSOS := 4
@@ -56,6 +61,15 @@ var _ctrl_esq: XRController3D
 var _ctrl_dir: XRController3D
 var _tela: MeshInstance3D
 var _mat: StandardMaterial3D
+## Segunda tela, só nos sistemas de duas telas (hoje o DS). Mostra a metade de
+## baixo do mesmo framebuffer, recortada por `uv1_offset`.
+var _tela2: MeshInstance3D
+var _mat2: StandardMaterial3D
+var _duas_telas := false
+## Caneta: o raio do controle direito e o alvo colado na tela de baixo.
+var _raio_ds: RayCast3D
+var _corpo_ds: StaticBody3D
+var _tamanho_tela_ds := Vector2.ONE
 var _label: Label3D
 
 var _xr_ativo := false
@@ -219,12 +233,34 @@ func _montar_cena() -> void:
 	_origin.add_child(_ctrl_dir)
 
 	# A "tela": malha unshaded com o framebuffer do emulador.
-	_mat = StandardMaterial3D.new()
-	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat = _material_tela()
 	_tela = MeshInstance3D.new()
 	add_child(_tela)
+
+	# A segunda tela existe sempre, e fica escondida fora do DS. Criá-la sob
+	# demanda faria a troca de ROM ter de montar geometria no meio do jogo, e
+	# esconder um MeshInstance vazio não custa frame nenhum.
+	_mat2 = _material_tela()
+	_tela2 = MeshInstance3D.new()
+	_tela2.visible = false
+	add_child(_tela2)
+
+	# Alvo da caneta: uma caixa fina colada na tela de baixo, e um raio no
+	# controle direito. Mesmo arranjo que o `PainelMenu` usa para o laser do
+	# menu — e são dois raios separados de propósito, porque quem manda em cada
+	# um é diferente: o do menu só existe com o painel aberto, este só com ele
+	# fechado.
+	_corpo_ds = StaticBody3D.new()
+	var forma := CollisionShape3D.new()
+	forma.shape = BoxShape3D.new()
+	_corpo_ds.add_child(forma)
+	_tela2.add_child(_corpo_ds)
+
+	_raio_ds = RayCast3D.new()
+	_raio_ds.target_position = Vector3(0, 0, -5.0)
+	_raio_ds.collide_with_areas = false
+	_raio_ds.enabled = false
+	_ctrl_dir.add_child(_raio_ds)
 
 	# Filho da cena, e **não** da tela: como filho ele herdava `tela/escala`, e
 	# numa tela grande (2,86× medido no headset) o deslocamento de 0,7 virava 2 m
@@ -353,21 +389,67 @@ func _desligar_passthrough() -> void:
 		xr.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_OPAQUE)
 
 
+func _material_tela() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
+
 func _aplicar_tela() -> void:
-	var razao := _cfg.aspecto_como_razao(_aspecto_nativo)
+	_duas_telas = NavegadorRoms.tem_duas_telas(_emu.sistema)
+	_tela2.visible = _duas_telas
+
 	var curvatura: float = _cfg.obter("tela/curvatura")
+	# Com duas telas, o aspecto de cada quad é o da tela **individual**, não o do
+	# framebuffer: o do DS empilhado é 2:3, e usar isso em cada metade sairia com
+	# as duas achatadas na altura.
+	var razao := _aspecto_de_uma_tela() if _duas_telas \
+			else _cfg.aspecto_como_razao(_aspecto_nativo)
+
 	_tela.mesh = _construir_mesh_tela(LARGURA_BASE, LARGURA_BASE / razao, curvatura)
 	_tela.mesh.surface_set_material(0, _mat)
 	_tela.scale = Vector3.ONE * _cfg.obter("tela/escala")
+
+	# O recorte vem do material, e não da malha: assim `_construir_mesh_tela()`
+	# continua servindo aos dois casos sem saber que existe uma segunda tela.
+	if _duas_telas:
+		_mat.uv1_scale = CanetaDS.UV_ESCALA
+		_mat.uv1_offset = CanetaDS.UV_CIMA
+		_mat2.uv1_scale = CanetaDS.UV_ESCALA
+		_mat2.uv1_offset = CanetaDS.UV_BAIXO
+		_tela2.mesh = _construir_mesh_tela(LARGURA_BASE, LARGURA_BASE / razao, curvatura)
+		_tela2.mesh.surface_set_material(0, _mat2)
+		_tela2.scale = Vector3.ONE * _cfg.obter("tela/ds_escala")
+		# O alvo da caneta acompanha o tamanho da malha. Como o colisor é filho
+		# da tela, a escala vem junto de graça — mas as dimensões precisam ser
+		# reditas quando a proporção muda, senão a caneta acerta uma área que
+		# não é a que se vê.
+		_tamanho_tela_ds = Vector2(LARGURA_BASE, LARGURA_BASE / razao)
+		var forma := _corpo_ds.get_child(0) as CollisionShape3D
+		(forma.shape as BoxShape3D).size = Vector3(
+				_tamanho_tela_ds.x, _tamanho_tela_ds.y, 0.02)
+	else:
+		_mat.uv1_scale = Vector3.ONE
+		_mat.uv1_offset = Vector3.ZERO
+
 	_posicionar_tela()
 
 
+## Proporção de **uma** tela do DS: 256×192, ou 4:3.
+func _aspecto_de_uma_tela() -> float:
+	return 4.0 / 3.0
+
+
 func _aplicar_video() -> void:
-	_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR \
+	var filtro := BaseMaterial3D.TEXTURE_FILTER_LINEAR \
 			if _cfg.obter("video/filtro_suave") else BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	# Unshaded multiplica a textura pelo albedo, então isto vira brilho.
 	var b: float = _cfg.obter("video/brilho")
-	_mat.albedo_color = Color(b, b, b)
+	for m in [_mat, _mat2]:
+		m.texture_filter = filtro
+		m.albedo_color = Color(b, b, b)
 
 
 func _aplicar_audio() -> void:
@@ -409,6 +491,19 @@ func _posicionar_tela() -> void:
 		0.0,
 		altura_olhos + _cfg.obter("tela/altura"),
 		-_cfg.obter("tela/distancia"))
+
+	# A tela de baixo tem posição própria, e o padrão a põe onde um DS fica: perto
+	# e abaixo da linha dos olhos, ao alcance do braço. É ela que a caneta aponta,
+	# então distância aqui é ergonomia, não gosto.
+	if _duas_telas:
+		_tela2.global_position = Vector3(
+			0.0,
+			altura_olhos + _cfg.obter("tela/ds_altura"),
+			-_cfg.obter("tela/ds_distancia"))
+		# Levemente inclinada para trás, como um console apoiado nas mãos: de pé
+		# ela obrigaria o pulso a apontar reto para baixo o jogo inteiro.
+		_tela2.rotation = Vector3(deg_to_rad(-INCLINACAO_DS), 0.0, 0.0)
+
 	_posicionar_label()
 
 
@@ -426,6 +521,10 @@ func _posicionar_label() -> void:
 func _atualizar_tela() -> void:
 	if _emu.texture != null and _mat.albedo_texture != _emu.texture:
 		_mat.albedo_texture = _emu.texture
+		# A mesma textura nas duas: o que as separa é o recorte de UV, não a
+		# imagem. Uma segunda cópia do framebuffer seria um upload por frame a
+		# mais, e é justamente disso que o DS não precisa.
+		_mat2.albedo_texture = _emu.texture
 	_posicionar_tela()
 
 
@@ -476,6 +575,9 @@ func _ler_input_vr(delta: float) -> void:
 		_painel_antes = false
 		_centrar_guidao()
 
+	if _duas_telas:
+		_input_caneta()
+
 	if _emu.sistema == "n64":
 		_input_n64()
 	else:
@@ -495,6 +597,29 @@ func _ajustar_tela_com_stick(rstick: Vector2) -> void:
 		_cfg.definir("tela/distancia", clampf(
 			_cfg.obter("tela/distancia") - rstick.x * 0.03,
 			PagTela.DIST_MIN, PagTela.DIST_MAX))
+
+
+## A caneta do DS: onde o laser bate na tela de baixo vira ponteiro para o core.
+##
+## O gatilho direito é a caneta encostando, e por isso ele nasce em **Nada** no
+## mapa de botões do DS — mapeado em R, todo toque apertaria R junto.
+##
+## Só roda com o painel fechado, porque quem chama já garantiu isso: com o painel
+## aberto o `_ler_input_vr` sai antes, depois de `limpar_input()`, que agora zera
+## o ponteiro também.
+func _input_caneta() -> void:
+	_raio_ds.enabled = true
+	_raio_ds.force_raycast_update()
+
+	if not (_raio_ds.is_colliding() and _raio_ds.get_collider() == _corpo_ds):
+		# Fora da tela: a caneta se levanta. Manter a última posição encostada
+		# arrastaria o traço para onde o jogador só passou o laser de raspão.
+		_emu.set_pointer(0, 0.0, 0.0, false)
+		return
+
+	var local := _tela2.global_transform.affine_inverse() * _raio_ds.get_collision_point()
+	var p := CanetaDS.para_ponteiro(local, _tamanho_tela_ds)
+	_emu.set_pointer(0, p.x, p.y, _ctrl_dir.get_float(&"trigger") > 0.6)
 
 
 ## Consoles de D-pad: o analógico esquerdo vira as quatro direções por setores, e

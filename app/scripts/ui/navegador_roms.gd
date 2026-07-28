@@ -35,10 +35,22 @@ const SISTEMAS := {
 	"z64": "n64", "n64": "n64", "v64": "n64",
 	"md": "megadrive", "gen": "megadrive", "smd": "megadrive",
 	"chd": "megadrive", "cue": "megadrive",
+	"nds": "nds",
 }
 
 ## Nome que a interface mostra para cada sistema.
-const NOMES_SISTEMA := {"snes": "SNES", "n64": "N64", "megadrive": "Mega Drive"}
+const NOMES_SISTEMA := {
+	"snes": "SNES", "n64": "N64", "megadrive": "Mega Drive", "nds": "Nintendo DS",
+}
+
+## Sistemas cujo framebuffer traz **duas** telas empilhadas, e que por isso viram
+## dois quads no espaço em vez de um. Ver `xr_main._aplicar_tela()`.
+const DUAS_TELAS := ["nds"]
+
+
+## Se este sistema tem duas telas.
+static func tem_duas_telas(sistema: String) -> bool:
+	return sistema in DUAS_TELAS
 
 ## Precisa casar com `package/unique_name` do preset em export_presets.cfg: o
 ## Godot 4.6 não expõe o nome do pacote em runtime, e é ele que forma o caminho

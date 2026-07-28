@@ -107,6 +107,7 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_audio"), &LibretroHost::get_audio);
 	ClassDB::bind_method(D_METHOD("set_button", "port", "id", "pressed"), &LibretroHost::set_button);
 	ClassDB::bind_method(D_METHOD("set_analog", "port", "index", "axis", "value"), &LibretroHost::set_analog);
+	ClassDB::bind_method(D_METHOD("set_pointer", "port", "x", "y", "pressed"), &LibretroHost::set_pointer);
 	ClassDB::bind_method(D_METHOD("set_controller_device", "port", "device"), &LibretroHost::set_controller_device);
 	ClassDB::bind_method(D_METHOD("clear_input"), &LibretroHost::clear_input);
 	ClassDB::bind_method(D_METHOD("get_options"), &LibretroHost::get_options);
@@ -755,6 +756,27 @@ int16_t LibretroHost::_on_input_state(unsigned port, unsigned device, unsigned i
 		}
 		return analog_state[port][index][id];
 	}
+	if (device == RETRO_DEVICE_POINTER) {
+		// Índice > 0 seria um segundo dedo; a caneta é uma só.
+		if (index > 0) {
+			return 0;
+		}
+		switch (id) {
+			case RETRO_DEVICE_ID_POINTER_X:
+				return pointer_x[port];
+			case RETRO_DEVICE_ID_POINTER_Y:
+				return pointer_y[port];
+			case RETRO_DEVICE_ID_POINTER_PRESSED:
+				return pointer_pressed[port] ? 1 : 0;
+			// Quantos ponteiros estão encostados agora. Cores consultam isto
+			// antes de ler X/Y, e devolver 0 aqui faz o toque ser ignorado
+			// mesmo com PRESSED valendo 1.
+			case RETRO_DEVICE_ID_POINTER_COUNT:
+				return pointer_pressed[port] ? 1 : 0;
+			default:
+				return 0;
+		}
+	}
 	if (device != RETRO_DEVICE_JOYPAD || id > 15) {
 		return 0;
 	}
@@ -782,6 +804,19 @@ void LibretroHost::set_analog(int p_port, int p_index, int p_axis, double p_valu
 	analog_state[p_port][p_index][p_axis] = (int16_t)(v * 32767.0);
 }
 
+void LibretroHost::set_pointer(int p_port, double p_x, double p_y, bool p_pressed) {
+	if (p_port < 0 || p_port >= 2) {
+		return;
+	}
+	double x = p_x < -1.0 ? -1.0 : (p_x > 1.0 ? 1.0 : p_x);
+	double y = p_y < -1.0 ? -1.0 : (p_y > 1.0 ? 1.0 : p_y);
+	// Mesmo 0x7fff dos eixos, e pela mesma razão: com o -32768 que caberia no
+	// int16 o lado esquerdo teria um passo a mais que o direito.
+	pointer_x[p_port] = (int16_t)(x * 32767.0);
+	pointer_y[p_port] = (int16_t)(y * 32767.0);
+	pointer_pressed[p_port] = p_pressed;
+}
+
 void LibretroHost::set_controller_device(int p_port, int p_device) {
 	if (p_port < 0 || p_port >= 2 || !p_retro_set_controller_port_device) {
 		return;
@@ -792,6 +827,12 @@ void LibretroHost::set_controller_device(int p_port, int p_device) {
 void LibretroHost::clear_input() {
 	input_state[0] = input_state[1] = 0;
 	memset(analog_state, 0, sizeof(analog_state));
+	// A caneta junto: quem chama isto é o menu abrindo, e o menu abre com o
+	// gatilho na mão. Sem zerar aqui, a caneta ficaria encostada na tela do jogo
+	// durante todo o tempo em que o painel estivesse aberto.
+	memset(pointer_x, 0, sizeof(pointer_x));
+	memset(pointer_y, 0, sizeof(pointer_y));
+	pointer_pressed[0] = pointer_pressed[1] = false;
 }
 
 // ---------------------------------------------------------------------------

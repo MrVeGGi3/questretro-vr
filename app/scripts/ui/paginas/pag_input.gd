@@ -30,6 +30,7 @@ extends PagBase
 const EIXOS := {
 	"snes": [["Analógico esquerdo", "D-PAD"]],
 	"megadrive": [["Analógico esquerdo", "D-PAD"]],
+	"nds": [["Analógico esquerdo", "D-PAD"], ["Laser na tela de baixo", "CANETA"]],
 	"n64": [["Analógico esquerdo", "MANCHE"], ["Analógico direito", "C"]],
 }
 

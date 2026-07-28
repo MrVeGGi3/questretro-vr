@@ -78,17 +78,22 @@ B=https://buildbot.libretro.com/nightly/linux/x86_64/latest
 curl -fsSL -O $B/snes9x_libretro.so.zip                 # SNES
 curl -fsSL -O $B/mupen64plus_next_libretro.so.zip       # N64
 curl -fsSL -O $B/genesis_plus_gx_libretro.so.zip        # Mega Drive + Sega CD
+curl -fsSL -O $B/melonds_libretro.so.zip                # Nintendo DS
 unzip -o '*.so.zip' && rm -f *.so.zip
 ```
+
+O DS **não** precisa de BIOS: o melonDS traz FreeBIOS e gera a firmware, e os
+jogos arrancam sem `bios7`/`bios9`/`firmware` no disco.
 
 O Sega CD precisa da BIOS do Mega CD em `user://system/`, com os nomes que o
 core procura — `bios_CD_U.bin`, `bios_CD_E.bin`, `bios_CD_J.bin`. Sem ela o
 disco não abre.
 
 O core sai da extensão da ROM (`EmuCore.core_para_rom`): `.smc/.sfc/.fig/.swc/.zip`
-vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus, e
-`.md/.gen/.smd/.chd/.cue` para o genesis_plus_gx. Trocar de ROM entre
-sistemas troca o `.so` sozinho, gravando a SRAM do jogo anterior antes.
+vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus,
+`.md/.gen/.smd/.chd/.cue` para o genesis_plus_gx e `.nds` para o melonDS.
+Trocar de ROM entre sistemas troca o `.so` sozinho, gravando a SRAM do jogo
+anterior antes.
 
 Um core para dois consoles: o genesis_plus_gx roda cartucho de Mega Drive e
 disco de Sega CD, com o mesmo controle. Por isso os dois são **um** sistema aqui
@@ -230,6 +235,31 @@ lugares diferentes para consertar a mesma coisa.
 Cada perfil é um `user://perfis/<jogo>.cfg`, com o mesmo nome que o `.srm` e os
 slots de estado daquele cartucho.
 
+## Nintendo DS: duas telas e uma caneta
+
+O DS tem duas telas, e aqui elas viram **dois objetos separados** no espaço: a de
+cima grande e longe, a de baixo perto e inclinada para trás, como um console
+apoiado nas mãos. Cada uma tem tamanho, distância e altura próprios — os da tela
+de baixo aparecem na página **Tela** só quando há um DS carregado.
+
+As duas saem do mesmo framebuffer (o melonDS empilha as telas num 256×384), e o
+que as separa é recorte de UV no material, não uma segunda cópia da imagem.
+
+A **caneta** é o mesmo laser que aponta o menu, mirando a tela de baixo: o
+gatilho direito é a ponta encostando. Por isso ele nasce em **Nada** no mapa de
+botões do DS — mapeado em R, todo toque apertaria R junto. O R fica no grip, e
+Start continua vindo do toque curto no botão de menu, como em todo sistema.
+
+A conta que converte o ponto no quad em toque vive em `scripts/vr/caneta_ds.gd`,
+sem nenhuma dependência de XR, e o que a torna traiçoeira é o libretro querer a
+posição sobre o **framebuffer inteiro** enquanto o quad mostra só metade dele.
+Errar isso põe a caneta na tela de cima e o jogo parece não responder — daí ela
+ter teste próprio:
+
+```bash
+xvfb-run -a godot --xr-mode off --path app res://cenas/test_caneta.tscn
+```
+
 ## A sala
 
 Onde a tela flutua. Página **Sala** do menu, três modos:
@@ -340,6 +370,10 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
   (core, nome, linhas de eixo, mapa de botões) e esquecer um não dá erro nenhum —
   dá controle morto no headset —, então `test_ui` passou a conferir os quatro
   para todo sistema que o navegador reconhece.
+
+- **Fase 6** — **Nintendo DS** pelo melonDS: duas telas como objetos separados e
+  o laser virando caneta (ver "Nintendo DS"). É o primeiro sistema que exigiu
+  algo do host em C++ — `RETRO_DEVICE_POINTER`, que é como o toque entra.
 
   A seguir: integração com `romkeep`.
 
