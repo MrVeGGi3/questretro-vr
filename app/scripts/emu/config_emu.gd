@@ -71,6 +71,35 @@ const PADROES := {
 	# cara: com o número à vista, "não responde" e "responde ao contrário" e
 	# "está grudado no batente" param de ser a mesma queixa.
 	"input/guidao_diag": false,
+	# Mapa de botões, uma chave por origem do Touch e por sistema — o mapa de
+	# fábrica, que a página de Input deixa trocar e o perfil do cartucho deixa
+	# trocar só para um jogo. Escrito por extenso, e não gerado em `_init`, para
+	# este dicionário continuar sendo a lista completa do que existe: é ele que
+	# decide se uma chave é conhecida, o que um perfil pode sobrescrever e o que
+	# "Restaurar padrões" devolve.
+	#
+	# Os nomes não batem com os ids no N64, e não é engano: o próprio core
+	# declara `JOYPAD_B` como o **A** do controle, `JOYPAD_Y` como o B e o Z em
+	# `JOYPAD_L2`. Ainda no N64, sobram dois botões do Touch para quatro
+	# direções de D-pad: cima/baixo é o que aparece em menu de jogo, e
+	# esquerda/direita quase nunca. O Z fica no grip esquerdo, que era o que
+	# tinha sobrado.
+	"input/mapa_snes_dir_ax": LibretroHost.JOYPAD_A,
+	"input/mapa_snes_dir_by": LibretroHost.JOYPAD_B,
+	"input/mapa_snes_esq_ax": LibretroHost.JOYPAD_X,
+	"input/mapa_snes_esq_by": LibretroHost.JOYPAD_Y,
+	"input/mapa_snes_esq_trigger": LibretroHost.JOYPAD_L,
+	"input/mapa_snes_dir_trigger": LibretroHost.JOYPAD_R,
+	"input/mapa_snes_dir_grip": LibretroHost.JOYPAD_START,
+	"input/mapa_snes_esq_grip": LibretroHost.JOYPAD_SELECT,
+	"input/mapa_n64_dir_ax": LibretroHost.JOYPAD_B,
+	"input/mapa_n64_dir_by": LibretroHost.JOYPAD_Y,
+	"input/mapa_n64_esq_ax": LibretroHost.JOYPAD_DOWN,
+	"input/mapa_n64_esq_by": LibretroHost.JOYPAD_UP,
+	"input/mapa_n64_esq_trigger": LibretroHost.JOYPAD_L,
+	"input/mapa_n64_dir_trigger": LibretroHost.JOYPAD_R,
+	"input/mapa_n64_dir_grip": LibretroHost.JOYPAD_START,
+	"input/mapa_n64_esq_grip": LibretroHost.JOYPAD_L2,
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
 }

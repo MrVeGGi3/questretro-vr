@@ -43,6 +43,8 @@ func _ready() -> void:
 	_testar_persistencia(cfg)
 	_testar_perfil()
 	await _testar_botao_perfil(cfg, emu)
+	_testar_combinar()
+	await _testar_remap(cfg, emu)
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -463,6 +465,102 @@ func _testar_botao_perfil(cfg: ConfigEmu, emu: EmuCore) -> void:
 		if f != null:
 			f.store_buffer(backup)
 			f.close()
+
+
+## A conta do mapa, sem XR nenhum — é para isso que ela mora no MapaInput e não
+## dentro do xr_main. O que ela protege é o que dá para errar em silêncio: um
+## botão que fica preso depois de deixar de ser mapeado, e duas origens no mesmo
+## destino em que uma anula a outra.
+func _testar_combinar() -> void:
+	var mapa := {"dir_ax": LibretroHost.JOYPAD_A, "esq_grip": LibretroHost.JOYPAD_SELECT}
+
+	var e := MapaInput.combinar(mapa, {"dir_ax": true}, {})
+	_conferir(e[LibretroHost.JOYPAD_A] == true, "a origem pressionada chega no destino")
+	_conferir(e[LibretroHost.JOYPAD_SELECT] == false, "a origem solta não")
+	_conferir(e.size() == MapaInput.IDS, "todos os ids saem definidos, não só os mapeados")
+	_conferir(e[LibretroHost.JOYPAD_R] == false,
+			"id fora do mapa sai zerado — é o que impede botão preso após remap")
+
+	# Duas origens no mesmo destino somam. A alternativa (a última ganha) faria
+	# uma das duas não fazer nada, sem avisar ninguém.
+	var dois := {"esq_trigger": LibretroHost.JOYPAD_L, "dir_trigger": LibretroHost.JOYPAD_L}
+	var s := MapaInput.combinar(dois, {"esq_trigger": false, "dir_trigger": true}, {})
+	_conferir(s[LibretroHost.JOYPAD_L] == true, "duas origens no mesmo destino somam")
+
+	# "Nada" desliga a origem sem tirá-la da lista.
+	var nada := MapaInput.combinar({"dir_ax": MapaInput.NADA}, {"dir_ax": true}, {})
+	_conferir(nada[LibretroHost.JOYPAD_A] == false, "origem em 'Nada' não manda nada")
+
+	# O que vem por fora (as direções do analógico no SNES) sobrevive ao mapa.
+	var pre := MapaInput.combinar(mapa, {}, {LibretroHost.JOYPAD_LEFT: true})
+	_conferir(pre[LibretroHost.JOYPAD_LEFT] == true, "as direções do analógico passam inteiras")
+
+
+## O remap pela página: tocar na linha abre os destinos, tocar num destino grava.
+## E — o ponto de tudo isto — o que ele grava vai para o perfil do cartucho, sem
+## mexer no mapa dos outros jogos.
+func _testar_remap(cfg: ConfigEmu, emu: EmuCore) -> void:
+	# O sistema vem da ROM carregada, e não fixo: a página mostra o mapa do
+	# console em execução, e um teste que olhasse sempre a chave do SNES passaria
+	# no caminho comum e reprovaria com uma ROM de N64 — foi o que aconteceu.
+	var sistema := emu.sistema if not emu.sistema.is_empty() else "snes"
+	var chave := MapaInput.chave(sistema, "dir_ax")
+	var antes := int(cfg.obter(chave))
+
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("Input")
+	await get_tree().process_frame
+
+	var linha := menu.find_child("Origem_dir_ax", true, false) as Button
+	if linha == null:
+		_conferir(false, "achei a linha do botão A na página de Input")
+		vp.queue_free()
+		return
+
+	# Antes do toque não há destino à mostra: a página não pode nascer com oito
+	# seletores abertos.
+	_conferir(menu.find_child("Destino_dir_ax_1", true, false) == null,
+			"os destinos só aparecem depois do toque")
+
+	linha.pressed.emit()
+	await get_tree().process_frame
+	var alvo := menu.find_child("Destino_dir_ax_%d" % LibretroHost.JOYPAD_Y, true, false) as Button
+	if alvo == null:
+		_conferir(false, "o toque na linha abriu a lista de destinos")
+		vp.queue_free()
+		return
+	_conferir(true, "o toque na linha abre a lista de destinos")
+
+	# O seletor aberto em PNG: é a única forma de ver se a grade de destinos cabe
+	# na largura do painel e se as linhas debaixo foram empurradas para fora.
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	await _salvar(vp, "input_remap")
+
+	alvo.pressed.emit()
+	await get_tree().process_frame
+	_conferir(int(cfg.obter(chave)) == LibretroHost.JOYPAD_Y, "escolher um destino grava o mapa")
+	_conferir(menu.find_child("Destino_dir_ax_%d" % LibretroHost.JOYPAD_Y, true, false) == null,
+			"e a lista fecha depois de escolher")
+
+	# O que este remap todo existe para fazer: valer só neste cartucho.
+	cfg.usar_perfil("teste_remap")
+	cfg.criar_perfil()
+	cfg.definir(chave, LibretroHost.JOYPAD_X)
+	_conferir(int(cfg.obter(chave)) == LibretroHost.JOYPAD_X, "o perfil remapeia por cima do geral")
+	cfg.apagar_perfil()
+	_conferir(int(cfg.obter(chave)) == LibretroHost.JOYPAD_Y,
+			"e apagar o perfil devolve o mapa geral, intacto")
+
+	cfg.definir(chave, antes)
+	cfg.usar_perfil(emu.id_rom())
+	vp.queue_free()
+	await get_tree().process_frame
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

@@ -395,36 +395,29 @@ func _ajustar_tela_com_stick(rstick: Vector2) -> void:
 			PagTela.DIST_MIN, PagTela.DIST_MAX))
 
 
-## SNES: D-pad digital no analógico esquerdo, os quatro botões nos dois
-## controles, L/R nos gatilhos, Start/Select nos grips.
+## SNES: D-pad digital no analógico esquerdo; o resto sai do mapa de botões,
+## que a página de Input troca e o perfil do cartucho guarda por jogo.
 func _input_snes() -> void:
+	# As quatro direções não passam por origem nenhuma: saem do analógico
+	# esquerdo, que não é remapeável.
 	var dpad := _dpad_do_stick(_ctrl_esq.get_vector2(&"primary"))
-	_emu.set_button(0, LibretroHost.JOYPAD_LEFT, dpad.left)
-	_emu.set_button(0, LibretroHost.JOYPAD_RIGHT, dpad.right)
-	_emu.set_button(0, LibretroHost.JOYPAD_UP, dpad.up)
-	_emu.set_button(0, LibretroHost.JOYPAD_DOWN, dpad.down)
-
-	_emu.set_button(0, LibretroHost.JOYPAD_A, _ctrl_dir.is_button_pressed(&"ax_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"by_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_X, _ctrl_esq.is_button_pressed(&"ax_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_esq.is_button_pressed(&"by_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
-	_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
-	_emu.set_button(0, LibretroHost.JOYPAD_START, _start_com_pulso(_ctrl_dir.get_float(&"grip") > 0.5))
-	_emu.set_button(0, LibretroHost.JOYPAD_SELECT, _ctrl_esq.get_float(&"grip") > 0.5)
+	_aplicar_mapa("snes", {
+		LibretroHost.JOYPAD_LEFT: dpad.left,
+		LibretroHost.JOYPAD_RIGHT: dpad.right,
+		LibretroHost.JOYPAD_UP: dpad.up,
+		LibretroHost.JOYPAD_DOWN: dpad.down,
+	})
 
 
-## N64: os dois analógicos são eixos de verdade. Este mapa vem dos descritores
-## que o mupen64plus declara (SET_INPUT_DESCRIPTORS), não de tabela decorada —
-## e eles surpreendem em dois pontos:
+## N64: os dois analógicos são eixos de verdade, e é por isso que eles ficam
+## aqui em vez de virar linhas do mapa. Os C-buttons não são quatro botões
+## digitais para o core, e sim o **segundo manche** (device=ANALOG, index=1:
+## "C Buttons X/Y") — é o que faz o stick direito do Touch cair direto neles,
+## sem conversão para setores.
 ##
-##   - os nomes não batem com os ids: JOYPAD_B é o **A** do N64, JOYPAD_Y é o
-##     **B**, e o Z fica em JOYPAD_L2;
-##   - os C-buttons não são quatro botões digitais para o core, e sim o
-##     **segundo manche** (device=ANALOG, index=1: "C Buttons X/Y").
-##
-## O segundo ponto é o que faz o stick direito do Touch cair direto nos C, sem
-## conversão para setores.
+## Os botões saem do mapa, cujos padrões vêm dos descritores que o mupen declara
+## (SET_INPUT_DESCRIPTORS) e não de tabela decorada: lá, JOYPAD_B é o **A** do
+## N64, JOYPAD_Y é o **B**, e o Z fica em JOYPAD_L2.
 func _input_n64() -> void:
 	var manche := _manche_do_n64()
 	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, manche.x)
@@ -434,18 +427,45 @@ func _input_n64() -> void:
 	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_X, c.x)
 	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_Y, -c.y)
 
-	_emu.set_button(0, LibretroHost.JOYPAD_B, _ctrl_dir.is_button_pressed(&"ax_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_Y, _ctrl_dir.is_button_pressed(&"by_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_L, _ctrl_esq.get_float(&"trigger") > 0.5)
-	_emu.set_button(0, LibretroHost.JOYPAD_R, _ctrl_dir.get_float(&"trigger") > 0.5)
-	# Z é o gatilho do meio do N64; no Touch cai no grip esquerdo, que sobrou.
-	_emu.set_button(0, LibretroHost.JOYPAD_L2, _ctrl_esq.get_float(&"grip") > 0.5)
-	_emu.set_button(0, LibretroHost.JOYPAD_START, _start_com_pulso(_ctrl_dir.get_float(&"grip") > 0.5))
+	_aplicar_mapa("n64", {})
 
-	# Sobraram dois botões para quatro direções de D-pad. Cima/baixo é o que
-	# aparece em menu de jogo de N64; esquerda/direita quase nunca.
-	_emu.set_button(0, LibretroHost.JOYPAD_UP, _ctrl_esq.is_button_pressed(&"by_button"))
-	_emu.set_button(0, LibretroHost.JOYPAD_DOWN, _ctrl_esq.is_button_pressed(&"ax_button"))
+
+## Escreve no core os botões do frame, para qualquer sistema: o mapa da página
+## de Input decide quem vai onde, e `pre` traz os ids que não vêm de botão
+## nenhum (as direções que o analógico gera no SNES).
+##
+## Zera os 16 ids antes de aplicar. Sem isso, um botão que acabou de deixar de
+## ser mapeado ficaria preso no último estado que teve — remapear com o dedo no
+## gatilho deixaria o tiro travado ligado, e o jogo pareceria quebrado.
+func _aplicar_mapa(sistema: String, pre: Dictionary) -> void:
+	var mapa := {}
+	var pressionadas := {}
+	for entrada in MapaInput.ORIGENS:
+		var origem: String = entrada[0]
+		mapa[origem] = int(_cfg.obter(MapaInput.chave(sistema, origem)))
+		pressionadas[origem] = _origem_pressionada(origem)
+
+	var estados := MapaInput.combinar(mapa, pressionadas, pre)
+	# O toque curto no botão de menu vale como Start, mesmo que nenhuma origem
+	# esteja mapeada nele — é o caminho de quem remapeou o grip para outra coisa.
+	estados[LibretroHost.JOYPAD_START] = _start_com_pulso(estados[LibretroHost.JOYPAD_START])
+	for id: int in estados:
+		_emu.set_button(0, id, estados[id])
+
+
+## Estado físico de uma origem do Touch. É o único lugar do remap que sabe de
+## OpenXR — o resto trabalha em cima do dicionário que sai daqui.
+func _origem_pressionada(origem: String) -> bool:
+	match origem:
+		"dir_ax": return _ctrl_dir.is_button_pressed(&"ax_button")
+		"dir_by": return _ctrl_dir.is_button_pressed(&"by_button")
+		"esq_ax": return _ctrl_esq.is_button_pressed(&"ax_button")
+		"esq_by": return _ctrl_esq.is_button_pressed(&"by_button")
+		"esq_trigger": return _ctrl_esq.get_float(&"trigger") > 0.5
+		"dir_trigger": return _ctrl_dir.get_float(&"trigger") > 0.5
+		"esq_grip": return _ctrl_esq.get_float(&"grip") > 0.5
+		"dir_grip": return _ctrl_dir.get_float(&"grip") > 0.5
+	return false
 
 
 ## O manche do N64 vem do thumbstick ou da pose dos controles, conforme

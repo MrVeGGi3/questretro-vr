@@ -134,6 +134,24 @@ Esse mapa não é decorado: sai dos descritores que o próprio core declara
 Com o painel aberto, o **analógico direito rola a página** — sem isso nada
 abaixo da dobra seria alcançável, porque o laser só sabe apontar e clicar.
 
+### Remapear os botões
+
+Na página **Input**, toque numa linha e os destinos aparecem ali embaixo dela;
+toque num destino e a linha muda. Os nomes são os que o core dá àquele console —
+"Z Trigger" existe no N64 e não no SNES —, e **Nada** desliga a origem, que é
+como se tira um botão do caminho sem perdê-lo.
+
+Escolher apontando, em vez de um modo "aperte o botão que você quer", contorna o
+problema que segurava o remap: com o painel aberto o input do jogo fica
+congelado, e um modo de captura teria de distinguir "apertei para escolher" de
+"apertei para jogar". Apontar é o que o laser já sabe fazer.
+
+Os dois analógicos ficam de fora: eles não são botões para o core. O esquerdo do
+SNES vira as quatro direções, e no N64 os dois são eixos de verdade.
+
+Com um **perfil de cartucho** ligado (abaixo), o mapa que você montar vale só
+para aquele jogo.
+
 ### Guidão de nave (N64)
 
 Ligue na página **Input** e o manche do N64 deixa de sair do thumbstick e passa
@@ -189,9 +207,10 @@ comportamento no mesmo instante. Apagar pede duas batidas, pela mesma razão que
 apagar um save state pede: no headset o clique sai de um laser apontado à
 distância. Apagado, o jogo volta a seguir os ajustes gerais.
 
-Só **input** entra no perfil. Tamanho de tela, brilho e volume são preferência
-de quem joga, não do cartucho — duplicá-los por jogo só criaria lugares
-diferentes para consertar a mesma coisa.
+Só **input** entra no perfil — o mapa de botões e os ajustes contínuos (zona
+morta do D-pad, guidão inteiro). Tamanho de tela, brilho e volume são
+preferência de quem joga, não do cartucho: duplicá-los por jogo só criaria
+lugares diferentes para consertar a mesma coisa.
 
 Cada perfil é um `user://perfis/<jogo>.cfg`, com o mesmo nome que o `.srm` e os
 slots de estado daquele cartucho.
@@ -235,9 +254,9 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
   trilhas que sobraram para quem voltar nisso.
 
   Controles físicos: o **guidão de nave** do N64 mapeia a pose das duas mãos nos
-  eixos do manche, e os ajustes de input podem virar **perfil por cartucho** —
-  ligar o guidão para o Star Fox 64 não o liga para o Mario 64 (ver "Controles
-  no headset").
+  eixos do manche; os botões são **remapeáveis** pela página de Input; e tudo
+  isso pode virar **perfil por cartucho** — o mapa que serve ao Star Fox 64 não
+  vai junto para o Mario 64 (ver "Controles no headset").
 
   A seguir: integração com `romkeep`, salas/arcade virtual.
 

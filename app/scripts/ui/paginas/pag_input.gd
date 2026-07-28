@@ -9,52 +9,36 @@ extends PagBase
 ## (`SET_INPUT_DESCRIPTORS`) e não de tabela escrita aqui — foi o que já me
 ## salvou de mostrar "A" onde o core entende "B".
 ##
-## O mapa de **botões** continua sendo só exibição, sem remapear. Remap de
-## verdade precisa de um modo "aperte um botão" que capture input do Touch
-## enquanto o menu está aberto — e é justamente o menu que hoje congela o input
-## do jogo. Fica para quando o painel souber distinguir os dois.
+## Os **botões** são remapeáveis: tocar numa linha abre a lista de destinos ali
+## mesmo, embaixo dela, e tocar num destino fecha. Escolher apontando, e não
+## por um modo "aperte um botão", não é preguiça — é o que contorna o problema
+## que segurava o remap: com o painel aberto o input do jogo fica congelado, e
+## um modo de captura precisaria distinguir "apertei para escolher" de "apertei
+## para jogar". Apontar é o que o laser já sabe fazer.
 ##
-## O que dá para mudar aqui são os ajustes contínuos: a zona morta do D-pad e o
-## guidão de nave do N64, que troca o thumbstick pela pose das duas mãos.
+## Nada de PopupMenu ou OptionButton aqui: eles abrem em outra janela, e esta
+## página vive dentro de um SubViewport colado num quad — a janela apareceria
+## fora do painel, ou não apareceria.
+##
+## Também dá para mudar os ajustes contínuos: a zona morta do D-pad e o guidão
+## de nave do N64, que troca o thumbstick pela pose das duas mãos.
 
-## Origem no Touch → id do joypad libretro, por sistema, na ordem em que a mão
-## encontra. Espelha `xr_main._input_snes()` / `_input_n64()`; mudar lá pede
-## mudar aqui. Os eixos analógicos não têm id de botão e vão como `null`.
-const MAPAS := {
-	"snes": [
-		# Sem id: o stick vira as quatro direções, e mostrar o nome de uma só
-		# ("D-Pad Up") diria que as outras três não estão ligadas.
-		["Analógico esquerdo", null, "D-PAD"],
-		["Botão A (direito)", LibretroHost.JOYPAD_A, ""],
-		["Botão B (direito)", LibretroHost.JOYPAD_B, ""],
-		["Botão X (esquerdo)", LibretroHost.JOYPAD_X, ""],
-		["Botão Y (esquerdo)", LibretroHost.JOYPAD_Y, ""],
-		["Gatilho esquerdo", LibretroHost.JOYPAD_L, ""],
-		["Gatilho direito", LibretroHost.JOYPAD_R, ""],
-		["Grip direito", LibretroHost.JOYPAD_START, ""],
-		["Grip esquerdo", LibretroHost.JOYPAD_SELECT, ""],
-	],
-	"n64": [
-		["Analógico esquerdo", null, "MANCHE"],
-		["Analógico direito", null, "C"],
-		["Botão A (direito)", LibretroHost.JOYPAD_B, ""],
-		["Botão B (direito)", LibretroHost.JOYPAD_Y, ""],
-		["Gatilho esquerdo", LibretroHost.JOYPAD_L, ""],
-		["Gatilho direito", LibretroHost.JOYPAD_R, ""],
-		["Grip esquerdo", LibretroHost.JOYPAD_L2, ""],
-		["Grip direito", LibretroHost.JOYPAD_START, ""],
-		["Botão Y (esquerdo)", LibretroHost.JOYPAD_UP, ""],
-		["Botão X (esquerdo)", LibretroHost.JOYPAD_DOWN, ""],
-	],
+## Linhas que **não** são remapeáveis, por sistema: os analógicos não são botões
+## para o core. No SNES o esquerdo vira as quatro direções (mostrar o nome de
+## uma só diria que as outras três não estão ligadas); no N64 os dois são eixos
+## de verdade.
+const EIXOS := {
+	"snes": [["Analógico esquerdo", "D-PAD"]],
+	"n64": [["Analógico esquerdo", "MANCHE"], ["Analógico direito", "C"]],
 }
 
 ## Com o guidão ligado, o manche do N64 sai da pose das mãos e o analógico
-## esquerdo passa a servir de recentro. As duas primeiras linhas de MAPAS["n64"]
-## deixam de valer, então este mapa as substitui em vez de somar a elas.
-const MAPA_GUIDAO := [
-	["Pose dos dois controles", null, "MANCHE"],
-	["Clique do analógico esq.", null, "CENTRAR"],
-	["Analógico direito", null, "C"],
+## esquerdo passa a servir de recentro — então as linhas de eixo do N64 deixam
+## de valer e estas as substituem.
+const EIXOS_GUIDAO := [
+	["Pose dos dois controles", "MANCHE"],
+	["Clique do analógico esq.", "CENTRAR"],
+	["Analógico direito", "C"],
 ]
 
 ## Cor do chip por nome de botão, onde o console tem uma. Casa com o rótulo que
@@ -70,6 +54,7 @@ var _secao_dpad: VBoxContainer
 var _secao_guidao: VBoxContainer
 var _bt_perfil: Button
 var _perfil_lab: Label
+var _nomes: Dictionary = {}   ## nomes dos ids vindos do core; ver _nomes_do_core()
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
@@ -265,18 +250,18 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 func atualizar() -> void:
 	for filho in _linhas.get_children():
 		filho.queue_free()
+	# A ROM pode ter trocado, e com ela o core: os nomes dos ids são de outro
+	# console agora.
+	_nomes = {}
 
 	# A ROM pode ter trocado desde a última abertura do painel, e com ela o
 	# perfil — o botão precisa falar do cartucho que está rodando agora.
 	_atualizar_perfil()
 
-	var sistema := _emu.sistema if _emu != null else ""
-	var mapa: Array = MAPAS.get(sistema, MAPAS["snes"])
+	var sistema := _sistema()
+	var eixos: Array = EIXOS.get(sistema, EIXOS["snes"])
 	if sistema == "n64" and _cfg.obter("input/n64_guidao"):
-		# As duas primeiras linhas (os dois analógicos) saem; o resto do mapa do
-		# N64 — botões, gatilhos, grips — não muda com o guidão.
-		mapa = MAPA_GUIDAO + mapa.slice(2)
-	var nomes := _nomes_do_core()
+		eixos = EIXOS_GUIDAO
 
 	caminho_lab.text = "Meta Touch · porta 1"
 	if not sistema.is_empty():
@@ -286,20 +271,31 @@ func atualizar() -> void:
 	_secao_guidao.visible = e_n64
 	_secao_dpad.visible = not e_n64
 
-	for entrada in mapa:
-		var origem: String = entrada[0]
-		var id: Variant = entrada[1]
-		# O rótulo fixo é para o que não tem id de botão (os eixos). Para o
-		# resto, o nome do core manda; o id cru só aparece se ele não declarou.
-		var destino: String = entrada[2]
-		if id != null:
-			destino = nomes.get(id, "id %d" % id)
-		_linhas.add_child(_linha(origem, destino))
+	# Primeiro o que não se remapeia, depois o que se remapeia: as duas metades
+	# ficam separadas em vez de intercaladas, para não parecer que uma linha de
+	# eixo não respondeu ao toque.
+	for entrada in eixos:
+		_linhas.add_child(_linha_fixa(entrada[0], entrada[1]))
+
+	for entrada in MapaInput.ORIGENS:
+		_linhas.add_child(_linha_botao(sistema, entrada[0], entrada[1]))
+
+
+## Sistema da ROM em execução, ou "snes" quando não há ROM: a página precisa
+## mostrar *algum* mapa, e é o do sistema que sempre está no APK.
+func _sistema() -> String:
+	var s := _emu.sistema if _emu != null else ""
+	return s if EIXOS.has(s) else "snes"
 
 
 ## Nome de cada id do joypad, como o core declarou. Vazio se o core não declarou
 ## nada — aí a coluna cai no id cru, que é feio mas honesto.
+##
+## Guardado por remontagem: cada linha e cada destino do seletor pergunta o nome
+## de um id, e sem o cache isso viraria uma varredura dos descritores por chip.
 func _nomes_do_core() -> Dictionary:
+	if not _nomes.is_empty():
+		return _nomes
 	var fora := {}
 	if _emu == null:
 		return fora
@@ -309,10 +305,13 @@ func _nomes_do_core() -> Dictionary:
 			var desc: String = d["desc"]
 			if not desc.is_empty():
 				fora[d["id"]] = desc
+	_nomes = fora
 	return fora
 
 
-func _linha(origem: String, destino: String) -> Control:
+## Linha de eixo: informação, sem toque. Os analógicos não são botões para o
+## core, então não há destino para escolher.
+func _linha_fixa(origem: String, destino: String) -> Control:
 	var caixa := HBoxContainer.new()
 	caixa.add_theme_constant_override("separation", 20)
 	caixa.custom_minimum_size.y = 66
@@ -327,10 +326,127 @@ func _linha(origem: String, destino: String) -> Control:
 	seta.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caixa.add_child(seta)
 
+	caixa.add_child(_chip(destino))
+	return caixa
+
+
+## Linha remapeável: a linha inteira é o alvo do laser, e não só o chip. Mirar
+## um chip de 120 px a dois metros de distância com a mão no ar é bem mais
+## difícil do que mirar a faixa inteira.
+func _linha_botao(sistema: String, origem: String, rotulo: String) -> Control:
+	var caixa := VBoxContainer.new()
+
+	var bt := Button.new()
+	# Nomeado para o teste achar esta origem e não outra: os rótulos mudam com o
+	# idioma do console, o nome da origem não.
+	bt.name = "Origem_" + origem
+	bt.custom_minimum_size.y = 66
+	bt.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# Só o estado normal fica invisível: hover e pressed continuam vindo do tema,
+	# e são eles que dizem que a linha é tocável antes de alguém tocar.
+	bt.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	caixa.add_child(bt)
+
+	var linha := HBoxContainer.new()
+	linha.add_theme_constant_override("separation", 20)
+	linha.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# O conteúdo é enfeite dentro do botão: quem recebe o clique é o botão, e um
+	# filho que capturasse o mouse abriria buracos no alvo.
+	linha.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bt.add_child(linha)
+
+	var lab := Label.new()
+	lab.text = rotulo
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	linha.add_child(lab)
+
+	var seta := WidgetsVR.mono("→")
+	seta.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	linha.add_child(seta)
+
+	var id := int(_cfg.obter(MapaInput.chave(sistema, origem)))
+	linha.add_child(_chip(_nome_destino(id)))
+
+	var escolhas := VBoxContainer.new()
+	escolhas.visible = false
+	caixa.add_child(escolhas)
+
+	bt.pressed.connect(func() -> void:
+		if escolhas.visible:
+			escolhas.visible = false
+			return
+		_fechar_escolhas()
+		for filho in escolhas.get_children():
+			filho.queue_free()
+		escolhas.add_child(_grade_destinos(sistema, origem))
+		escolhas.visible = true
+	)
+	return caixa
+
+
+## Fecha qualquer seletor aberto. Dois abertos ao mesmo tempo empurrariam a
+## página para baixo duas vezes, e o segundo nasceria fora da tela.
+func _fechar_escolhas() -> void:
+	for linha in _linhas.get_children():
+		if linha is VBoxContainer and linha.get_child_count() > 1:
+			linha.get_child(1).visible = false
+
+
+## Os destinos possíveis, em grade, com o nome que o **core** dá a cada um. A
+## lista sai de `SET_INPUT_DESCRIPTORS`: é o core que sabe que `JOYPAD_L2` é o
+## "Z Trigger" do N64 e não existe no SNES.
+func _grade_destinos(sistema: String, origem: String) -> Control:
+	var grade := GridContainer.new()
+	grade.columns = 4
+	grade.add_theme_constant_override("h_separation", 8)
+	grade.add_theme_constant_override("v_separation", 8)
+
+	var ids := _destinos_do_core()
+	# "Nada" primeiro: desligar uma origem é uma escolha tão válida quanto
+	# trocá-la, e é a única forma de tirar um botão do caminho sem perdê-lo.
+	var opcoes: Array = [MapaInput.NADA] + ids
+	var atual := int(_cfg.obter(MapaInput.chave(sistema, origem)))
+
+	for id: int in opcoes:
+		var bt := Button.new()
+		bt.name = "Destino_%s_%d" % [origem, id]
+		bt.text = _nome_destino(id)
+		bt.custom_minimum_size = Vector2(0, 52)
+		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bt.toggle_mode = true
+		bt.button_pressed = (id == atual)
+		bt.focus_mode = Control.FOCUS_NONE
+		var escolhido := id
+		bt.pressed.connect(func() -> void:
+			_cfg.definir(MapaInput.chave(sistema, origem), escolhido)
+			atualizar()
+		)
+		grade.add_child(bt)
+	return grade
+
+
+## Ids que o core declara para a porta 1, em ordem. Cai na lista de reserva
+## quando o core não declarou nada — sem ela a página não ofereceria destino
+## nenhum, que é pior que oferecer ids crus.
+func _destinos_do_core() -> Array:
+	var ids: Array = _nomes_do_core().keys()
+	ids.sort()
+	return ids if not ids.is_empty() else MapaInput.DESTINOS_RESERVA.duplicate()
+
+
+## Nome de um destino como o core o chama; o id cru se ele não declarou, e
+## "Nada" para a origem desligada.
+func _nome_destino(id: int) -> String:
+	if id == MapaInput.NADA:
+		return "Nada"
+	return _nomes_do_core().get(id, "id %d" % id)
+
+
+func _chip(destino: String) -> Control:
 	# O core rotula com frase ("A Button (C3)"), não com letra; a cor sai da
 	# primeira palavra, que é onde o nome do botão está nos dois sistemas.
 	var chave := destino.split(" ")[0].to_upper()
 	var c := WidgetsVR.chip(destino, CORES.get(chave, TemaVR.LINE))
 	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	caixa.add_child(c)
-	return caixa
+	return c
