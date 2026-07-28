@@ -102,6 +102,16 @@ const OPCOES := {
 		# laser produz. Medido: com `Mouse`, o ponteiro chega ao core com a
 		# coordenada certa e o jogo não responde a nada.
 		"melonds_touch_mode": "Touch",
+		# Rasterização 3D em thread própria. Vem desligada no core, e o DS é o
+		# sistema mais pesado que roda aqui: dois processadores mais um GPU 3D,
+		# tudo em software. O Quest tem núcleos sobrando e a emulação não os usa.
+		#
+		# O `melonds_opengl_renderer` fica **desligado de propósito**: é o mesmo
+		# desenho do GLideN64 no N64 — core desenhando por GPU no contexto que
+		# emprestamos —, e aquilo derruba o app na Adreno (ver "GLideN64" nas
+		# pendências). Sem uma razão medida para tentar, software com thread é a
+		# aposta segura.
+		"melonds_threaded_renderer": "enabled",
 	},
 }
 

@@ -184,8 +184,14 @@ func _avancar_emulacao(delta: float) -> void:
 ## Vai para a tela **e** para o log: no headset o logcat só existe se alguém
 ## estiver com o cabo na mão, e a pergunta "esta sala derruba o fps?" tem que ter
 ## resposta olhando para a frente.
+## Se o diagnóstico está ligado, por linha de comando (desktop) ou pelo
+## interruptor da página Vídeo (o único caminho no headset).
+func _diag_ativo() -> bool:
+	return _diag_ligado or bool(_cfg.obter("video/diag"))
+
+
 func _diagnostico(delta: float) -> void:
-	if not _diag_ligado and not _cfg.obter("video/diag"):
+	if not _diag_ativo():
 		return
 	_diag_t += delta
 	if _diag_t < 1.0:
@@ -669,8 +675,9 @@ func _input_caneta() -> void:
 		_emu.set_pointer(0, 0.0, 0.0, false)
 		_mira_ds.visible = false
 		_esticar_laser(1.5)
-		_diag_caneta = "caneta fora (mão a %.2f m da tela)" % \
-				_ctrl_dir.global_position.distance_to(_tela2.global_position)
+		if _diag_ativo():
+			_diag_caneta = "caneta fora (mão a %.2f m da tela)" % \
+					_ctrl_dir.global_position.distance_to(_tela2.global_position)
 		return
 
 	var ponto := _raio_ds.get_collision_point()
@@ -684,7 +691,11 @@ func _input_caneta() -> void:
 	_mira_ds.global_position = ponto
 	_esticar_laser(_ctrl_dir.global_position.distance_to(ponto))
 
-	_diag_caneta = "caneta %+.2f %+.2f %s" % [p.x, p.y, "ENCOSTADA" if encostada else "no ar"]
+	# Só monta o texto se alguém for lê-lo: isto roda a 72 Hz com um DS
+	# carregado, e formatar dois floats por frame para uma linha que quase nunca
+	# aparece é trabalho pago em todo frame por um benefício raro.
+	if _diag_ativo():
+		_diag_caneta = "caneta %+.2f %+.2f %s" % [p.x, p.y, "ENCOSTADA" if encostada else "no ar"]
 
 
 ## Estica o feixe até `comprimento`, saindo **da mão**. O cilindro tem origem no
