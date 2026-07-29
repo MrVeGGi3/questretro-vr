@@ -171,6 +171,13 @@ Esse mapa não é decorado: sai dos descritores que o próprio core declara
 Com o painel aberto, o **analógico direito rola a página** — sem isso nada
 abaixo da dobra seria alcançável, porque o laser só sabe apontar e clicar.
 
+Arrastar a barra de rolagem com o laser também vale, e vale **até o fim**: ao
+descer o pegador o raio sai pela borda de baixo do painel antes de a lista
+acabar, e o ponteiro segue pelo plano do quad em vez de largar o arrasto ali.
+Sem isso a barra congelava onde o raio saiu e era preciso soltar, voltar para
+dentro e pegar de novo — o que só incomodou de verdade quando a biblioteca
+trouxe a primeira lista longa.
+
 ### Remapear os botões
 
 Na página **Input**, toque numa linha e os destinos aparecem ali embaixo dela;

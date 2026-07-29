@@ -238,14 +238,40 @@ func _apontar() -> void:
 
 	var acertou := _raio.is_colliding() and _raio.get_collider() == _corpo
 	_mira.visible = acertou
-	if not acertou:
-		# Soltar o botão fora do painel evita deixar um clique preso.
+
+	# Onde o raio encontra o painel. Pelo colisor quando acerta; pelo **plano** do
+	# quad quando o arrasto saiu pela borda.
+	#
+	# Esse segundo caso é a barra de rolagem: arrastar o pegador para baixo leva o
+	# raio para fora do quad antes de a lista acabar, e sem o plano as posições
+	# param de chegar ali — a barra congela onde o raio saiu e é preciso soltar,
+	# voltar para dentro e pegar de novo. Com a biblioteca a lista ficou longa o
+	# bastante para isso deixar de ser detalhe e virar "não desço até o fim".
+	# `_para_viewport` já grampeia nas bordas, então seguir pelo plano é seguir
+	# rente à borda, que é justamente para onde a barra tem de ir.
+	var ponto := Vector3.ZERO
+	var tem_ponto := acertou
+	if acertou:
+		ponto = _raio.get_collision_point()
+		_mira.global_position = ponto
+	elif _gatilho_antes:
+		var cruzou: Variant = _cruzar_plano()
+		tem_ponto = cruzou != null
+		if tem_ponto:
+			ponto = cruzou
+
+	var gatilho := _controle.get_float(&"trigger") > 0.6
+
+	if not tem_ponto:
+		# Fora do painel e sem arrasto em curso não há o que empurrar. Mas um
+		# gatilho que estava apertado precisa **mesmo** soltar dentro do
+		# viewport: mudar só a variável daqui deixava o Control lá dentro
+		# achando que o botão continua pressionado.
 		if _gatilho_antes:
+			_empurrar_clique(false, _ultimo_pos)
 			_gatilho_antes = false
 		return
 
-	var ponto := _raio.get_collision_point()
-	_mira.global_position = ponto
 	var local := _tela.global_transform.affine_inverse() * ponto
 	var pos := _para_viewport(local)
 
@@ -257,15 +283,26 @@ func _apontar() -> void:
 		_viewport.push_input(mover)
 		_ultimo_pos = pos
 
-	var gatilho := _controle.get_float(&"trigger") > 0.6
 	if gatilho != _gatilho_antes:
-		var clique := InputEventMouseButton.new()
-		clique.button_index = MOUSE_BUTTON_LEFT
-		clique.pressed = gatilho
-		clique.position = pos
-		clique.global_position = pos
-		_viewport.push_input(clique)
+		_empurrar_clique(gatilho, pos)
 		_gatilho_antes = gatilho
+
+
+func _empurrar_clique(pressionado: bool, pos: Vector2) -> void:
+	var clique := InputEventMouseButton.new()
+	clique.button_index = MOUSE_BUTTON_LEFT
+	clique.pressed = pressionado
+	clique.position = pos
+	clique.global_position = pos
+	_viewport.push_input(clique)
+
+
+## Onde o raio do controle cruza o plano do painel, ignorando as bordas do quad.
+## `null` quando o raio aponta para o outro lado — quem virou de costas no meio
+## de um arrasto larga o pegador, que é melhor que arrastar pelas costas.
+func _cruzar_plano() -> Variant:
+	var plano := Plane(_tela.global_transform.basis.z.normalized(), _tela.global_position)
+	return plano.intersects_ray(_raio.global_position, -_raio.global_transform.basis.z)
 
 
 ## Rolagem da página pelo thumbstick do controle que aponta.

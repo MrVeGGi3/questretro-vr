@@ -38,6 +38,7 @@ func _ready() -> void:
 	await _renderizar_paginas(cfg, emu)
 	await _testar_clique(cfg, emu)
 	await _testar_rolagem(cfg, emu)
+	await _testar_arrasto_alem_da_borda(cfg, emu)
 	await _testar_oclusao(cfg, emu)
 	_testar_save_state(emu)
 	await _testar_apagar_estado(cfg, emu)
@@ -152,6 +153,68 @@ func _testar_rolagem(cfg: ConfigEmu, emu: EmuCore) -> void:
 	_conferir(rolagem.scroll_vertical < desceu, "roda para cima volta")
 
 	painel.queue_free()
+
+
+## O laser saindo pela borda **durante um arrasto**.
+##
+## Arrastar o pegador da barra de rolagem para baixo leva o raio para fora do
+## quad antes de a lista acabar. Enquanto isso largava o arrasto, descer uma
+## lista longa exigia soltar, voltar para dentro e pegar de novo — foi assim que
+## apareceu no headset, na biblioteca, que é a primeira lista longa o bastante.
+##
+## Aqui se mede a peça que conserta: o raio continua encontrando o **plano** do
+## painel depois da borda, e a posição sai grampeada na borda em vez de sumir.
+## Sem headset dá para conferir porque é geometria pura — o `XRController3D` é
+## um Node3D como outro qualquer, e apontar é escolher a transform dele.
+func _testar_arrasto_alem_da_borda(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var painel := PainelMenu.new(cfg, emu)
+	add_child(painel)
+	painel.abrir()
+	await get_tree().process_frame
+
+	var controle := XRController3D.new()
+	add_child(controle)
+	painel.conectar_xr(null, controle)
+	# Sem câmera o painel nasce em (0, 1,4, -DIST) olhando para +Z, então mirar é
+	# escolher para onde o controle olha a partir da altura dos olhos.
+	controle.global_position = Vector3(0.0, 1.4, 0.0)
+	var centro := painel.global_position
+
+	controle.look_at(centro)
+	await get_tree().process_frame
+	var no_centro: Variant = painel._cruzar_plano()
+	if no_centro == null:
+		_conferir(false, "o raio cruza o plano do painel apontado para o centro")
+		painel.queue_free()
+		controle.queue_free()
+		return
+	var pixel_centro: Vector2 = painel._para_viewport(
+			painel._tela.global_transform.affine_inverse() * (no_centro as Vector3))
+	_conferir(pixel_centro.distance_to(Vector2(TemaVR.PAINEL) * 0.5) < 2.0,
+			"mirando no centro, o pixel é o centro (deu %s)" % str(pixel_centro))
+
+	# Bem abaixo da borda de baixo: é para onde a mão vai ao arrastar o pegador
+	# até o fim da lista.
+	controle.look_at(centro - Vector3(0.0, 1.0, 0.0))
+	await get_tree().process_frame
+	var abaixo: Variant = painel._cruzar_plano()
+	_conferir(abaixo != null, "além da borda o raio ainda cruza o plano")
+	if abaixo != null:
+		var pixel: Vector2 = painel._para_viewport(
+				painel._tela.global_transform.affine_inverse() * (abaixo as Vector3))
+		_conferir(is_equal_approx(pixel.y, float(TemaVR.PAINEL.y)),
+				"e a posição sai grampeada na borda de baixo (y=%.0f de %d)"
+						% [pixel.y, TemaVR.PAINEL.y])
+
+	# De costas para o painel o arrasto tem de acabar, e não continuar ao contrário.
+	controle.look_at(centro + Vector3(0.0, 0.0, 4.0))
+	await get_tree().process_frame
+	_conferir(painel._cruzar_plano() == null,
+			"virando de costas, o raio não cruza mais — o arrasto larga")
+
+	painel.queue_free()
+	controle.queue_free()
+	await get_tree().process_frame
 
 
 func _rodar(painel: PainelMenu, botao: int) -> void:
