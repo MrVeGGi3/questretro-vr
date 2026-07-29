@@ -324,7 +324,7 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   | `mupen64plus-angrylion-sync` | `Low` | **já é o mais barato** — não mexer |
   | `mupen64plus-angrylion-vioverlay` | `Filtered` | **testado e recusado** — ver abaixo |
 
-  **`vioverlay=Unfiltered`: ganha 9 % de core e apaga a mira do Star Fox.**
+  **`vioverlay=Unfiltered`: ganha 9 % de core, entregando metade dos pixels.**
   Medido no Quest, 550 amostras contra as 1644 da linha de base:
 
   | | n | fps méd | mediana | core | video | < 65 fps | < 50 fps |
@@ -352,10 +352,9 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   > atribuído à mudança. Só a reversão desfaz esse laço, e ela não tinha sido
   > feita antes de concluir.
   >
-  > O que a mira **é** continua em aberto, e o suspeito natural passa a ser o
-  > `angrylion` em si — o renderizador por software que só roda no Quest, contra
-  > o `gliden64` do desktop. O teste que separa isso é o mesmo jogo no mesmo
-  > ponto nos dois renderizadores, e roda no desktop, sem headset.
+  > **E não havia defeito nenhum.** A investigação que se seguiu está no item
+  > "A mira do Star Fox 64" abaixo: o que muda a mira é o modo de jogo, não o
+  > app, não o core, não o renderizador.
 
   **`AA only`, o degrau intermediário, foi testado em seguida.** Mantém o
   `video=` em `640x240` — ou seja o VI continua resolvendo o framebuffer — e
@@ -928,5 +927,48 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   a divisão do framebuffer em dois quads recorta a metade exata, e um
   `screen_gap` diferente de zero desloca tudo. O sintoma seria a caneta errando o
   alvo por alguns pixels — que ninguém liga a uma opção de vídeo.
+
+- **A mira do Star Fox 64: não é defeito, é o modo de jogo.** Custou duas
+  atribuições erradas antes de fechar, e as duas valem mais que o resultado.
+
+  Partiu de "a mira branca sumiu", relatado de dentro do headset logo depois de
+  `vioverlay=Unfiltered` entrar. Foi atribuído à opção, publicado, e depois
+  repetido com `AA only`. **Reverter para `Filtered` mostrou a mira ainda
+  ausente** — a primeira atribuição estava errada, e o erro foi pedir para alguém
+  procurar defeito de imagem no instante em que se mexeu na imagem.
+
+  A segunda pista veio de quem jogava: *"quando carrego de um save ela some;
+  no início funciona"*. Suspeita natural, o round-trip de save state. Também
+  errada. A matriz, montada no desktop com o repro automatizado e fechada no
+  headset:
+
+  | situação | mira |
+  |---|---|
+  | Corneria (corredor), boot limpo | **presente** |
+  | Corneria (corredor), grava e recarrega estado na mesma sessão | **presente** (597 → 837 px de mira) |
+  | Corneria (corredor), carrega estado no Quest | **presente** |
+  | Venom (all-range), carrega estado | ausente |
+
+  Venom foi testado com `gliden64` **e** `angrylion`, e com `dynamic_recompiler`
+  **e** `cached_interpreter` — os frames saem **byte a byte idênticos** entre os
+  cores de CPU. Nenhuma dessas variáveis mexe na mira.
+
+  O que resta é corredor contra **all-range mode**, ou seja o próprio jogo. Não
+  há nada a corrigir no QuestRetro, no core nem nas opções.
+
+  **As duas lições de método**, que é o que fica:
+
+  1. Defeito notado logo depois de uma mudança não é defeito causado por ela.
+     Só a **reversão** desfaz esse laço, e ela tem de vir antes da conclusão —
+     não depois de publicá-la.
+  2. Antes de comparar configurações, é preciso saber que o efeito procurado
+     **aparece** no caso base. Foram gastos dois renderizadores e dois cores de
+     CPU num frame onde nunca se provou que a mira deveria estar; o controle
+     (bootar o jogo e olhar) resolveu em uma rodada o que quatro comparações não
+     tinham resolvido.
+
+  Vale também para o `test_estado`: ele compara o resíduo da imagem inteira e
+  seria cego para uma mira de algumas centenas de pixels. Não é defeito dele —
+  foi feito para pegar "restaurou no ponto errado" —, mas é o limite dele.
 
 - **Integração com `romkeep`**: prevista para depois desta fase.
