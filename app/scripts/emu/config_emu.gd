@@ -38,6 +38,10 @@ const INTERVALO_SALVAR := 0.75
 # Índices dos aspectos (a UI mostra na mesma ordem).
 enum { ASPECTO_4_3, ASPECTO_8_7, ASPECTO_16_9, ASPECTO_NATIVO }
 
+## Como a página de ROMs lista. Biblioteca é o padrão; Pastas é o navegador de
+## arquivos, que fica como saída quando a varredura não achou alguma ROM.
+enum { LISTA_BIBLIOTECA, LISTA_PASTAS }
+
 const PADROES := {
 	# Os padrões de tela/input vieram das constantes que antes moravam
 	# em vr/xr_main.gd — mudar aqui muda o comportamento inicial.
@@ -156,6 +160,10 @@ const PADROES := {
 	"input/mapa_nds_esq_grip": LibretroHost.JOYPAD_SELECT,
 	"roms/ultima_pasta": "",
 	"roms/recentes": [],
+	"roms/modo_lista": LISTA_BIBLIOTECA,
+	# Caminhos fixados no topo da biblioteca. Caminho, e não título: dois dumps
+	# regionais do mesmo jogo são jogos diferentes para quem favoritou um deles.
+	"roms/favoritos": [],
 }
 
 var _valores: Dictionary = {}
@@ -357,6 +365,26 @@ func registrar_recente(caminho: String) -> void:
 	_valores["roms/recentes"] = lista
 	_sujo = true
 	mudou.emit("roms/recentes", lista)
+
+
+func eh_favorito(caminho: String) -> bool:
+	return caminho in (obter("roms/favoritos") as Array)
+
+
+## Liga/desliga o favorito e devolve como ficou. Grava direto em `_valores` pela
+## mesma razão de `registrar_recente`: `definir()` compara por igualdade, e a
+## lista aqui muda sempre.
+func alternar_favorito(caminho: String) -> bool:
+	var lista: Array = (obter("roms/favoritos") as Array).duplicate()
+	var virou_favorito := not (caminho in lista)
+	if virou_favorito:
+		lista.push_back(caminho)
+	else:
+		lista.erase(caminho)
+	_valores["roms/favoritos"] = lista
+	_sujo = true
+	mudou.emit("roms/favoritos", lista)
+	return virou_favorito
 
 
 func carregar() -> void:

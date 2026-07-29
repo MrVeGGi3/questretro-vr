@@ -35,7 +35,8 @@ app/               projeto Godot
     emu/               emu_core.gd, config_emu.gd — o emulador e a configuração
     vr/                xr_main.gd, painel_menu.gd, guidao.gd, mapa_input.gd,
                        sala.gd, caneta_ds.gd
-    ui/                menu_raiz, tema, widgets, navegador_roms
+    ui/                menu_raiz, tema, widgets, navegador_roms,
+                       biblioteca_roms (varredura e títulos, sem UI nem XR)
       paginas/           uma por página do menu
     testes/            test_*.gd (inclusive test_load.gd e test_shot.gd,
                        que rodam por `-s` e não têm cena)
@@ -361,6 +362,78 @@ Os save states dos quatro slots valem também no N64: que restaurar devolve o
 jogo ao ponto gravado está conferido por imagem em `test_estado` (o teste de
 bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
 
+## A biblioteca
+
+A página **ROMs** abre numa lista de **jogos**, não de arquivos. A varredura acha
+as ROMs onde estiverem, o título sai limpo do nome do arquivo, e a lista vem
+agrupada por console, com **Continuar** e **Favoritos** no topo.
+
+Navegar em pastas não escala para quem instala o APK. Essa pessoa não tem `adb`
+para arrumar nada: despeja as ROMs em `/sdcard/Download` misturadas com o resto
+do aparelho, e precisa reconhecer o jogo em
+
+```
+5478 - Ghost Trick - Phantom Detective (USA) (En,Fr,De,Es,It).nds
+```
+
+apontando um laser a 2 m de distância. As regras de limpeza do título saíram de
+arquivos reais — numeração de coleção, tags de região e idioma, artigo no fim ao
+estilo `Legend of Zelda, The` — e cada uma é uma linha da tabela em
+`test_biblioteca`. Elas não são exemplos: **são** as regras, e mexer na limpeza
+sem mexer na tabela é o jeito de quebrar a lista inteira em silêncio.
+
+Duas coisas que a limpeza **não** faz: juntar dumps regionais do mesmo jogo
+(`Sonic (USA)` e `Sonic (Japan)` continuam duas linhas, e a região é o que as
+separa) e esconder dump ruim — o `[b]` do No-Intro vira um `△` na linha, porque
+uma ROM assim trava e corrompe de formas que parecem bug do emulador, e sem o
+aviso a investigação vai toda para o lugar errado.
+
+**Extensão não basta**, e isso só aparece quando se varre o aparelho inteiro.
+`.md` é Mega Drive e é Markdown: a primeira varredura do `$HOME` desta máquina
+devolveu **1161 jogos de Mega Drive**, e todos eram documentação de repositório.
+`.zip` é ROM de SNES compactada e é qualquer outra coisa compactada — em
+Downloads eram seis zips, nenhum deles jogo. Um teto de tamanho não resolveria:
+há `CHANGELOG.md` maior que cartucho.
+
+Então essas duas extensões passam por um exame de conteúdo antes de virar linha:
+o `.md` precisa trazer `SEGA` em `0x100`, que é onde o cartucho diz de que
+console é, e o `.zip` precisa ter uma ROM de SNES dentro (só de SNES — o mupen
+exige caminho de arquivo real e não abre N64 compactado, então aceitar um zip de
+`.z64` daria linha na lista e erro ao carregar). Depois do exame, as mesmas
+raízes deram **21 jogos**. Só a varredura desconfia: no modo Pastas quem abriu a
+pasta foi a pessoa, e lá a lista mostra o que estiver lá — é a saída para o dump
+esquisito que o exame recusar. O log diz quantos foram recusados, porque essa é
+a primeira pergunta quando um jogo não aparece.
+
+O índice fica em `user://biblioteca.json` e é o único uso de JSON no projeto: o
+`ConfigFile` do resto é chave→valor por seção, e isto é uma lista de registros.
+Abrir o painel só revalida o que já está lá (um `file_exists` por item); varrer a
+árvore de novo é o botão **Reescanear**. A varredura anda por orçamento de
+**milissegundos por frame**, e não por "N pastas por frame", porque uma pasta com
+3000 arquivos custa mais que trinta pastas vazias — medir em pastas deixaria
+justamente o caso ruim sem limite. E o limite existe porque em VR travar o frame
+não é lentidão, é enjoo.
+
+O modo **Pastas** continua ali, no botão do rodapé: é a saída para a ROM que a
+varredura não alcançou — pasta funda demais, extensão que não reconhecemos — e
+sem ela essa ROM ficaria inalcançável.
+
+A varredura é lógica de arquivo e de texto, sem uma linha de XR ou de UI, então
+prova-se sem headset e em `--headless`:
+
+```bash
+godot --headless --xr-mode off --path app res://cenas/test_biblioteca.tscn
+```
+
+O que só se pega ali: título que sai vazio (linha clicável que não diz em que
+jogo se está clicando), regionais que desabam num só, pasta oculta que a
+varredura devia recusar, tamanho que volta do JSON como float, e — o pior deles
+— varredura que perde estado ao ceder o frame. Esse último é comparado contra a
+varredura bloqueante com orçamento **zero**, que força ceder no meio de cada
+pasta; no headset ele apareceria como jogo faltando na lista, sem erro nenhum no
+log. A ligação da lista com a página (título na linha, estrela, filtro de
+console, e o sinal que de fato troca a ROM) é conferida por clique em `test_ui`.
+
 ## Roadmap
 
 - **Fase 0 ✅** — GDExtension libretro rodando no Godot desktop.
@@ -396,6 +469,12 @@ bytes não servia lá — ver `docs/EXPORT.md`) e jogado no headset.
 - **Fase 6** — **Nintendo DS** pelo melonDS: duas telas como objetos separados e
   o laser virando caneta (ver "Nintendo DS"). É o primeiro sistema que exigiu
   algo do host em C++ — `RETRO_DEVICE_POINTER`, que é como o toque entra.
+
+- **Fase 7** — a **biblioteca**: a página de ROMs virou lista de jogos em vez de
+  lista de arquivos (ver "A biblioteca"). É a primeira coisa feita olhando para
+  quem instala o APK e não tem `adb` — depois de seis fases de consoles,
+  navegar em pastas tinha deixado de escalar. O navegador de arquivos continua
+  lá como saída.
 
   A seguir: integração com `romkeep`.
 

@@ -34,6 +34,7 @@ func _ready() -> void:
 	# e é justamente essa página que muda mais com o sistema.
 	emu.iniciar("", _arg("--rom", "res://roms/demo.smc"))
 
+	_semear_biblioteca(cfg)
 	await _renderizar_paginas(cfg, emu)
 	await _testar_clique(cfg, emu)
 	await _testar_rolagem(cfg, emu)
@@ -45,7 +46,9 @@ func _ready() -> void:
 	await _testar_botao_perfil(cfg, emu)
 	_testar_combinar()
 	await _testar_remap(cfg, emu)
+	await _testar_biblioteca(cfg, emu)
 	_testar_sistemas_completos()
+	_devolver_biblioteca()
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -624,6 +627,152 @@ func _testar_sistemas_completos() -> void:
 		_conferir(faltando.is_empty(),
 				"%s mapeia as %d origens do Touch (faltam: %s)"
 						% [sis, MapaInput.ORIGENS.size(), str(faltando)])
+
+
+## A biblioteca precisa de um índice antes de a página existir, senão a primeira
+## abertura dispara a varredura de verdade — que no desktop inclui a pasta
+## pessoal inteira, e deixaria o teste lento e dependente da máquina.
+const RAIZ_BIB := "user://teste_ui_roms"
+const JOGO_SNES := RAIZ_BIB + "/SNES/Chrono Trigger (USA).sfc"
+const JOGO_N64 := RAIZ_BIB + "/N64/Star Fox 64 (USA).z64"
+
+var _bib_salva: PackedByteArray = []
+var _tinha_bib := false
+
+
+func _semear_biblioteca(cfg: ConfigEmu) -> void:
+	_tinha_bib = FileAccess.file_exists(BibliotecaRoms.ARQUIVO)
+	if _tinha_bib:
+		_bib_salva = FileAccess.get_file_as_bytes(BibliotecaRoms.ARQUIVO)
+
+	for caminho: String in [JOGO_SNES, JOGO_N64]:
+		DirAccess.make_dir_recursive_absolute(caminho.get_base_dir())
+		var f := FileAccess.open(caminho, FileAccess.WRITE)
+		if f != null:
+			var lixo := PackedByteArray()
+			lixo.resize(4096)
+			f.store_buffer(lixo)
+	BibliotecaRoms.salvar([BibliotecaRoms.item_de(JOGO_SNES), BibliotecaRoms.item_de(JOGO_N64)])
+	# Sem isto, "Continuar" e "Favoritos" da configuração real desta máquina
+	# entrariam na lista e o índice das linhas deixaria de ser previsível.
+	cfg.definir("roms/recentes", [])
+	cfg.definir("roms/favoritos", [])
+	cfg.definir("roms/modo_lista", ConfigEmu.LISTA_BIBLIOTECA)
+
+
+func _devolver_biblioteca() -> void:
+	for caminho: String in [JOGO_SNES, JOGO_N64]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho))
+	for pasta: String in [RAIZ_BIB + "/SNES", RAIZ_BIB + "/N64", RAIZ_BIB]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(pasta))
+	if _tinha_bib:
+		var f := FileAccess.open(BibliotecaRoms.ARQUIVO, FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(_bib_salva)
+	elif FileAccess.file_exists(BibliotecaRoms.ARQUIVO):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(BibliotecaRoms.ARQUIVO))
+
+
+## O caminho inteiro da biblioteca, do título na linha até o sinal que troca a
+## ROM. O PNG mostra que a página desenha; só o clique mostra que ela **liga**
+## em alguma coisa — e ligar no lugar errado é o erro que o headset revelaria
+## como "escolhi um jogo e abriu outro".
+func _testar_biblioteca(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("ROMs")
+	await get_tree().process_frame
+
+	# Array, e não uma String: a lambda captura o local por **valor**, então
+	# `escolhido = caminho` mexeria numa cópia e o sinal chegaria como vazio —
+	# uma falha que parece bug da página e é do teste. Mutar o objeto capturado
+	# é o que atravessa (mesmo motivo do `vistas.append` em _testar_config).
+	var escolhido: Array[String] = []
+	menu.rom_escolhida.connect(func(caminho: String) -> void: escolhido.append(caminho))
+
+	var jogo := menu.find_child("Jogo_0", true, false) as Button
+	if jogo == null:
+		_conferir(false, "a biblioteca desenha a primeira linha de jogo")
+		vp.queue_free()
+		return
+
+	# O ponto inteiro da biblioteca: a linha diz o nome do jogo, e não o do
+	# arquivo. Se "(USA)" reaparecer aqui, a limpeza saiu do caminho.
+	_conferir(jogo.text.contains("Chrono Trigger"), "a linha traz o título do jogo")
+	_conferir(not jogo.text.contains("(USA)"), "e sem as tags do nome do arquivo")
+	_conferir(not jogo.text.contains(".sfc"), "e sem a extensão")
+
+	var carregar := menu.find_child("Carregar", true, false) as Button
+	_conferir(carregar != null and carregar.disabled,
+			"Carregar começa desabilitado, sem jogo escolhido")
+
+	jogo.pressed.emit()
+	await get_tree().process_frame
+	_conferir(carregar != null and not carregar.disabled,
+			"escolher um jogo habilita Carregar")
+
+	carregar.pressed.emit()
+	await get_tree().process_frame
+	_conferir(escolhido.size() == 1 and escolhido[0] == JOGO_SNES,
+			"Carregar emite o caminho do jogo escolhido (deu «%s»)" % str(escolhido))
+
+	# Favoritar cria a seção do topo, e a mesma ROM passa a ter duas linhas.
+	var antes := _quantas_linhas(menu)
+	var estrela := menu.find_child("Estrela_0", true, false) as Button
+	if estrela == null:
+		_conferir(false, "a linha tem botão de favorito")
+	else:
+		estrela.pressed.emit()
+		await get_tree().process_frame
+		_conferir(cfg.eh_favorito(JOGO_SNES), "a estrela grava o favorito")
+		_conferir(_quantas_linhas(menu) == antes + 1,
+				"e o jogo passa a aparecer também em Favoritos")
+		menu.find_child("Estrela_1", true, false).pressed.emit()
+		await get_tree().process_frame
+		_conferir(not cfg.eh_favorito(JOGO_SNES), "clicar de novo desfavorita")
+		_conferir(_quantas_linhas(menu) == antes, "e a seção Favoritos some")
+
+	# O filtro por console é o que substitui a busca, que em VR não existe.
+	menu.find_child("Filtro_n64", true, false).pressed.emit()
+	await get_tree().process_frame
+	_conferir(_quantas_linhas(menu) == 1, "o filtro de console deixa só o console pedido")
+	var so_n64 := menu.find_child("Jogo_0", true, false) as Button
+	_conferir(so_n64 != null and so_n64.text.contains("Star Fox"),
+			"e o que sobra é o jogo daquele console")
+	menu.find_child("Filtro_todos", true, false).pressed.emit()
+	await get_tree().process_frame
+
+	# O modo Pastas é a saída de emergência; se ele parar de existir, uma ROM que
+	# a varredura não achar fica inalcançável.
+	menu.find_child("ModoLista", true, false).pressed.emit()
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	await _salvar(vp, "roms_pastas")
+	_conferir(int(cfg.obter("roms/modo_lista")) == ConfigEmu.LISTA_PASTAS,
+			"o botão de modo cai no navegador de pastas")
+	var raizes := menu.find_child("Raizes", true, false) as Button
+	_conferir(raizes != null and raizes.visible, "e o botão de raízes reaparece")
+
+	menu.find_child("ModoLista", true, false).pressed.emit()
+	await get_tree().process_frame
+	_conferir(int(cfg.obter("roms/modo_lista")) == ConfigEmu.LISTA_BIBLIOTECA,
+			"e volta para a biblioteca")
+
+	vp.queue_free()
+	await get_tree().process_frame
+
+
+func _quantas_linhas(no: Node) -> int:
+	var total := 0
+	if no is Button and (no as Button).name.begins_with("Jogo_"):
+		total += 1
+	for filho in no.get_children():
+		total += _quantas_linhas(filho)
+	return total
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

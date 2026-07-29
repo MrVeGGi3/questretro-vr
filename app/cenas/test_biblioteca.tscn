@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://questretrotestbiblioteca"]
+
+[ext_resource type="Script" path="res://scripts/testes/test_biblioteca.gd" id="1_biblioteca"]
+
+[node name="TestBiblioteca" type="Node"]
+script = ExtResource("1_biblioteca")
