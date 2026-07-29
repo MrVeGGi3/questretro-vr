@@ -595,3 +595,7 @@ xvfb-run -a godot --xr-mode off --path app res://cenas/test_sram.tscn -- \
 O caminho do `.srm` sai do nome da ROM, então o teste faz backup do save que já
 existir e o devolve no fim — inclusive se falhar no meio. Testar a segurança do
 save destruindo um save seria irônico demais.
+
+## Licença
+
+MIT — ver [LICENSE](LICENSE).
