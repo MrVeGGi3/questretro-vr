@@ -322,7 +322,35 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   |---|---|---|
   | `mupen64plus-angrylion-multithread` | `all threads` | **já é o melhor** — não mexer |
   | `mupen64plus-angrylion-sync` | `Low` | **já é o mais barato** — não mexer |
-  | `mupen64plus-angrylion-vioverlay` | `Filtered` | candidato real: o filtro de VI é AA + dedither + blur, por pixel, na CPU |
+  | `mupen64plus-angrylion-vioverlay` | `Filtered` | **testado e recusado** — ver abaixo |
+
+  **`vioverlay=Unfiltered`: ganha 9 % de core e apaga a mira do Star Fox.**
+  Medido no Quest, 550 amostras contra as 1644 da linha de base:
+
+  | | n | fps méd | mediana | core | video | < 65 fps | < 50 fps |
+  |---|---|---|---|---|---|---|---|
+  | `Filtered` | 1644 | 66,0 | 70 | **711** | 18,8 | 23,5 % | 7,4 % |
+  | `Unfiltered` | 550 | 68,2 | 71 | **647** | 15,6 | 15,6 % | 2,4 % |
+
+  O ganho é real e aparece em **todas** as faixas de fps — core 619 contra 669,
+  680 contra 737, 723 contra 790, 810 contra 846 —, o que descarta que seja
+  sorte de cena.
+
+  Mas o preço não é o serrilhado que se esperava: a opção **muda a saída do
+  core**. O `video=` do DIAG passa de `640x240` para `320x237`, ou seja o VI
+  deixa de resolver o framebuffer, e **a mira branca do Star Fox 64 desaparece**
+  (observado de dentro do headset). Não é imagem mais feia, é imagem incompleta,
+  e num jogo em que se mira não há fps que pague.
+
+  Parte do "ganho" é, aliás, só menos pixel: a nossa própria conversão cai de
+  18,8 para 15,6 ms/s pela metade da largura.
+
+  **O que fica de aproveitável**: o filtro de VI custa mesmo ~9 % do tempo de
+  core, e a lista tem degraus intermediários — `AA only`, `AA+Dedither`,
+  `AA+Blur` — que mantêm o pipeline do VI (e portanto, presumivelmente, a
+  resolução e a mira) largando parte do custo. É o próximo teste barato, e o
+  critério de aceite passou a ser explícito: **a mira tem de continuar lá e o
+  `video=` tem de continuar em 640x240.**
 
   E mostrou que **`mupen64plus-43screensize=640x480` é o próprio padrão do
   core** — a linha em `OPCOES["n64"]` não muda nada, nas duas plataformas.
