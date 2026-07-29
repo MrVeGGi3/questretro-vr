@@ -14,7 +14,20 @@ target_link_libraries(libretrogd PRIVATE godot-cpp)
 target_link_libraries(libretrogd PRIVATE ${CMAKE_DL_LIBS})
 
 # Nome de saída no padrão que o .gdextension referencia, sem prefixo "lib".
-# Ex.: libretrogd.linux.x86_64.so
+# Ex.: libretrogd.android.template_release.arm64.so
+#
+# **O alvo do godot-cpp entra no nome porque precisa entrar.** Uma extensão
+# compilada contra `template_debug` e carregada num motor `template_release`
+# passa pelo `dlopen` sem erro nenhum e mata o processo depois: SIGSEGV dentro do
+# próprio motor, sem um único quadro da extensão no backtrace. Medido no Quest
+# 3S — `fault addr 0x15` no primeiro `GodotLib.step` após o resume, com o APK
+# debug rodando a 72 fps ao lado. Com o alvo no nome os dois binários coexistem,
+# e é o `.gdextension` que escolhe pelo tipo de build.
+#
+# `CMAKE_BUILD_TYPE` **não** serve para isso: ele só liga otimização. Quem decide
+# a variante da API é `GODOTCPP_TARGET`, cujo padrão é `template_debug` — então
+# quem só passa `-DCMAKE_BUILD_TYPE=Release` leva um binário de debug com nome
+# de release, que é exatamente como o crash nasceu.
 if(ANDROID)
 	set(LRGD_PLATFORM "android")
 	# Normaliza a ABI para a tag que o .gdextension usa (arm64-v8a -> arm64).
@@ -30,10 +43,12 @@ else()
 	set(LRGD_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+set(LRGD_NOME "libretrogd.${LRGD_PLATFORM}.${GODOTCPP_TARGET}.${LRGD_ARCH}")
+
 set_target_properties(libretrogd PROPERTIES
 	PREFIX ""
-	OUTPUT_NAME "libretrogd.${LRGD_PLATFORM}.${LRGD_ARCH}"
+	OUTPUT_NAME "${LRGD_NOME}"
 	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../app/bin"
 )
 
-message(STATUS "libretrogd -> app/bin/libretrogd.${LRGD_PLATFORM}.${LRGD_ARCH}.so")
+message(STATUS "libretrogd -> app/bin/${LRGD_NOME}.so (alvo: ${GODOTCPP_TARGET})")

@@ -44,13 +44,16 @@ para o SDK e o JDK 17.
    ```
 3. **Extensão arm64** e **core android** presentes:
    ```bash
-   # extensão
+   # extensão — os DOIS alvos, um por tipo de build do motor (ver abaixo)
    cd libretrogd
    NDK=~/Android/Sdk/ndk/25.2.9519653
-   cmake -S . -B build-android \
-     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DCMAKE_BUILD_TYPE=Release
-   cmake --build build-android -j"$(nproc)"   # -> app/bin/libretrogd.android.arm64.so
+   for T in template_debug template_release; do
+     cmake -S . -B build-android-$T -DGODOTCPP_TARGET=$T \
+       -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+       -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DCMAKE_BUILD_TYPE=Release
+     cmake --build build-android-$T -j"$(nproc)"
+   done
+   # -> app/bin/libretrogd.android.template_{debug,release}.arm64.so
    # cores
    cd ../app/cores
    B=https://buildbot.libretro.com/nightly/android/latest/arm64-v8a
@@ -66,6 +69,49 @@ para o SDK e o JDK 17.
    O `gles2` não é usado por padrão — está aí porque o `include_filter` leva
    `cores/*_android.so` inteiro, e com ele no APK dá para comparar as duas
    variantes pela chave `core` do `opcoes_core.cfg`, sem novo export.
+
+   ### Por que dois alvos da extensão, e não um
+
+   **`GODOTCPP_TARGET` decide a variante da API; `CMAKE_BUILD_TYPE` só liga
+   otimização.** O padrão do `GODOTCPP_TARGET` é `template_debug`, então quem
+   passa apenas `-DCMAKE_BUILD_TYPE=Release` — como este documento mandava até
+   2026-07-29 — leva um binário de *debug* com cara de release. No APK debug ele
+   funciona; no release, **o app morre no arranque**.
+
+   O modo de falhar é traiçoeiro. A biblioteca passa pelo `dlopen` sem uma linha
+   de erro, o motor sobe inteiro (instância OpenXR criada, OpenGL ES 3.2 no
+   Adreno 740) e o processo morre no primeiro `GodotLib.step` depois do resume:
+
+   ```
+   Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x15 in tid (GLThread)
+   Cause: null pointer dereference
+   #30 ... libgodot_android.so (Java_org_godotengine_godot_GodotLib_step+200)
+   #33 ... org.godotengine.godot.gl.GodotRenderer.onDrawFrame+20
+   ```
+
+   **Nenhum dos 43 quadros do backtrace é da `libretrogd`** — o crash é todo
+   dentro do motor, o que manda investigar em qualquer direção menos a certa.
+   Medido no Quest 3S com o mesmo commit nos dois lados: debug a 72 fps, release
+   em SIGSEGV; trocando só a extensão para `template_release`, o release passa a
+   rodar a 72 fps. É o teste que separa as duas coisas, e vale repetir se o
+   sintoma voltar.
+
+   O `.gdextension` é o que escolhe o binário por tipo de build — e a tag
+   `editor` tem de estar lá, porque o editor **não** casa com `debug`. Sem ela o
+   desktop e os testes perdem a extensão, com o mesmo erro de biblioteca
+   ausente. Os comentários daquele arquivo começam com `;`: um `#` descarta a
+   seção `[libraries]` inteira, e o sintoma também é "No GDExtension library
+   found", sem nada sobre sintaxe.
+
+   Para o desktop valem os mesmos dois alvos (sem toolchain do NDK):
+
+   ```bash
+   cd libretrogd
+   for T in template_debug template_release; do
+     cmake -S . -B build-linux-$T -DGODOTCPP_TARGET=$T -DCMAKE_BUILD_TYPE=Release
+     cmake --build build-linux-$T -j"$(nproc)"
+   done
+   ```
 
 ## Gerar o APK
 

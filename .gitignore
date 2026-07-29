@@ -1,6 +1,7 @@
-# Build da GDExtension
+# Build da GDExtension — um diretório por alvo do godot-cpp (template_debug e
+# template_release), por isso o curinga em vez dos nomes exatos.
+libretrogd/build-*/
 libretrogd/build/
-libretrogd/build-android/
 libretrogd/.cache/
 libretrogd/godot-cpp/
 

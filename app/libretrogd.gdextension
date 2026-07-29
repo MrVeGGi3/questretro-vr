@@ -3,6 +3,28 @@ entry_symbol = "libretrogd_library_init"
 compatibility_minimum = "4.5"
 reloadable = true
 
+; Uma entrada por tipo de build, e não uma por plataforma. O binário
+; `template_debug` carregado num motor `template_release` passa pelo dlopen sem
+; erro e derruba o app depois — ver o comentário no CMakeLists da extensão.
+;
+; A tag `editor` é obrigatória e **não** sai de graça no `debug`: com só
+; `linux.debug.x86_64` o editor reclama "No GDExtension library found for current
+; OS and architecture (linux.x86_64)" e nenhuma classe da extensão existe (medido:
+; `Identifier "LibretroHost" not declared`). O addon godotopenxrvendors declara
+; apenas debug/release e por isso também não carrega no editor — passa batido
+; porque ele só é usado no Android.
+;
+; O editor aponta para o `template_debug`: o godot-cpp tem um alvo `editor`
+; próprio, mas o de debug serve e evita um terceiro binário para manter.
+;
+; **Comentário aqui é com `;`, não `#`.** Este arquivo é um ConfigFile do Godot, e
+; uma linha começando com `#` faz a seção `[libraries]` inteira ser descartada. O
+; sintoma é idêntico ao de biblioteca ausente — "No GDExtension library found" —
+; sem uma palavra sobre sintaxe. Mesma família da armadilha do `;` no
+; export_presets.cfg.
 [libraries]
-linux.x86_64 = "res://bin/libretrogd.linux.x86_64.so"
-android.arm64 = "res://bin/libretrogd.android.arm64.so"
+linux.editor.x86_64 = "res://bin/libretrogd.linux.template_debug.x86_64.so"
+linux.debug.x86_64 = "res://bin/libretrogd.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/libretrogd.linux.template_release.x86_64.so"
+android.debug.arm64 = "res://bin/libretrogd.android.template_debug.arm64.so"
+android.release.arm64 = "res://bin/libretrogd.android.template_release.arm64.so"
