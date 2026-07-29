@@ -16,7 +16,7 @@ cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fo
 ```
 libretrogd/        GDExtension C++ que hospeda cores libretro
   src/
-    libretro.h         header oficial da API libretro (licença ISC)
+    libretro.h         header oficial da API libretro (MIT, © RetroArch team)
     libretro_host.*    classe LibretroHost: dlopen do core, callbacks, frame loop
     register_types.*   registro da classe no Godot
   CMakeLists.txt       build (usa godot-cpp branch 4.5)
@@ -44,7 +44,7 @@ app/               projeto Godot
   assets/          icon.png, logo.png
   bin/             .so da GDExtension (gerado)
   cores/           cores libretro .so (baixados; não versionados)
-  roms/            demo.smc (homebrew freeware, essa vai no APK)
+  roms/            vazia no repo — ROM nenhuma é versionada nem vai no APK
 cores/             (reservado)
 docs/
 ```
@@ -79,6 +79,22 @@ cmake --build build -j"$(nproc)"
 
 ## Baixar os cores
 
+**O APK não empacota core nenhum**, e isso é deliberado: as licenças dos quatro não
+convivem num mesmo pacote (ver [THIRD-PARTY.md](THIRD-PARTY.md)). Vale para quem
+desenvolve **e** para quem instala, com um destino diferente para cada:
+
+| Quem | Onde põe os `.so` |
+|---|---|
+| desenvolvendo no desktop | `app/cores/` (é o que os comandos abaixo fazem) |
+| jogando no Quest | `/sdcard/QuestRetro/cores/` — ligue o headset no PC por USB e arraste |
+
+No headset a pasta aparece sozinha na primeira execução **depois** de você conceder
+"Permitir acesso" na página de ROMs — é a mesma permissão que as ROMs já pedem, e sem
+ela o app não consegue criar nem ler nada em `/sdcard`. Faltando um core, a mensagem
+na tela diz qual arquivo é e em que pasta ele vai.
+
+Para o desktop:
+
 ```bash
 cd app/cores
 B=https://buildbot.libretro.com/nightly/linux/x86_64/latest
@@ -86,6 +102,19 @@ curl -fsSL -O $B/snes9x_libretro.so.zip                 # SNES
 curl -fsSL -O $B/mupen64plus_next_libretro.so.zip       # N64
 curl -fsSL -O $B/genesis_plus_gx_libretro.so.zip        # Mega Drive + Sega CD
 curl -fsSL -O $B/melonds_libretro.so.zip                # Nintendo DS
+unzip -o '*.so.zip' && rm -f *.so.zip
+```
+
+Para o Quest, os mesmos cores em arm64 — baixe no PC e copie para
+`/sdcard/QuestRetro/cores/`. Os nomes **diferem** dos de desktop (sufixo `_android`, e
+o mupen vem separado por versão de GL; o Quest usa a **gles3**):
+
+```bash
+B=https://buildbot.libretro.com/nightly/android/latest/arm64-v8a
+curl -fsSL -O $B/snes9x_libretro_android.so.zip
+curl -fsSL -O $B/mupen64plus_next_gles3_libretro_android.so.zip
+curl -fsSL -O $B/genesis_plus_gx_libretro_android.so.zip
+curl -fsSL -O $B/melonds_libretro_android.so.zip
 unzip -o '*.so.zip' && rm -f *.so.zip
 ```
 
@@ -599,3 +628,23 @@ save destruindo um save seria irônico demais.
 ## Licença
 
 MIT — ver [LICENSE](LICENSE).
+
+## Créditos e terceiros
+
+O que não é deste projeto está listado em [THIRD-PARTY.md](THIRD-PARTY.md), com
+licença e origem de cada peça.
+
+Três coisas que valem ser ditas aqui, porque explicam decisões de projeto e não só
+obrigações legais:
+
+- **Nenhum core libretro é distribuído.** Não é economia de espaço: as licenças dos
+  quatro não convivem num mesmo pacote — dois vedam uso comercial e são incompatíveis
+  com GPL, dois são GPL, e o loader OpenXR da Meta que vai no APK é proprietário.
+  Fora do pacote, os três conflitos desaparecem juntos e este app volta a ser o que
+  sempre foi de fato: um host que abre por `dlopen` um core que **você** obteve. É o
+  mesmo modelo do RetroArch.
+- **Nenhuma ROM e nenhuma BIOS** são versionadas ou distribuídas. Jogo é obra de
+  terceiros, e a BIOS do Mega CD é da Sega.
+- **O `libretro.h` é MIT**, e não GPL, de propósito pelo upstream — é o que permite a
+  um host de qualquer licença implementar a API. É a peça que torna este arranjo
+  possível.

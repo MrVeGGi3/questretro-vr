@@ -199,8 +199,31 @@ var _sram_disco := PackedByteArray()   ## o que já está gravado, para comparar
 var _desde_sram := 0.0
 
 
-## Core que roda uma ROM, pela extensão dela. "" se não reconhecemos o arquivo
-## ou se ainda não temos core para o sistema.
+## Arquivo de opções em vigor: o da pasta do usuário quando existe, senão o de
+## `user://` — que em release não é alcançável por ninguém, e é justamente por isso
+## que o da pasta do usuário vem primeiro.
+static func arquivo_opcoes() -> String:
+	var externo := Armazenamento.arquivo_opcoes()
+	return externo if not externo.is_empty() else ARQUIVO_OPCOES
+
+
+## Nome do arquivo do core deste sistema na plataforma atual. É o que a pessoa
+## precisa baixar, então é o que a mensagem de erro e o menu mostram — e por isso
+## sai daqui em vez de ser escrito à mão em cada lugar.
+static func nome_do_core(sis: String) -> String:
+	if not CORES.has(sis):
+		return ""
+	return String(CORES[sis]["android" if OS.has_feature("android") else "desktop"]).get_file()
+
+
+## Caminho no pacote, que só existe no desktop e em build privado — o APK público
+## não empacota core nenhum (ver THIRD-PARTY.md).
+static func _core_no_pacote(sis: String) -> String:
+	return String(CORES[sis]["android" if OS.has_feature("android") else "desktop"])
+
+
+## Core que roda uma ROM, pela extensão dela. "" se não reconhecemos o arquivo,
+## se não temos core para o sistema, ou se o `.so` não está em lugar nenhum.
 static func core_para_rom(rom_path: String) -> String:
 	var sis := NavegadorRoms.sistema_de(rom_path)
 	if not CORES.has(sis):
@@ -208,7 +231,28 @@ static func core_para_rom(rom_path: String) -> String:
 	var escolhido := _core_do_arquivo(sis)
 	if not escolhido.is_empty():
 		return escolhido
-	return CORES[sis]["android" if OS.has_feature("android") else "desktop"]
+	# O do usuário vem antes do do pacote: quem pôs um core na pasta espera que ele
+	# valha. No APK público não há o do pacote para competir de todo jeito.
+	var do_usuario := Armazenamento.procurar_core(nome_do_core(sis))
+	if not do_usuario.is_empty():
+		return do_usuario
+	var no_pacote := _core_no_pacote(sis)
+	# Conferir a existência aqui, e não deixar `load_core` falhar depois, é o que
+	# permite a mensagem dizer **qual arquivo** falta e **onde** pô-lo. Sem isto o
+	# sintoma de core ausente é uma falha genérica de carga.
+	return no_pacote if FileAccess.file_exists(no_pacote) else ""
+
+
+## Mensagem de core ausente que diz o que fazer. Curta porque o HUD é um `Label`
+## simples e caminho longo transborda da tela.
+static func msg_sem_core(rom_path: String) -> String:
+	var nome := nome_do_core(NavegadorRoms.sistema_de(rom_path))
+	if nome.is_empty():
+		return "Sem core para " + rom_path.get_file()
+	var pasta := Armazenamento.cores()
+	if pasta.is_empty():
+		return "Falta o core " + nome
+	return "Falta %s em %s" % [nome, pasta]
 
 
 ## Troca o `.so` do core sem rebuild, pelo mesmo arquivo que já sobrescreve as
@@ -217,20 +261,24 @@ static func core_para_rom(rom_path: String) -> String:
 ## Existe pelo mesmo motivo que a sobrescrita de opções: no headset cada
 ## export+install custa dez minutos, e descobrir se o crash do GLideN64 muda
 ## entre as variantes `gles2` e `gles3` do mupen não vale esse preço por
-## tentativa. As duas variantes já vão no APK — o `include_filter` do preset
-## leva `cores/*_android.so` inteiro.
+## tentativa. Para comparar as duas, ponha as duas na pasta de cores do usuário e
+## troque por esta chave — antes elas vinham no APK, que hoje não empacota core
+## nenhum (ver THIRD-PARTY.md).
 static func _core_do_arquivo(sistema_novo: String) -> String:
 	var cfg := ConfigFile.new()
-	if cfg.load(ARQUIVO_OPCOES) != OK:
+	if cfg.load(arquivo_opcoes()) != OK:
 		return ""
 	var nome := str(cfg.get_value(sistema_novo, CHAVE_CORE, ""))
 	if nome.is_empty():
 		return ""
-	var caminho := "res://cores/" + nome
-	if not FileAccess.file_exists(caminho):
+	# Pasta do usuário primeiro, pacote depois — a mesma ordem de `core_para_rom`.
+	var caminho := Armazenamento.procurar_core(nome)
+	if caminho.is_empty() and FileAccess.file_exists("res://cores/" + nome):
+		caminho = "res://cores/" + nome
+	if caminho.is_empty():
 		# Nome errado não pode virar "sem core": cair no padrão dá um teste que
 		# mede a variante errada em silêncio, que é pior que não rodar.
-		push_warning("EmuCore: core pedido pelo arquivo não existe: " + caminho)
+		push_warning("EmuCore: core pedido pelo arquivo não existe: " + nome)
 		return ""
 	print("EmuCore: core de %s vindo do arquivo: %s" % [sistema_novo, nome])
 	return caminho
@@ -245,7 +293,7 @@ func iniciar(core_path: String, rom_path: String) -> bool:
 	if core_path.is_empty():
 		core_path = core_para_rom(rom_path)
 		if core_path.is_empty():
-			falhou.emit("Sem core para " + rom_path.get_file())
+			falhou.emit(msg_sem_core(rom_path))
 			return false
 
 	_host = LibretroHost.new()
@@ -332,12 +380,12 @@ func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 	return true
 
 
-## Sobrescritas de `user://opcoes_core.cfg`, se houver. Imprime o que aplicou:
-## num log de headset, saber com que opções aquele teste rodou é a diferença
-## entre bisseccionar e adivinhar.
+## Sobrescritas do `opcoes_core.cfg` em vigor (ver `arquivo_opcoes()`), se houver.
+## Imprime o que aplicou: num log de headset, saber com que opções aquele teste
+## rodou é a diferença entre bisseccionar e adivinhar.
 func _aplicar_opcoes_do_arquivo(sistema_novo: String) -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(ARQUIVO_OPCOES) != OK:
+	if cfg.load(arquivo_opcoes()) != OK:
 		return
 	if not cfg.has_section(sistema_novo):
 		return
@@ -752,16 +800,25 @@ func _garantir_bus() -> String:
 	return BUS_AUDIO if AudioServer.get_bus_index(BUS_AUDIO) >= 0 else "Master"
 
 
-## Garante um caminho de filesystem real para o core. No desktop res:// já
-## globaliza para um caminho real; no Android copiamos para user://.
+## Garante um caminho de filesystem real **e executável** para o core.
+##
+## No desktop `res://` já globaliza para um caminho real e o `dlopen` abre direto.
+## No Android nenhuma das duas origens serve como está: `res://` vive dentro do APK,
+## e a pasta do usuário fica em `/sdcard`, que é armazenamento emulado e costuma
+## estar montado `noexec`. Copiar para `user://cores` resolve as duas com o mesmo
+## código — e é o caminho que o projeto já tinha provado funcionar para o core do
+## pacote, antes de existir core do usuário.
 func _preparar_core(core_path: String) -> String:
-	if not core_path.begins_with("res://"):
-		return core_path
 	if not OS.has_feature("android"):
 		# Desktop/editor: res:// aponta para o diretório do projeto, dlopen abre direto.
-		return ProjectSettings.globalize_path(core_path)
+		if core_path.begins_with("res://"):
+			return ProjectSettings.globalize_path(core_path)
+		return core_path
 
 	var destino := "user://cores/" + core_path.get_file()
+	# Já é a nossa cópia: copiar sobre si mesmo truncaria o arquivo.
+	if core_path == ProjectSettings.globalize_path(destino):
+		return core_path
 	DirAccess.make_dir_recursive_absolute("user://cores")
 	# Copia só se ainda não existe ou se o tamanho difere (core atualizado).
 	var precisa_copiar := true

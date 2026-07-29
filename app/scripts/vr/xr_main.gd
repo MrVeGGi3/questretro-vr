@@ -23,9 +23,11 @@ extends Node3D
 ## O ambiente em volta da tela é da `Sala` (`vr/sala.gd`), que roda sem XR. O
 ## que fica aqui é só a negociação de passthrough com o OpenXR.
 
-# ROM demo embutida (homebrew freeware). Vazio => exige -- --rom no desktop.
+# Nenhuma ROM vai no APK — jogo é obra de terceiros (ver THIRD-PARTY.md). Então a
+# primeira execução não abre nada, e cai na mensagem que manda abrir o menu. Passar
+# `-- --rom /caminho` continua valendo, e é como os testes e o desktop rodam.
 # O core sai da extensão da ROM (EmuCore.core_para_rom), não daqui.
-const ROM_PADRAO := "res://roms/demo.smc"
+const ROM_PADRAO := ""
 
 const LARGURA_BASE := 1.4       # metros, largura da tela em escala 1.0
 

@@ -66,9 +66,9 @@ para o SDK e o JDK 17.
    usa o **gles3**. O nome não bate com o do desktop, por isso `EmuCore.CORES`
    escreve os dois por extenso em vez de montar por sufixo.
 
-   O `gles2` não é usado por padrão — está aí porque o `include_filter` leva
-   `cores/*_android.so` inteiro, e com ele no APK dá para comparar as duas
-   variantes pela chave `core` do `opcoes_core.cfg`, sem novo export.
+   O `gles2` não é usado por padrão — vale baixar junto porque, com as duas na pasta
+   de cores do headset, dá para comparar as variantes pela chave `core` do
+   `opcoes_core.cfg` sem novo export.
 
    ### Por que dois alvos da extensão, e não um
 
@@ -125,8 +125,14 @@ O preset `Quest (Meta)` (em `app/export_presets.cfg`) já traz:
 `gradle_build=true`, `arm64-v8a`, `xr_mode=1`, `enable_meta_plugin=true`,
 suporte a Quest 2/3/Pro, `min_sdk=24`, `target_sdk=32`.
 
-O `exclude_filter` tira o core/extensão de desktop; o `include_filter` garante o
-core android e a ROM demo (`roms/demo.smc`, homebrew freeware) no pacote.
+O `exclude_filter` tira do pacote a extensão de desktop, **todos os cores** e
+**todas as ROMs**. Os cores por licença (ver [THIRD-PARTY.md](../THIRD-PARTY.md)) e as
+ROMs por direito autoral: quem instala fornece os seus, e o app os procura em
+`/sdcard/QuestRetro/`. Está escrito por curinga (`cores/*.so`, `roms/*`) para que um
+core novo baixado na pasta de desenvolvimento não entre no APK sem ninguém notar.
+
+Só o `assets/logo.png` continua no `include_filter`: ele é carregado por caminho em
+tempo de execução, e o `all_resources` sozinho não o alcança.
 
 > **O export reescreve o `project.godot`** — conferir com `git diff` depois de
 > gerar o APK. O Godot regrava o arquivo com o cabeçalho padrão dele e **apaga
@@ -393,10 +399,16 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   adb push /tmp/oc.cfg /data/local/tmp/oc.cfg
   adb shell "run-as com.questretro.vr sh -c 'cat /data/local/tmp/oc.cfg > files/opcoes_core.cfg'"
   ```
-  Vale só para `.so` que estejam no APK — o `include_filter` do preset leva
-  `cores/*_android.so` inteiro, então basta ter baixado a variante antes do
-  export. Nome que não existe vira aviso e cai no padrão, em vez de medir a
+  O `.so` é procurado na pasta do usuário (`/sdcard/QuestRetro/cores/`) e depois no
+  APK — que hoje não leva core nenhum. Então para comparar `gles2` contra `gles3`
+  basta pôr as duas variantes naquela pasta e trocar por esta chave, **sem novo
+  export**. Nome que não existe vira aviso e cai no padrão, em vez de medir a
   variante errada em silêncio.
+
+  E o próprio `opcoes_core.cfg` pode morar lá (`/sdcard/QuestRetro/opcoes_core.cfg`),
+  que é o que torna tudo isto possível **em build release**: o `run-as` acima só
+  funciona em debug, e era a única via até agora. O de `user://` continua valendo
+  quando o externo não existe.
 
   A outra chave reservada, **`listar`**, despeja no log toda opção que o core
   declara, com o valor vigente, o padrão do core e os valores aceitos. As que

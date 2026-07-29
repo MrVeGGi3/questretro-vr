@@ -16,7 +16,18 @@ extends Node
 
 const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
 
+## Piso de conferências quando roda **sem ROM**, que é como o CI roda. Existe pelo
+## mesmo motivo do `CONFERENCIAS` do `test_sala`: zero falha não significa nada
+## sozinho. Um erro de compilação numa página derruba as asserções dela sem
+## derrubar o teste, e o final imprimiria "TUDO OK" tendo conferido menos.
+##
+## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
+## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
+## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
+const CONFERENCIAS_MIN := 95
+
 var _falhas := 0
+var _feitas := 0
 
 
 func _ready() -> void:
@@ -32,7 +43,10 @@ func _ready() -> void:
 	# Core vazio: sai da extensão da ROM. Com o caminho do snes9x fixo aqui,
 	# passar uma .z64 renderizava a página de Input do N64 com o core errado —
 	# e é justamente essa página que muda mais com o sistema.
-	emu.iniciar("", _arg("--rom", "res://roms/demo.smc"))
+	# Sem ROM por padrão: nenhuma vai no repo nem no APK. Os blocos que exigem
+	# cartucho se anunciam como PULADO, e o contador de conferências no fim é o que
+	# impede essa perda de cobertura de passar batida.
+	emu.iniciar("", _arg("--rom", ""))
 
 	_semear_biblioteca(cfg)
 	await _renderizar_paginas(cfg, emu)
@@ -50,6 +64,11 @@ func _ready() -> void:
 	await _testar_biblioteca(cfg, emu)
 	_testar_sistemas_completos()
 	_devolver_biblioteca()
+
+	if _feitas < CONFERENCIAS_MIN:
+		print("  FALHA rodaram %d conferências, esperava ao menos %d — veja se algum "
+				% [_feitas, CONFERENCIAS_MIN] + "SCRIPT ERROR passou acima")
+		_falhas += 1
 
 	print("=== %s ===" % ("TUDO OK" if _falhas == 0 else "%d FALHA(S)" % _falhas))
 	get_tree().quit(1 if _falhas > 0 else 0)
@@ -866,6 +885,7 @@ func _conferir_rodape_visivel(menu: MenuRaiz, pagina: String) -> void:
 
 
 func _conferir(condicao: bool, descricao: String) -> void:
+	_feitas += 1
 	if condicao:
 		print("  ok   ", descricao)
 	else:
