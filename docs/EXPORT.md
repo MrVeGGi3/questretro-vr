@@ -345,12 +345,34 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   Parte do "ganho" é, aliás, só menos pixel: a nossa própria conversão cai de
   18,8 para 15,6 ms/s pela metade da largura.
 
-  **O que fica de aproveitável**: o filtro de VI custa mesmo ~9 % do tempo de
-  core, e a lista tem degraus intermediários — `AA only`, `AA+Dedither`,
-  `AA+Blur` — que mantêm o pipeline do VI (e portanto, presumivelmente, a
-  resolução e a mira) largando parte do custo. É o próximo teste barato, e o
-  critério de aceite passou a ser explícito: **a mira tem de continuar lá e o
-  `video=` tem de continuar em 640x240.**
+  **`AA only` também apaga a mira — e refuta a explicação acima.** O degrau
+  intermediário foi testado em seguida, com o critério de aceite escrito antes:
+  a mira tem de continuar lá e o `video=` em 640x240. Ele cumpre **metade**: a
+  resolução fica em `640x240`, e a mira some do mesmo jeito.
+
+  Ou seja, não era a resolução. A mira depende de um passo do filtro de VI que o
+  `AA only` também larga — dedither ou blur —, e a hipótese de que o problema do
+  `Unfiltered` era o framebuffer não resolvido estava errada.
+
+  Os três lados, com o ganho de core proporcional ao que se larga:
+
+  | vioverlay | n | fps méd | mediana | core | < 65 fps | mira |
+  |---|---|---|---|---|---|---|
+  | `Filtered` (padrão) | 1644 | 66,0 | 70 | **711** | 23,5 % | **sim** |
+  | `AA only` | 575 | 67,4 | 70 | 694 | 19,0 % | não |
+  | `Unfiltered` | 589 | 68,3 | 71 | 648 | 14,6 % | não |
+
+  A escada é monótona: quanto mais do filtro se larga, mais barato o core e mais
+  quebrada a imagem. `AA only` compra 17 ms/s (2,4 %) e já perde a mira — o
+  resto do ganho mora justamente nos passos que fazem o jogo aparecer direito.
+
+  **Isto encerra as opções de core como alavanca.** Restam `AA+Blur` e
+  `AA+Dedither`, com teto abaixo dos 9 % do `Unfiltered` e a mesma chance de
+  cair no mesmo defeito; não vale mais sessão de headset. O gargalo está
+  identificado e nomeado — `retro_run` do angrylion —, e nenhuma chave o
+  resolve. O que sobra sem testar, e que não é opção de core, é o **export
+  release** (o item de `--export-debug` acima): todas as séries aqui são de build
+  debug.
 
   E mostrou que **`mupen64plus-43screensize=640x480` é o próprio padrão do
   core** — a linha em `OPCOES["n64"]` não muda nada, nas duas plataformas.
