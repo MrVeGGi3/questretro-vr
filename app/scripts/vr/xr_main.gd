@@ -96,6 +96,7 @@ var _acumulador := 0.0          # sobra de tempo entre frames emulados
 var _diag_ligado := false
 var _diag_t := 0.0
 var _diag_passos := 0
+var _diag_us_process := 0   ## tempo em `_process`, acumulado desde a última amostra
 
 
 func _ready() -> void:
@@ -144,9 +145,16 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
 	_ler_input_vr(delta)
 	_avancar_emulacao(delta)
 	_atualizar_tela()
+	# Antes do `_diagnostico`, que formata texto e imprime uma vez por segundo:
+	# o custo dele não é do frame comum e contá-lo inflaria a amostra em que ele
+	# roda. O que sobra entre este número e os 1000 ms do segundo é o motor —
+	# desenho, física, OpenXR —, e é o que separa "o nosso `_process` está caro"
+	# de "o frame está caro em outro lugar".
+	_diag_us_process += Time.get_ticks_usec() - t0
 	_diagnostico(delta)
 
 
@@ -190,15 +198,53 @@ func _diag_ativo() -> bool:
 	return _diag_ligado or bool(_cfg.obter("video/diag"))
 
 
+## Zera os acumuladores de tempo. Eles somam sempre, com o diagnóstico ligado ou
+## não, então quem os lê precisa zerá-los junto — senão a primeira amostra
+## depois de ligar despeja o app inteiro, que é o mesmo tropeço que os passos do
+## emu já deram (51589 num intervalo de 1 s).
+func _zerar_tempos() -> void:
+	_diag_us_process = 0
+	_emu.diag_us_core = 0
+	_emu.diag_us_video = 0
+	_emu.diag_us_audio = 0
+
+
 func _diagnostico(delta: float) -> void:
 	if not _diag_ativo():
 		return
 	_diag_t += delta
 	if _diag_t < 1.0:
 		return
-	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | audio gerado=%d descartado=%d" % [
+	# `video` e `sala` são constantes enquanto a ROM e o ambiente não trocam, e
+	# ainda assim saem em **toda** amostra: é o que faz uma captura de logcat
+	# dizer sozinha em que configuração aquele segundo rodou.
+	#
+	# A sala já tinha o evento `Sala: modo <nome>` do `_aplicar_sala()`, e ele não
+	# bastou. Um evento só marca a **mudança**: numa captura que começou com o app
+	# já rodando, todas as amostras até a primeira troca ficam sem dono — foram 71
+	# de 92 numa medição real, e o A/B inteiro se perdeu. Estado na amostra não
+	# tem esse buraco, e ainda dispensa casar horários entre duas linhas.
+	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | video=%dx%d %s | sala=%s | audio gerado=%d descartado=%d" % [
 		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
+		_emu.largura, _emu.altura, _emu.formato_video(),
+		Sala.NOMES[int(_cfg.obter("sala/modo"))],
 		_emu.diag_audio_gerado, _emu.diag_audio_descartado]
+	# Com o painel aberto, um SubViewport de 1280x800 é redesenhado a cada frame
+	# (`UPDATE_ALWAYS`) enquanto a emulação continua rodando atrás. Marcar a
+	# amostra é o que separa "o menu estava aberto" de "a cena ficou pesada" numa
+	# captura de logcat — sem isso as duas dão a mesma queda de render e a
+	# comparação vira relato. Mesmo papel do `Sala: modo`, e a razão de a marca
+	# ir **na amostra** e não num evento de abrir/fechar: assim cada segundo se
+	# classifica sozinho, e o fatiamento não depende de casar horários.
+	if _painel.esta_aberto():
+		linha += " | MENU ABERTO"
+	# Onde o segundo foi gasto. Em ms por segundo, e não por frame, porque é a
+	# unidade que se lê direto: 1000 é o segundo inteiro, então `core=520` são
+	# 52 % do tempo de parede dentro do `retro_run`. O contador de fps diz *que*
+	# o frame ficou longo; estes dizem *onde*.
+	linha += " | ms/s process=%d core=%d video=%d audio=%d" % [
+		_diag_us_process / 1000, _emu.diag_us_core / 1000,
+		_emu.diag_us_video / 1000, _emu.diag_us_audio / 1000]
 	if _duas_telas and not _diag_caneta.is_empty():
 		linha += "\n" + _diag_caneta
 	print("DIAG ", linha)
@@ -206,6 +252,7 @@ func _diagnostico(delta: float) -> void:
 		_mostrar(linha)
 	_diag_t = 0.0
 	_diag_passos = 0
+	_zerar_tempos()
 	_emu.diag_audio_gerado = 0
 	_emu.diag_audio_descartado = 0
 
@@ -355,6 +402,7 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 		# Medido: 51589 passos numa amostra de 1 s, que são os 15 min de app.
 		_diag_t = 0.0
 		_diag_passos = 0
+		_zerar_tempos()
 		_emu.diag_audio_gerado = 0
 		_emu.diag_audio_descartado = 0
 	elif chave.begins_with("tela/") or chave == "video/aspecto":

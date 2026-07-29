@@ -82,6 +82,20 @@ suporte a Quest 2/3/Pro, `min_sdk=24`, `target_sdk=32`.
 O `exclude_filter` tira o core/extensão de desktop; o `include_filter` garante o
 core android e a ROM demo (`roms/demo.smc`, homebrew freeware) no pacote.
 
+> **O export reescreve o `project.godot`** — conferir com `git diff` depois de
+> gerar o APK. O Godot regrava o arquivo com o cabeçalho padrão dele e **apaga
+> todo comentário**, inclusive os que explicam por que
+> `rendering_method.mobile` e `openxr/extensions/meta/passthrough` estão lá —
+> que é justamente a documentação de duas decisões que quebram em silêncio se
+> alguém as remover. Também some toda chave cujo valor seja o padrão do motor
+> (aconteceu com `audio/driver/enable_input=false`); nisso o comportamento não
+> muda, mas o registro de que a escolha foi deliberada, sim.
+>
+> É da mesma família da armadilha do `;` no `export_presets.cfg` logo acima: o
+> arquivo de configuração é o registro, e a ferramenta o reescreve sem avisar.
+> `git checkout -- app/project.godot` depois do export devolve os comentários
+> sem mexer no APK, que já foi gerado com as mesmas chaves efetivas.
+
 ## Sideload no Quest 3S
 
 ```bash
@@ -289,6 +303,41 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   `cores/*_android.so` inteiro, então basta ter baixado a variante antes do
   export. Nome que não existe vira aviso e cai no padrão, em vez de medir a
   variante errada em silêncio.
+
+  A outra chave reservada, **`listar`**, despeja no log toda opção que o core
+  declara, com o valor vigente, o padrão do core e os valores aceitos. As que
+  estão fora do padrão saem marcadas com `*` — ou seja, a lista responde de uma
+  vez "o que esta medição mudou?" e "vale a pena mexer nisto?".
+
+  ```bash
+  adb shell "run-as com.questretro.vr sh -c 'printf \"[n64]\nlistar=true\n\" > files/opcoes_core.cfg'"
+  adb logcat -s godot | grep -A100 "opções declaradas"
+  ```
+
+  Existe porque escrever em `EmuCore.OPCOES` uma opção que já vinha no valor
+  certo custa uma ida ao headset para medir nada. Rodada no desktop, ela já
+  resolveu três candidatas do angrylion sem sair da cadeira:
+
+  | opção | padrão do core | veredito |
+  |---|---|---|
+  | `mupen64plus-angrylion-multithread` | `all threads` | **já é o melhor** — não mexer |
+  | `mupen64plus-angrylion-sync` | `Low` | **já é o mais barato** — não mexer |
+  | `mupen64plus-angrylion-vioverlay` | `Filtered` | candidato real: o filtro de VI é AA + dedither + blur, por pixel, na CPU |
+
+  E mostrou que **`mupen64plus-43screensize=640x480` é o próprio padrão do
+  core** — a linha em `OPCOES["n64"]` não muda nada, nas duas plataformas.
+
+  Chegou a parecer que baixá-la para `320x240` no Android encolheria a conversão
+  de pixel, já que lá quem desenha é o angrylion, que é nativo. **A medida no
+  Quest desmentiu**: o `video=` do DIAG diz `640x240`, e não `640x480`, enquanto
+  o `av_info` da carga anuncia 640x480. O tamanho que chega ao
+  `_on_video_refresh` é a resolução nativa do VI no modo de vídeo do jogo, não a
+  da opção — mexer nela não muda o que custa do nosso lado. Registrado porque a
+  suposição contrária é natural e teria custado uma ida ao headset.
+
+  A lista sai do que o core declarou no `retro_set_environment`, dentro do
+  `load_core`. Um core que declare mais opções ao abrir a ROM não as mostraria —
+  nenhum dos quatro daqui faz isso, mas uma lista curta demais tem essa causa.
 - **Lançar por `adb` exige controles ligados**: com eles desligados o Quest
   intercepta e mostra *controller required* — no logcat,
   `common_system_dialog_app_launch_blocked_controller_required`. Não é crash do
@@ -517,7 +566,132 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   despeja tudo o que se acumulou desde o arranque (51589 passos num intervalo de
   1 s, na primeira vez que isto foi medido).
 
-- **Áudio descartado em cena normal.** Na mesma captura, 47 das 953 amostras
+  A linha traz **`ms/s process=… core=… video=… audio=…`**: onde o segundo foi
+  gasto. Em milissegundos por segundo, e não por frame, porque é a unidade que se
+  lê direto — 1000 é o segundo inteiro, então `core=520` são 52 % do tempo de
+  parede dentro do `retro_run`. `process` é o `_process` do `xr_main` inteiro
+  (sem o próprio diagnóstico, que só roda uma vez por segundo); o que sobra entre
+  ele e os 1000 ms é o motor — desenho, física, OpenXR.
+
+  Existe porque o contador de fps se esgotou como instrumento: ele diz *que* o
+  frame ficou longo e nunca *onde*. Depois de eliminar a sala, o painel aberto e
+  o `43screensize` por A/B, a explicação que restou (cena pesada no rasterizador
+  de software) não se confirma nem se nega olhando fps — `core` contra `process`
+  responde direto. Medido no desktop com gliden64: `process=260 core=225
+  video=20 audio=0`, ou seja o core é ~87 % do nosso `_process`.
+
+  Os acumuladores somam **sempre**, com o diagnóstico ligado ou não, e quem lê
+  zera. Um instrumento que só existe quando ligado não pega o que aconteceu antes
+  de alguém desconfiar; e zerar ao ligar é o que evita a primeira amostra
+  despejar o app inteiro, tropeço que os passos do emu já deram.
+
+  A linha traz também **`video=<largura>x<altura> <formato>`** — o tamanho do
+  frame e qual dos três caminhos de conversão de `_on_video_refresh` está em
+  uso, ou `hw` quando o core desenha no FBO e não há conversão por pixel. Os
+  três ramos custam bem diferente por pixel e o tamanho multiplica esse custo,
+  então é o par que diz quanto do orçamento de frame é **nosso** e não da
+  emulação. Sai em toda amostra, e não uma vez no arranque, para uma captura de
+  logcat dizer sozinha em que configuração aquele segundo rodou — a mesma razão
+  do `Sala: modo`. Medido no desktop: o DS dá `256x384 XRGB8888`; o N64 com
+  gliden64 dá `640x480 hw`, e no Quest, com angrylion, cai num ramo de conversão.
+
+- **Nova série do N64 (2026-07-29), com `video=` no DIAG.** Star Fox 64 no Quest
+  3S, angrylion, Fliperama, **293 amostras de 1 s**, no APK de debug com a linha
+  de vídeo instrumentada:
+
+  | | |
+  |---|---|
+  | render | média **67,4** fps, mín 30, máx 74 — alvo 72 |
+  | passos do emu | média **60,6**/s, mín 55 — o core pede 60 |
+  | segundos < 65 fps | 52 (**17,7 %**) |
+  | segundos < 55 fps | 22 (7,5 %) |
+  | áudio descartado | 1576 amostras, em 10 dos 293 segundos |
+  | vídeo | **640x240 XRGB8888** |
+
+  Pior que os 69,8 fps e os 4,9 % da série de 953 amostras acima, e **a
+  comparação não vale**: aquela foi uma sessão de jogo longa, esta inclui menu,
+  carga de ROM e troca de sala. Fica registrada pelo que ela mostra de novo, não
+  como regressão.
+
+  Nas piores amostras os **passos do emu ficam em 60-62**: nos segundos de 30,
+  32, 34 e 35 fps a emulação estava em dia com o relógio.
+
+  > **Isto não exonera o RDP, e chegou a ser lido como se exonerasse.** O número
+  > de passos é forçado pelo acumulador de `_avancar_emulacao`: enquanto couber
+  > no teto de `MAX_PASSOS`, ele roda 60 passos por segundo *custe o que custar*,
+  > distribuindo 2 passos em alguns frames renderizados. Um `retro_run` mais caro
+  > alonga o frame e derruba o **render** sem mexer nos passos — os passos só
+  > caem quando nem 4 por frame dão conta, que é uma condição bem mais extrema.
+  > Ou seja, "passos em 60 com render em 40" é exatamente o que uma cena pesada
+  > no rasterizador de software produz. A série do DS, com passos caindo para
+  > 51-52, é o caso extremo, não o caso normal.
+
+  Também derruba a aritmética que se supunha: o frame do N64 no Quest é
+  **640x240**, e não 640x480 — metade do que o `av_info` anuncia.
+
+- **O painel aberto não custa fps — abrir custa.** A suspeita era que, com o
+  menu aberto, o `SubViewport` de 1280x800 redesenhado a cada frame
+  (`UPDATE_ALWAYS` em `PainelMenu.abrir`) explicasse as quedas acima. A marca
+  `MENU ABERTO` foi acrescentada à linha do DIAG para decidir isso, e o A/B foi
+  feito **com a cena parada**, alternando aberto/fechado em blocos — 279
+  amostras, Star Fox 64, Fliperama:
+
+  | | média | mediana | < 65 fps |
+  |---|---|---|---|
+  | menu fechado | 69,4 | 71 | 6,8 % |
+  | menu aberto, **tirando o 1º segundo** | 68,2 | 71 | 9,3 % |
+  | menu aberto, **só o 1º segundo** | **55,0** | — | **4 de 8 blocos** |
+
+  Ou seja: **estar** aberto custa quase nada — a mediana é 71 dos dois lados. O
+  que custa é o instante de **abrir**: em 8 blocos, o primeiro segundo caiu para
+  55 de média, com mínimos de 24, 29 e 38, e nesses segundos os passos do emu
+  caem junto (56-57), que é a assinatura de um frame longo travando a thread
+  inteira.
+
+  A causa não é o redesenho, é o que `abrir()` dispara: `menu.ao_abrir()` chama
+  `atualizar()`, e na página de ROMs isso revalida o índice inteiro com um
+  `file_exists` por item e depois refaz a lista, criando um `Button` por linha
+  (até `PAGINA` = 60, cada uma com rótulo e estrela). É trabalho de disco e de
+  construção de nós num frame só. Em VR um frame longo não é lentidão, é enjoo —
+  a mesma razão pela qual a varredura da biblioteca anda por orçamento de
+  milissegundos.
+
+  Registrado também porque é um resultado **negativo** que economiza trabalho: o
+  `UPDATE_ALWAYS` estava na fila para virar redesenho sob demanda, e a medida diz
+  que isso não renderia nada.
+
+- **O fliperama não custa fps: A/B feito.** A `sala` passou a sair em toda
+  amostra do DIAG, pela mesma razão que o `MENU ABERTO` — o evento
+  `Sala: modo <nome>` do `_aplicar_sala()` marca só a *mudança*, e numa captura
+  que começa com o app já rodando todas as amostras até a primeira troca ficam
+  sem dono (foram 71 de 92 numa tentativa real, e o A/B inteiro se perdeu).
+
+  Star Fox 64 parado, blocos alternados de ~20 s, o menu aberto **dos dois
+  lados** (é o estado natural de quem troca de sala, e mantém a variável fixa):
+
+  | sala | n | média | mediana |
+  |---|---|---|---|
+  | Vazio | 90 | 69,5 | **70** |
+  | Fliperama | 85 | 69,0 | **70** |
+
+  Os **dez** blocos deram mediana 70, sem exceção. O salão não custa fps
+  mensurável — o que o item do orçamento de frame acima suspeitava pelo número
+  absoluto, agora medido por comparação direta. Com isso o fliperama sai da lista
+  de suspeitos, e a instrumentação que o tirou de lá fica no lugar.
+
+  De quebra, o custo de **estar** com o menu aberto ficou melhor medido: mediana
+  70 aberto contra 72 fechado, na mesma sessão e mesma cena. Uns 2 fps, contra os
+  ~17 que o instante de **abrir** custa.
+
+  **O que continua em aberto**: as quedas sustentadas de 43-56 fps. Elas **não
+  reproduziram** com a nave parada — o pior bloco de 53 s com o menu fechado teve
+  mínimo de 62 —, e só aparecem em sessão de jogo de verdade. Somando isso à nota
+  do acumulador acima, a explicação que sobra é a que já estava escrita: cena
+  pesada no rasterizador de software. Fechar isso com número não sai mais de A/B
+  de configuração — pede medir o frame por dentro, separando `retro_run` do resto
+  do `_process`, porque contador por segundo já deu o que tinha.
+
+- **Áudio descartado em cena normal.** Na mesma captura de 953 amostras, 47
   descartaram áudio — 7619 amostras no total, ~0,17 s espalhados por 16 min.
   Acontecem com o render em 69–72 fps, ou seja **não** são consequência de queda
   de quadro, e quase sempre num segundo em que o emulador rodou 61 passos em vez

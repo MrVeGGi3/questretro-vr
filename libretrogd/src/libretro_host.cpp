@@ -102,6 +102,7 @@ void LibretroHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_frame"), &LibretroHost::get_frame);
 	ClassDB::bind_method(D_METHOD("get_frame_width"), &LibretroHost::get_frame_width);
 	ClassDB::bind_method(D_METHOD("get_frame_height"), &LibretroHost::get_frame_height);
+	ClassDB::bind_method(D_METHOD("get_pixel_format"), &LibretroHost::get_pixel_format);
 	ClassDB::bind_method(D_METHOD("get_fps"), &LibretroHost::get_fps);
 	ClassDB::bind_method(D_METHOD("get_sample_rate"), &LibretroHost::get_sample_rate);
 	ClassDB::bind_method(D_METHOD("get_audio"), &LibretroHost::get_audio);
@@ -701,6 +702,21 @@ void LibretroHost::_on_video_refresh(const void *data, unsigned width, unsigned 
 			}
 			break;
 		}
+	}
+}
+
+String LibretroHost::get_pixel_format() const {
+	// Com hw render o core desenha no FBO e `pixel_format` fica valendo o que o
+	// core declarou sem nunca ser usado — dizer o nome dele aqui apontaria o
+	// diagnóstico para um laço que não roda.
+	if (hw_pronto) {
+		return "hw";
+	}
+	switch (pixel_format) {
+		case RETRO_PIXEL_FORMAT_XRGB8888: return "XRGB8888";
+		case RETRO_PIXEL_FORMAT_RGB565: return "RGB565";
+		case RETRO_PIXEL_FORMAT_0RGB1555: return "0RGB1555";
+		default: return "0RGB1555";  // o mesmo fallback do switch da conversão
 	}
 }
 

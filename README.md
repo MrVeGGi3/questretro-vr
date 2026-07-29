@@ -322,11 +322,21 @@ nos dois alvos, onde isso é caro ou não existe. A iluminação está **pintada
 vértices**, o que num fliperama escuro é justamente o efeito que se quer, e o
 salão inteiro cabe em seis malhas.
 
-O salão cabe no orçamento de frame do Quest 3S, medido com Star Fox 64 — que é o
-caso pesado, N64 por software: **69,8 fps de média** num alvo de 72, ao longo de
-953 amostras de um segundo, com a emulação em dia com o relógio. Ligue
-**Vídeo → Diagnóstico** para ver os números na própria tela, sem cabo nem
-rebuild. Os detalhes e o que ainda não está atribuído estão em `docs/EXPORT.md`.
+O salão **não custa fps**, e isso deixou de ser inferência. Star Fox 64 parado no
+Quest 3S, alternando Vazio e Fliperama em blocos de ~20 s: **mediana 70 fps dos
+dois lados**, nos dez blocos, com ~90 amostras cada. Antes o que havia era o
+número absoluto (69,8 fps de média em 953 amostras de jogo), que dizia "cabe no
+orçamento" mas não separava o salão do resto.
+
+Ligue **Vídeo → Diagnóstico** para ver os números na própria tela, sem cabo nem
+rebuild. Cada amostra carrega o estado em que rodou — resolução e formato do
+frame, sala, se o menu estava aberto — e quanto do segundo foi gasto dentro do
+core, convertendo pixel e bombeando áudio. Isso existe porque contador de fps
+sozinho diz *que* o frame ficou longo e nunca *onde*: três suspeitos das quedas
+foram eliminados por comparação direta (a sala, o painel aberto e a resolução
+interna do N64) e nenhum deles teria caído sem a amostra dizer em que
+configuração rodou. Os detalhes e o que ainda não está atribuído estão em
+`docs/EXPORT.md`.
 
 Para ver a sala sem headset — porque "ficou escuro demais" e "a parede está
 virada para fora" nenhuma asserção pega:

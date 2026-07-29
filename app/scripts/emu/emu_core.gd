@@ -77,8 +77,19 @@ const CORES := {
 ## faz o N64 funcionar no Quest hoje.
 const OPCOES := {
 	"n64": {
-		# Resolução interna. 640x480 é o dobro da nativa e é o que sobra
-		# legível numa tela grande dentro do headset.
+		# Resolução interna do GLideN64: o dobro da nativa, e o que sobra legível
+		# numa tela grande dentro do headset.
+		#
+		# **É também o padrão do core**, conferido pela chave `listar` do
+		# `opcoes_core.cfg` — então esta linha não muda nada, nas duas plataformas.
+		#
+		# E ela **não decide o tamanho do frame que chega aqui**: medido no Quest,
+		# com o angrylion, o `_on_video_refresh` recebe **640x240**, que é a
+		# resolução nativa do VI naquele modo de vídeo, enquanto o `av_info` da
+		# carga anuncia 640x480. Ou seja, mexer neste número não encolhe a
+		# conversão de pixel nem o upload — quem manda ali é o modo de vídeo do
+		# jogo. Fica registrado porque a suposição contrária custou uma
+		# investigação inteira.
 		"mupen64plus-43screensize": "640x480",
 		# O GLideN64 guarda shaders compilados em disco e os recarrega.
 		# Recompilar toda vez custa um arranque mais lento e nada mais, e tira
@@ -138,6 +149,16 @@ const ARQUIVO_OPCOES := "user://opcoes_core.cfg"
 ## uma opção dele. Ver `_core_do_arquivo`.
 const CHAVE_CORE := "core"
 
+## Outra chave reservada: `listar=true` despeja no log toda opção que o core
+## declara, com o valor vigente e o padrão dele.
+##
+## Existe para não se escrever em `OPCOES` uma opção que já vinha no valor certo.
+## O melonDS ensinou o caso oposto — `melonds_threaded_renderer` vinha desligada
+## e ligá-la foi o que pôs o DS no alvo —, mas o angrylion tem opções cujo padrão
+## já é o melhor, e escrevê-las custaria uma ida ao headset para medir nada.
+## Sem esta lista a única forma de saber é ler o fonte do core.
+const CHAVE_LISTAR := "listar"
+
 var texture: ImageTexture         ## textura viva com o frame atual (RGBA8)
 var largura: int = 0
 var altura: int = 0
@@ -148,6 +169,26 @@ var sistema := ""                 ## sistema da ROM em execução ("snes", "n64"
 ## emulação está adiantada em relação ao consumo do AudioStreamGenerator.
 var diag_audio_gerado := 0
 var diag_audio_descartado := 0
+
+## Tempo gasto em cada parte do passo, em microssegundos, acumulado desde a
+## última leitura do diagnóstico. Quem zera é o `xr_main`, junto dos contadores
+## de áudio.
+##
+## Existem porque o contador de fps por segundo se esgotou como instrumento: ele
+## diz *que* o frame ficou longo, nunca *onde*. Três suspeitos foram eliminados
+## por A/B (a sala, o painel aberto, o tamanho de frame do `43screensize`) e a
+## explicação que sobrou — cena pesada no rasterizador de software — não se
+## confirma nem se nega olhando fps. Estes três números respondem direto: quantos
+## dos 1000 ms de cada segundo o app passa dentro do core, convertendo pixel e
+## bombeando áudio.
+##
+## Medir custa duas leituras de relógio por passo, ~60 vezes por segundo. É ruído
+## perto do que se está medindo, e por isso não fica atrás do interruptor de
+## diagnóstico: um instrumento que só existe quando ligado não pega o que
+## aconteceu antes de alguém desconfiar.
+var diag_us_core := 0
+var diag_us_video := 0
+var diag_us_audio := 0
 
 var _host: LibretroHost
 var _audio_player: AudioStreamPlayer
@@ -301,11 +342,32 @@ func _aplicar_opcoes_do_arquivo(sistema_novo: String) -> void:
 	if not cfg.has_section(sistema_novo):
 		return
 	for chave in cfg.get_section_keys(sistema_novo):
-		if chave == CHAVE_CORE:
-			continue   # escolhe o .so, não é opção do core (ver _core_do_arquivo)
+		if chave == CHAVE_CORE or chave == CHAVE_LISTAR:
+			continue   # chaves reservadas, não são opções do core
 		var valor := str(cfg.get_value(sistema_novo, chave))
 		print("EmuCore: opção de %s vinda do arquivo: %s = %s" % [sistema_novo, chave, valor])
 		_host.set_option(chave, valor)
+	# Por último, para a lista sair já com o que este arranque de fato aplicou.
+	if cfg.get_value(sistema_novo, CHAVE_LISTAR, false):
+		_listar_opcoes(sistema_novo)
+
+
+## Despeja no log a tabela de opções do core: chave, valor vigente e padrão.
+## Marca com `*` as que estão fora do padrão — que são exatamente as nossas, e é
+## a linha que responde "esta medição rodou com o quê?".
+##
+## A lista sai do que o core declarou até aqui (`retro_set_environment`, dentro do
+## `load_core`). Um core que declare mais opções ao abrir a ROM não as mostra —
+## nenhum dos quatro daqui faz isso, mas uma lista curta demais tem essa causa.
+func _listar_opcoes(sistema_novo: String) -> void:
+	var opcoes := _host.get_options()
+	print("EmuCore: %d opções declaradas pelo core de %s" % [opcoes.size(), sistema_novo])
+	for o: Dictionary in opcoes:
+		var padrao := str(o["default"])
+		var valor := str(o["value"])
+		print("  %s %s = %s (padrão: %s) [%s]" % [
+			"*" if valor != padrao else " ", o["key"], valor, padrao,
+			String(", ").join(o["values"])])
 
 
 ## O que vale para toda ROM recém-carregada, seja no arranque ou na troca.
@@ -560,9 +622,15 @@ func aplicar_audio(volume: float, mudo: bool) -> void:
 func step() -> void:
 	if not _rodando:
 		return
+	var t0 := Time.get_ticks_usec()
 	_host.run_frame()
+	var t1 := Time.get_ticks_usec()
 	_atualizar_video()
+	var t2 := Time.get_ticks_usec()
 	_bombear_audio()
+	diag_us_core += t1 - t0
+	diag_us_video += t2 - t1
+	diag_us_audio += Time.get_ticks_usec() - t2
 
 
 func set_button(port: int, id: int, pressed: bool) -> void:
@@ -617,6 +685,14 @@ func descritores_input() -> Array:
 ## do core, não do nosso lado.
 func hw_render() -> bool:
 	return _host != null and _host.is_hw_render()
+
+
+## Qual caminho de conversão de pixel o core está usando ("XRGB8888", "RGB565",
+## "0RGB1555" ou "hw"). Só o diagnóstico consome: os três ramos de conversão
+## custam bem diferente por pixel, e o tamanho do frame multiplica esse custo —
+## juntos eles dizem quanto do orçamento de frame é nosso e não da emulação.
+func formato_video() -> String:
+	return _host.get_pixel_format() if _host != null else "?"
 
 
 func _atualizar_video() -> void:

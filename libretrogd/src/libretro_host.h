@@ -102,6 +102,11 @@ public:
 	Ref<Image> get_frame() const;
 	int get_frame_width() const { return frame_width; }
 	int get_frame_height() const { return frame_height; }
+	// Qual dos caminhos de _on_video_refresh está em uso: "XRGB8888", "RGB565",
+	// "0RGB1555" ou "hw" (o core desenha no FBO e não há conversão por pixel).
+	// Existe para o diagnóstico: os três ramos custam bem diferente por pixel, e
+	// de dentro do headset não há como saber qual deles um core escolheu.
+	String get_pixel_format() const;
 	double get_fps() const { return av_fps; }
 	double get_sample_rate() const { return av_sample_rate; }
 
