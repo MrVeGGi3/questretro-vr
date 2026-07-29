@@ -69,9 +69,9 @@ func _renderizar_paginas(cfg: ConfigEmu, emu: EmuCore) -> void:
 	for pagina in PAGINAS:
 		menu.mostrar(pagina)
 		await get_tree().process_frame
-		await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		await _salvar(vp, _sem_acento(pagina))
+		_conferir_rodape_visivel(menu, pagina)
+		_salvar(vp, _sem_acento(pagina))
 
 		# Página que não cabe também precisa ser vista por baixo: é lá que mora
 		# o que foi acrescentado por último, e um PNG só do topo não mostraria
@@ -81,7 +81,7 @@ func _renderizar_paginas(cfg: ConfigEmu, emu: EmuCore) -> void:
 			rolagem.scroll_vertical = int(rolagem.get_v_scroll_bar().max_value)
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw
-			await _salvar(vp, _sem_acento(pagina) + "_fim")
+			_salvar(vp, _sem_acento(pagina) + "_fim")
 			rolagem.scroll_vertical = 0
 
 	vp.queue_free()
@@ -171,7 +171,7 @@ func _testar_arrasto_alem_da_borda(cfg: ConfigEmu, emu: EmuCore) -> void:
 	add_child(painel)
 	painel.abrir()
 	await get_tree().process_frame
-
+	await get_tree().process_frame
 	var controle := XRController3D.new()
 	add_child(controle)
 	painel.conectar_xr(null, controle)
@@ -300,13 +300,21 @@ func _testar_oclusao(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 	# No centro da imagem, o painel cobre a barreira. Se o vermelho dominar, a
 	# tela venceu o teste de profundidade e o menu está invisível.
+	#
+	# O limiar é apertado de propósito: a barreira é `Color.RED` pura e unshaded,
+	# então ela chega aqui em (1, 0, 0) exatos. Um limiar frouxo confunde a
+	# barreira com vermelho que o **próprio painel** desenha — a logo tem pixels
+	# `a43032` e `de000b`, e os chips A/B da página de Input são `c4514a`. Com
+	# `r > 0.5` bastava a logo andar alguns pixels para um deles cair na grade de
+	# amostragem e o teste reprovar um painel perfeitamente opaco (conferido:
+	# alpha 1.0 no pixel acusado).
 	var vermelhos := 0
 	var total := 0
 	for y in range(150, 250, 5):
 		for x in range(250, 390, 5):
 			var c := img.get_pixel(x, y)
 			total += 1
-			if c.r > 0.5 and c.g < 0.2 and c.b < 0.2:
+			if c.r > 0.95 and c.g < 0.05 and c.b < 0.05:
 				vermelhos += 1
 	_conferir(vermelhos == 0,
 			"painel visível com a tela na frente (%d/%d pixels tapados)" % [vermelhos, total])
@@ -638,7 +646,7 @@ func _testar_remap(cfg: ConfigEmu, emu: EmuCore) -> void:
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	await _salvar(vp, "input_remap")
+	_salvar(vp, "input_remap")
 
 	alvo.pressed.emit()
 	await get_tree().process_frame
@@ -814,7 +822,7 @@ func _testar_biblioteca(cfg: ConfigEmu, emu: EmuCore) -> void:
 	menu.find_child("ModoLista", true, false).pressed.emit()
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	await _salvar(vp, "roms_pastas")
+	_salvar(vp, "roms_pastas")
 	_conferir(int(cfg.obter("roms/modo_lista")) == ConfigEmu.LISTA_PASTAS,
 			"o botão de modo cai no navegador de pastas")
 	var raizes := menu.find_child("Raizes", true, false) as Button
@@ -836,6 +844,25 @@ func _quantas_linhas(no: Node) -> int:
 	for filho in no.get_children():
 		total += _quantas_linhas(filho)
 	return total
+
+
+## O rodapé da página aberta tem de terminar dentro do painel.
+##
+## Um Control ancorado nunca encolhe abaixo do próprio mínimo: quando a sidebar
+## passa da altura do painel, o excesso não vira rolagem nem aviso — sai pela
+## borda de baixo, levando junto o rodapé de **todas** as páginas. No headset
+## isso apareceu como o "Carregar" da página de ROMs cortado ao meio, sem uma
+## linha no log dizendo por quê, e foi assim que a sétima página do menu entrou.
+##
+## Confere o nó, e não o PNG: uma imagem cortada não reprova nada, e era
+## justamente por isso que o `ui_roms.png` mostrava o botão pela metade sem que
+## o teste ficasse vermelho.
+func _conferir_rodape_visivel(menu: MenuRaiz, pagina: String) -> void:
+	var pag: PagBase = menu._paginas[pagina]
+	var fim := pag.rodape.global_position.y + pag.rodape.size.y
+	_conferir(fim <= float(TemaVR.PAINEL.y),
+			"o rodapé de %s termina dentro do painel (%d de %d)" % [
+				pagina, int(fim), TemaVR.PAINEL.y])
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

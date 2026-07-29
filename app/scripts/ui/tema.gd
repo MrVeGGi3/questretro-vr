@@ -30,7 +30,16 @@ const BTN_Y := Color("5d9b62")
 # --- medidas ---
 const PAINEL := Vector2i(1280, 800)
 const SIDEBAR := 300
-const ALT_NAV := 72        ## item da sidebar: o menor alvo do painel
+## Item da sidebar: o menor alvo do painel, e por isso no piso dos 64 px que o
+## comentário acima justifica — abaixo disso o tremor da mão ganha do laser.
+##
+## Era 72 e **não cabia**: com sete páginas, a sidebar pedia 852 px de altura num
+## painel de 800 (marca 221 + nav 528 + divisória 2 + rodapé 101). Um Control
+## ancorado nunca encolhe abaixo do próprio mínimo, então o painel inteiro
+## nascia 56 px mais alto que o viewport e o que estava embaixo caía fora — o
+## rodapé de *toda* página, o que na de ROMs é o botão "Carregar". A oitava
+## página volta a estourar; quem segura isso agora é a asserção em `test_ui`.
+const ALT_NAV := 64
 const ALT_LINHA := 64      ## linha de lista e botão
 const ALT_CABECALHO := 96
 const ALT_RODAPE := 104

@@ -139,7 +139,10 @@ func _marca() -> Control:
 	nome.add_theme_font_size_override("font_size", 28)
 	col.add_child(nome)
 
-	return _margem(col, TemaVR.PAD_SIDEBAR, 0, 28, 24)
+	# Respiro menor que o dos outros blocos: é o que sobra de folga vertical na
+	# sidebar depois de a nav baixar para 64 px (ver ALT_NAV). Os 120 px da logo
+	# ficam onde estão — encolhê-la é que apagaria o D-pad.
+	return _margem(col, TemaVR.PAD_SIDEBAR, 0, 20, 16)
 
 
 func _item_nav(nome: String) -> Button:
