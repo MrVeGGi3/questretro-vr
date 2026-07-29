@@ -30,7 +30,7 @@ const TAM_FOTO := Vector2i(960, 720)
 ## derrubar o teste: as asserções simplesmente não acontecem, e o final imprimia
 ## "TUDO OK" com o salão sem compilar. Zero falha só vale alguma coisa junto com
 ## a conta de quantas passaram.
-const CONFERENCIAS := 24
+const CONFERENCIAS := 45
 
 ## Os métodos de `XRInterface` que o `xr_main` usa para ligar o passthrough.
 ## Nomes, e não chamadas: sem runtime de XR não há o que chamar aqui.
@@ -51,6 +51,7 @@ func _ready() -> void:
 	_testar_determinismo()
 	_testar_cabe_a_tela()
 	_testar_persistencia()
+	await _testar_centrar_tela()
 	await _fotografar()
 
 	if _feitas != CONFERENCIAS:
@@ -70,6 +71,67 @@ func _ready() -> void:
 ## não existe no Godot 4.6.3, e o erro só apareceu depois de export, sideload e
 ## uma sessão de headset. Perguntar ao ClassDB custa um milissegundo e não
 ## precisa de XR nenhum, porque a assinatura é da classe e não do aparelho.
+## Centralizar a tela: a conta da guinada, exercitada na cena de verdade.
+##
+## O modo de falhar aqui é de sinal: com a guinada trocada a tela vai parar
+## **atrás** de quem centralizou, e de dentro do headset isso não se lê como
+## "coordenada invertida" e sim como "a tela sumiu" — não há erro, não há log, e
+## o reflexo é procurar o defeito na emulação. Daí valer asserção mesmo sendo
+## quatro linhas de trigonometria.
+##
+## Roda sem XR: a âncora é escrita à mão, que é o que a câmera faria.
+func _testar_centrar_tela() -> void:
+	var cena: Node3D = load("res://cenas/vr_main.tscn").instantiate()
+	add_child(cena)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	for graus in [0.0, 90.0, -90.0, 179.0]:
+		cena._ancora_pos = Vector3(2.0, 0.0, -3.0)
+		cena._ancora_guinada = deg_to_rad(graus)
+		cena._sala.position = cena._ancora_pos
+		cena._sala.rotation = Vector3(0.0, cena._ancora_guinada, 0.0)
+		cena._posicionar_tela()
+
+		var frente := Basis(Vector3.UP, cena._ancora_guinada) * Vector3.FORWARD
+		var da_ancora: Vector3 = cena._tela.global_position - cena._ancora_pos
+		da_ancora.y = 0.0
+		_conferir(da_ancora.normalized().dot(frente) > 0.99,
+				"a %.0f° a tela fica à frente da âncora" % graus)
+
+		var dist: float = cena._cfg.obter("tela/distancia")
+		_conferir(absf(da_ancora.length() - dist) < 0.01,
+				"a %.0f° a distância é a pedida (%.2f de %.2f m)" % [graus, da_ancora.length(), dist])
+
+		# +Z da malha é a face visível; ela tem de apontar de volta para a âncora.
+		var normal: Vector3 = cena._tela.global_transform.basis.z.normalized()
+		_conferir(normal.dot(-frente) > 0.99,
+				"a %.0f° a tela encara a âncora" % graus)
+
+	_conferir(cena._sala.position == cena._ancora_pos,
+			"a sala acompanha a âncora (senão a tela entra na parede do salão)")
+
+	# A outra metade: a guinada saindo da **câmera**, que é onde o erro de sinal
+	# de fato moraria. O bloco acima escreve a âncora à mão e não exercita isso.
+	# `_xr_ativo` à mão porque no desktop a captura sai cedo — o que se testa aqui
+	# é a trigonometria, e ela não sabe se há headset.
+	cena._xr_ativo = true
+	for graus in [0.0, 45.0, 90.0, -135.0]:
+		var olhando := Vector3(sin(deg_to_rad(graus)) * -1.0, 0.0, -cos(deg_to_rad(graus)))
+		cena._camera.global_transform = Transform3D(
+				Basis.looking_at(olhando, Vector3.UP), Vector3(1.0, 1.6, 4.0))
+		cena._centrar_tela()
+		var frente: Vector3 = Basis(Vector3.UP, cena._ancora_guinada) * Vector3.FORWARD
+		_conferir(frente.dot(olhando.normalized()) > 0.99,
+				"a guinada capturada a %.0f° aponta para onde a câmera olhava" % graus)
+		var p: Vector3 = cena._ancora_pos
+		_conferir(is_equal_approx(p.x, 1.0) and is_equal_approx(p.z, 4.0) and is_zero_approx(p.y),
+				"a %.0f° a âncora pega a posição da câmera, e zera a altura" % graus)
+
+	cena.queue_free()
+	await get_tree().process_frame
+
+
 func _testar_api_de_blend() -> void:
 	for metodo: String in API_BLEND:
 		_conferir(ClassDB.class_has_method("XRInterface", metodo),

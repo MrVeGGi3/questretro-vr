@@ -8,6 +8,7 @@ extends Control
 
 signal fechar_pedido
 signal rom_escolhida(caminho: String)
+signal centrar_pedido
 
 const LOGO := "res://assets/logo.png"
 
@@ -54,8 +55,11 @@ func _criar_paginas() -> void:
 	roms.rom_escolhida.connect(func(caminho: String) -> void: rom_escolhida.emit(caminho))
 	roms.cancelado.connect(func() -> void: fechar_pedido.emit())
 
+	var tela := PagTela.new(_cfg, _emu)
+	tela.centrar_pedido.connect(func() -> void: centrar_pedido.emit())
+
 	_registrar("ROMs", roms)
-	_registrar("Tela", PagTela.new(_cfg, _emu))
+	_registrar("Tela", tela)
 	_registrar("Sala", PagSala.new(_cfg))
 	_registrar("Vídeo", PagVideo.new(_cfg, _emu))
 	_registrar("Áudio", PagAudio.new(_cfg, _emu))

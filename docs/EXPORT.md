@@ -96,6 +96,54 @@ core android e a ROM demo (`roms/demo.smc`, homebrew freeware) no pacote.
 > `git checkout -- app/project.godot` depois do export devolve os comentários
 > sem mexer no APK, que já foi gerado com as mesmas chaves efetivas.
 
+## Export release
+
+O comando acima gera um APK **debug**, e é o que todas as medições deste
+documento usaram até 2026-07-29. Para o build que a pessoa que instala deveria
+receber:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME=~/Android/Sdk ANDROID_SDK_ROOT=~/Android/Sdk
+# Mesma keystore do debug de propósito — ver abaixo.
+export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/.local/share/godot/keystores/debug.keystore"
+export GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
+export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
+godot --headless --path app --export-release "Quest (Meta)" "$PWD/dist/questretro-vr-release.apk"
+```
+
+**A keystore vai por variável de ambiente, e não pelo preset.** O
+`export_presets.cfg` é versionado: senha escrita ali sobe para o GitHub. O Godot
+lê estas três variáveis e não grava nada no arquivo.
+
+**Assinar o release com a keystore de *debug* é escolha, não descuido.** A
+assinatura é o que o Android usa para decidir se um APK é atualização do que já
+está instalado. Com uma keystore nova, `adb install -r` recusa
+(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) e a única saída é desinstalar — o que
+**apaga save states, SRAM, perfis e configuração**, e num release não há
+`run-as` para restaurar. Mantendo a assinatura, o install vira upgrade e os dados
+sobrevivem. Para publicar de verdade um dia, aí sim gera-se uma keystore própria
+— e o preço a pagar é esse, uma vez.
+
+> A keystore de debug do Godot **não** é a do `~/.android`: ela fica em
+> `~/.local/share/godot/keystores/debug.keystore` (alias `androiddebugkey`, senha
+> `android`), e é o `export/android/debug_keystore` das editor settings. Usar a
+> errada dá exatamente o `INSTALL_FAILED_UPDATE_INCOMPATIBLE` acima, com as duas
+> chamadas "Android Debug" no certificado — conferir com
+> `apksigner verify --print-certs`.
+
+**O que se perde no release**, e é bastante para investigar:
+
+```bash
+adb shell run-as com.questretro.vr ls files
+# run-as: package not debuggable: com.questretro.vr
+```
+
+Sem `run-as` não há `opcoes_core.cfg`, não dá para ler `user://`, nem para puxar
+save states para o desktop. Ou seja: **release para jogar, debug para
+investigar**. As duas assinaturas são iguais, então trocar de um para o outro é
+só reinstalar, sem perder dados.
+
 ## Sideload no Quest 3S
 
 ```bash
@@ -971,4 +1019,3 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   seria cego para uma mira de algumas centenas de pixels. Não é defeito dele —
   foi feito para pegar "restaurou no ponto errado" —, mas é o limite dele.
 
-- **Integração com `romkeep`**: prevista para depois desta fase.

@@ -4,12 +4,12 @@ Emulador **VR-nativo** para Meta Quest 3S, feito em **Godot 4** com cores
 **libretro**. Diferenciais de projeto: tela redimensionável (de portátil a
 cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fox).
 
-> Status: **Fases 0 a 6 concluídas**, todas conferidas no Quest 3S. Rodam
+> Status: **Fases 0 a 7 concluídas**, todas conferidas no Quest 3S. Rodam
 > **SNES, N64, Mega Drive, Sega CD e Nintendo DS** (quatro cores libretro), com
-> menu in-VR, save states e saves de bateria, controles remapeáveis com perfil
-> por cartucho, o "guidão de nave" do N64, a **sala** em volta da tela (vazio,
-> fliperama ou passthrough) e a **caneta** do DS. A seguir: integração com o
-> catálogo `romkeep`. Ver o Roadmap abaixo e `docs/EXPORT.md`.
+> menu in-VR, biblioteca de jogos, save states e saves de bateria, controles
+> remapeáveis com perfil por cartucho, o "guidão de nave" do N64, a **sala** em
+> volta da tela (vazio, fliperama ou passthrough) e a **caneta** do DS. Ver o
+> Roadmap abaixo e `docs/EXPORT.md`.
 
 ## Estrutura
 
@@ -162,6 +162,40 @@ de 6 botões vão para a esquerda.
 
 O **Nintendo DS** tem seção própria mais abaixo, porque a tela de baixo é caneta
 e isso muda o mapa: o gatilho direito nasce em "Nada" por ser a ponta da caneta.
+
+### Trazer a tela para a frente
+
+**Clique do analógico direito** e a tela — com a sala junto — vem para onde você
+está olhando agora. Também está na página **Tela**, como "Trazer para a frente",
+porque um atalho escondido atrás de um clique sem rótulo é um atalho que ninguém
+acha.
+
+Existe porque a tela nascia amarrada à origem do espaço de jogo, não a você.
+Quem virasse a cadeira, se deitasse no sofá ou simplesmente se levantasse ficava
+com ela de lado — e os sliders de distância e altura não giram nada. Em VR isso
+não é conforto, é a diferença entre jogar e não jogar.
+
+A **sala vem junto**, e não é detalhe: mover só a tela a jogaria para dentro de
+uma parede do fliperama, que é dimensionado a partir do alcance dela. Movendo as
+duas, a relação entre tela e salão continua valendo — inclusive a asserção de que
+a parede do fundo fica além da distância máxima.
+
+Só a **guinada** entra. Inclinar ou tombar a cabeça no instante do clique não
+deixa a tela torta nem no chão, pela mesma razão que o guidão ignora as outras
+duas rotações: olhar em volta não é comandar.
+
+E não persiste entre sessões, de propósito: a origem do espaço de jogo muda a
+cada recentragem do próprio Quest, então uma âncora guardada apontaria para um
+lugar que não existe mais.
+
+Os dois cliques de analógico ficam simétricos: o esquerdo recentra o guidão de
+nave, o direito recentra a tela. Nenhum dos dois é botão para o core — o mapa de
+input cobre só os botões, gatilhos e grips —, então não disputam com jogo nenhum.
+
+A conta é geometria pura, e por isso tem asserção sem headset em `test_sala`: o
+modo de falhar é sinal trocado, que põe a tela **atrás** de quem centralizou, e
+de dentro do headset isso não se lê como "coordenada invertida" e sim como "a
+tela sumiu".
 
 Esse mapa não é decorado: sai dos descritores que o próprio core declara
 (`SET_INPUT_DESCRIPTORS`), e eles surpreendem em dois dos quatro cores — no N64
@@ -353,8 +387,7 @@ alguém resolver "arrumar" as proporções do salão.
 
 ## ROMs
 
-**Não** versionamos ROMs (direitos autorais). Use as suas. Integração futura com
-o catálogo `romkeep` é o próximo passo do roadmap.
+**Não** versionamos ROMs (direitos autorais). Use as suas.
 
 Jogos com bateria gravam sozinhos em `user://saves/<jogo>.srm`, no mesmo formato
 do RetroArch — dá para levar um save de lá para cá e vice-versa. A gravação é
@@ -492,8 +525,6 @@ console, e o sinal que de fato troca a ROM) é conferida por clique em `test_ui`
   quem instala o APK e não tem `adb` — depois de seis fases de consoles,
   navegar em pastas tinha deixado de escalar. O navegador de arquivos continua
   lá como saída.
-
-  A seguir: integração com `romkeep`.
 
 ## Menu dentro do headset
 

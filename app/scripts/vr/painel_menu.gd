@@ -12,6 +12,7 @@ extends Node3D
 
 signal fechar_pedido
 signal rom_escolhida(caminho: String)
+signal centrar_pedido
 
 const LARGURA := 1.0                ## metros
 const DIST := 1.6                   ## à frente do jogador quando abre
@@ -121,6 +122,7 @@ func _montar_viewport(cfg: ConfigEmu, emu: EmuCore) -> void:
 	menu = MenuRaiz.new(cfg, emu)
 	menu.fechar_pedido.connect(func() -> void: fechar_pedido.emit())
 	menu.rom_escolhida.connect(func(caminho: String) -> void: rom_escolhida.emit(caminho))
+	menu.centrar_pedido.connect(func() -> void: centrar_pedido.emit())
 	_viewport.add_child(menu)
 
 

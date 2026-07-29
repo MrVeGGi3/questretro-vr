@@ -15,6 +15,7 @@ extends Node3D
 ##   botão de menu (toque)       -> Start ; (segurar 0,5 s) -> abre o menu
 ##   thumbstick direito  Y       -> aumenta/diminui a tela
 ##   thumbstick direito  X       -> aproxima/afasta a tela
+##   clique do thumbstick direito -> traz tela e sala para a frente
 ##
 ## Tamanho, distância, sala, vídeo, áudio e zona morta vivem no ConfigEmu e
 ## persistem entre sessões; esta cena só reage a `mudou`.
@@ -90,6 +91,13 @@ var _start_restante := 0
 
 var _guidao := Guidao.new()
 var _recentrar_antes := false   # borda do clique do thumbstick esquerdo
+var _centrar_tela_antes := false  # borda do clique do thumbstick direito
+
+## Para onde a tela (e a sala) olham. Zerados, dão exatamente o que a cena sempre
+## fez: tela à frente da origem do espaço de jogo, olhando para -Z. `_centrar_tela`
+## os captura da câmera. Ver lá por que não persistem entre sessões.
+var _ancora_pos := Vector3.ZERO
+var _ancora_guinada := 0.0
 var _painel_antes := false      # para recentrar quando o painel fecha
 
 var _acumulador := 0.0          # sobra de tempo entre frames emulados
@@ -122,6 +130,12 @@ func _ready() -> void:
 	_painel.conectar_xr(_camera, _ctrl_dir if _xr_ativo else null)
 	_painel.fechar_pedido.connect(func() -> void: _painel.fechar())
 	_painel.rom_escolhida.connect(_trocar_rom)
+	# Fecha o painel junto: centralizar com ele aberto deixaria a tela nova atrás
+	# do menu, e a pessoa não veria o que acabou de pedir.
+	_painel.centrar_pedido.connect(func() -> void:
+		_centrar_tela("Tela centralizada")
+		_painel.fechar()
+	)
 
 	_cfg.mudou.connect(_ao_mudar_config)
 
@@ -271,6 +285,13 @@ func _unhandled_input(evento: InputEvent) -> void:
 	if evento is InputEventKey and evento.pressed and not evento.echo:
 		if evento.keycode == KEY_TAB:
 			_painel.alternar()
+			get_viewport().set_input_as_handled()
+			return
+		# Par de teclado do clique do analógico direito. No desktop a câmera não
+		# se move, então o efeito é nulo — serve para exercitar o caminho sem
+		# headset, que é o que `test_sala` faz.
+		if evento.keycode == KEY_C:
+			_centrar_tela("Tela centralizada")
 			get_viewport().set_input_as_handled()
 			return
 	if evento is InputEventMouse:
@@ -594,24 +615,73 @@ func _construir_mesh_tela(largura: float, altura: float, curvatura: float) -> Me
 
 func _posicionar_tela() -> void:
 	var altura_olhos := _camera.global_position.y if _xr_ativo else 1.4
-	_tela.global_position = Vector3(
-		0.0,
-		altura_olhos + _cfg.obter("tela/altura"),
-		-_cfg.obter("tela/distancia"))
+	# Frente da âncora: -Z girado pela guinada guardada. Com a âncora zerada isto
+	# dá exatamente (0, y, -distancia), que é onde a tela sempre nasceu.
+	var frente := Basis(Vector3.UP, _ancora_guinada) * Vector3.FORWARD
+
+	_tela.global_position = _ancora_pos \
+		+ frente * float(_cfg.obter("tela/distancia")) \
+		+ Vector3.UP * (altura_olhos + float(_cfg.obter("tela/altura")))
+	# Encara a âncora. O +Z da malha é a face visível, e girá-la pela guinada põe
+	# essa face de volta apontando para quem centralizou.
+	_tela.rotation = Vector3(0.0, _ancora_guinada, 0.0)
 
 	# A tela de baixo tem posição própria, e o padrão a põe onde um DS fica: perto
 	# e abaixo da linha dos olhos, ao alcance do braço. É ela que a caneta aponta,
 	# então distância aqui é ergonomia, não gosto.
 	if _duas_telas:
-		_tela2.global_position = Vector3(
-			0.0,
-			altura_olhos + _cfg.obter("tela/ds_altura"),
-			-_cfg.obter("tela/ds_distancia"))
+		_tela2.global_position = _ancora_pos \
+			+ frente * float(_cfg.obter("tela/ds_distancia")) \
+			+ Vector3.UP * (altura_olhos + float(_cfg.obter("tela/ds_altura")))
 		# Levemente inclinada para trás, como um console apoiado nas mãos: de pé
 		# ela obrigaria o pulso a apontar reto para baixo o jogo inteiro.
-		_tela2.rotation = Vector3(deg_to_rad(-INCLINACAO_DS), 0.0, 0.0)
+		#
+		# Guinada e arfagem juntas: a ordem YXZ do Godot aplica o Y primeiro, que
+		# é o que se quer — girar em pé e depois deitar. Trocar a ordem deitaria
+		# a tela num eixo já girado, e a caneta erraria o alvo fora do eixo zero.
+		_tela2.rotation = Vector3(deg_to_rad(-INCLINACAO_DS), _ancora_guinada, 0.0)
 
 	_posicionar_label()
+
+
+## Traz tela e sala para a frente de quem está jogando **agora**.
+##
+## Existe porque a tela nascia amarrada à origem do espaço de jogo: quem virasse
+## a cadeira ou se deslocasse ficava com ela de lado, e a única saída era mexer
+## nos sliders de distância e altura — que não giram nada. Em VR isso não é
+## conforto, é a diferença entre jogar e não jogar.
+##
+## A **sala vai junto**, e isso não é detalhe: mover só a tela a jogaria para
+## dentro de uma parede do fliperama, que é dimensionado a partir do alcance
+## dela. Movendo as duas, a relação entre tela e salão — inclusive a asserção de
+## `test_sala` de que a parede do fundo fica além da distância máxima —
+## permanece verdadeira por construção.
+##
+## Só a **guinada** entra. Inclinar ou tombar a cabeça no instante do clique não
+## pode deixar a tela torta ou no chão, pela mesma razão que o guidão ignora as
+## outras duas rotações: olhar em volta não é comandar.
+##
+## Não persiste em `user://config.cfg` de propósito: a origem do espaço de jogo
+## muda entre sessões (e a cada recentragem do próprio Quest), então uma âncora
+## guardada apontaria para um lugar que não existe mais.
+func _centrar_tela(msg := "") -> void:
+	if _xr_ativo and _camera != null:
+		var cam := _camera.global_transform
+		var frente := -cam.basis.z
+		frente.y = 0.0
+		if frente.length_squared() < 0.0001:
+			# Cabeça apontada reto para cima ou para baixo: a guinada some. Manter
+			# a anterior é melhor que escolher uma direção arbitrária.
+			return
+		_ancora_guinada = atan2(-frente.x, -frente.z)
+		_ancora_pos = Vector3(cam.origin.x, 0.0, cam.origin.z)
+
+	# A sala acompanha; ver o comentário acima.
+	_sala.position = _ancora_pos
+	_sala.rotation = Vector3(0.0, _ancora_guinada, 0.0)
+	_posicionar_tela()
+	if not msg.is_empty():
+		_mostrar(msg)
 
 
 ## Logo abaixo da borda de baixo da tela, a uma distância fixa **em metros** —
@@ -682,6 +752,16 @@ func _ler_input_vr(delta: float) -> void:
 		# ele, e capturar aquilo como repouso nasce com a arfagem no batente.
 		_painel_antes = false
 		_centrar_guidao()
+
+	# Centralizar a tela vale em **todo** sistema, e por isso fica antes do desvio
+	# por console. O clique do analógico direito é o atalho: ele não é botão para
+	# core nenhum (o mapa de input cobre só ax/by, gatilhos e grips), e o do
+	# esquerdo já recentra o guidão — os dois cliques ficam simétricos, cada um
+	# recentrando uma coisa.
+	var clique_dir := _ctrl_dir.is_button_pressed(&"primary_click")
+	if clique_dir and not _centrar_tela_antes:
+		_centrar_tela("Tela centralizada")
+	_centrar_tela_antes = clique_dir
 
 	if _duas_telas:
 		_input_caneta()

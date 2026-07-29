@@ -32,6 +32,10 @@ const PREDEFINICOES := {
 	"Cinema": [5.0, 6.0],
 }
 
+## Pedido de centralizar a tela à frente de quem joga. A conta é do `xr_main` —
+## é lá que existem câmera e sala —, então a página só avisa.
+signal centrar_pedido
+
 var _cfg: ConfigEmu
 var _emu: EmuCore
 
@@ -57,6 +61,11 @@ func atualizar() -> void:
 		conteudo.remove_child(filho)
 
 	conteudo.add_child(WidgetsVR.campo("Predefinição", "", _predefinicoes()))
+	# O atalho do controle vem escrito ao lado: sem isso ninguém descobre que o
+	# clique do analógico direito faz isto, e um atalho que ninguém acha é o
+	# mesmo que não existir. Mesma razão dos "analógico direito ↕" abaixo.
+	conteudo.add_child(WidgetsVR.campo("Centralizar", "clique do analógico direito",
+			_botao_centrar()))
 	conteudo.add_child(WidgetsVR.campo("Tamanho", "analógico direito ↕",
 			WidgetsVR.slider(_cfg, "tela/escala", ESCALA_MIN, ESCALA_MAX, 0.05,
 					func(v: float) -> String: return "%.2f×" % v)))
@@ -85,6 +94,20 @@ func atualizar() -> void:
 						func(v: float) -> String: return "%+.2f m" % v)))
 
 	_atualizar_cabecalho()
+
+
+## Põe tela e sala à frente de quem joga agora. Existe além do atalho porque a
+## página é onde se procura quando a tela está fora do lugar — e porque o atalho
+## fica atrás de um clique que não tem rótulo nenhum no controle.
+func _botao_centrar() -> Control:
+	var caixa := HBoxContainer.new()
+	caixa.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var bt := WidgetsVR.botao("Trazer para a frente")
+	bt.name = "CentrarTela"
+	bt.custom_minimum_size.x = 300
+	bt.pressed.connect(func() -> void: centrar_pedido.emit())
+	caixa.add_child(bt)
+	return caixa
 
 
 func _predefinicoes() -> Control:
