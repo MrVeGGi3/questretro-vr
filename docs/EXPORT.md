@@ -336,39 +336,46 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   680 contra 737, 723 contra 790, 810 contra 846 —, o que descarta que seja
   sorte de cena.
 
-  Mas o preço não é o serrilhado que se esperava: a opção **muda a saída do
-  core**. O `video=` do DIAG passa de `640x240` para `320x237`, ou seja o VI
-  deixa de resolver o framebuffer, e **a mira branca do Star Fox 64 desaparece**
-  (observado de dentro do headset). Não é imagem mais feia, é imagem incompleta,
-  e num jogo em que se mira não há fps que pague.
+  A opção **muda a saída do core**: o `video=` do DIAG passa de `640x240` para
+  `320x237`, ou seja o VI deixa de resolver o framebuffer. Parte do "ganho" é,
+  portanto, só menos pixel — a nossa própria conversão cai de 18,8 para
+  15,6 ms/s pela metade da largura.
 
-  Parte do "ganho" é, aliás, só menos pixel: a nossa própria conversão cai de
-  18,8 para 15,6 ms/s pela metade da largura.
+  > **Correção.** Ficou registrado aqui, por duas rodadas, que `Unfiltered` (e
+  > depois `AA only`) *apagava a mira branca do Star Fox 64*. **Não apaga.** A
+  > ausência da mira foi notada logo depois de a opção entrar, e as duas coisas
+  > foram ligadas sem prova; ao reverter para `Filtered` — com a tabela do
+  > `listar` mostrando a opção de volta no padrão, sem asterisco, e o core
+  > recarregado — a mira **continuou ausente**. O erro de método é conhecido e
+  > vale escrever: pediu-se a alguém para procurar defeito de imagem no mesmo
+  > instante em que se mexeu na imagem, e o primeiro defeito encontrado foi
+  > atribuído à mudança. Só a reversão desfaz esse laço, e ela não tinha sido
+  > feita antes de concluir.
+  >
+  > O que a mira **é** continua em aberto, e o suspeito natural passa a ser o
+  > `angrylion` em si — o renderizador por software que só roda no Quest, contra
+  > o `gliden64` do desktop. O teste que separa isso é o mesmo jogo no mesmo
+  > ponto nos dois renderizadores, e roda no desktop, sem headset.
 
-  **`AA only` também apaga a mira — e refuta a explicação acima.** O degrau
-  intermediário foi testado em seguida, com o critério de aceite escrito antes:
-  a mira tem de continuar lá e o `video=` em 640x240. Ele cumpre **metade**: a
-  resolução fica em `640x240`, e a mira some do mesmo jeito.
+  **`AA only`, o degrau intermediário, foi testado em seguida.** Mantém o
+  `video=` em `640x240` — ou seja o VI continua resolvendo o framebuffer — e
+  compra menos core, proporcionalmente ao que larga.
 
-  Ou seja, não era a resolução. A mira depende de um passo do filtro de VI que o
-  `AA only` também larga — dedither ou blur —, e a hipótese de que o problema do
-  `Unfiltered` era o framebuffer não resolvido estava errada.
+  Os três lados:
 
-  Os três lados, com o ganho de core proporcional ao que se larga:
-
-  | vioverlay | n | fps méd | mediana | core | < 65 fps | mira |
+  | vioverlay | n | fps méd | mediana | core | < 65 fps | `video=` |
   |---|---|---|---|---|---|---|
-  | `Filtered` (padrão) | 1644 | 66,0 | 70 | **711** | 23,5 % | **sim** |
-  | `AA only` | 575 | 67,4 | 70 | 694 | 19,0 % | não |
-  | `Unfiltered` | 589 | 68,3 | 71 | 648 | 14,6 % | não |
+  | `Filtered` (padrão) | 1644 | 66,0 | 70 | **711** | 23,5 % | 640x240 |
+  | `AA only` | 575 | 67,4 | 70 | 694 | 19,0 % | 640x240 |
+  | `Unfiltered` | 589 | 68,3 | 71 | 648 | 14,6 % | 320x237 |
 
-  A escada é monótona: quanto mais do filtro se larga, mais barato o core e mais
-  quebrada a imagem. `AA only` compra 17 ms/s (2,4 %) e já perde a mira — o
-  resto do ganho mora justamente nos passos que fazem o jogo aparecer direito.
+  A escada é monótona: quanto mais do filtro se larga, mais barato o core. O teto
+  é o `Unfiltered`, com 9 %, e metade disso vem de entregar metade dos pixels.
+  `AA only`, que preserva a resolução, compra 17 ms/s — **2,4 %**.
 
-  **Isto encerra as opções de core como alavanca.** Restam `AA+Blur` e
-  `AA+Dedither`, com teto abaixo dos 9 % do `Unfiltered` e a mesma chance de
-  cair no mesmo defeito; não vale mais sessão de headset. O gargalo está
+  **Isto encerra as opções de core como alavanca.** O melhor caso que preserva a
+  saída do core compra 2,4 %, e os degraus que faltam (`AA+Blur`, `AA+Dedither`)
+  ficam entre ele e um `Unfiltered` que entrega metade da resolução. O gargalo está
   identificado e nomeado — `retro_run` do angrylion —, e nenhuma chave o
   resolve. O que sobra sem testar, e que não é opção de core, é o **export
   release** (o item de `--export-debug` acima): todas as séries aqui são de build
