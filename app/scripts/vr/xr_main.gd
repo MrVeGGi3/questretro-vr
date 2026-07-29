@@ -242,9 +242,16 @@ func _diagnostico(delta: float) -> void:
 	# unidade que se lê direto: 1000 é o segundo inteiro, então `core=520` são
 	# 52 % do tempo de parede dentro do `retro_run`. O contador de fps diz *que*
 	# o frame ficou longo; estes dizem *onde*.
+	#
+	# Dividido pela janela **real**, e não por 1 s: a amostra sai quando `_diag_t`
+	# passa de 1, e ela passa em cima de um frame — que num segundo ruim é longo.
+	# Sem isto a janela estica e os números saem inflados na exata proporção do
+	# problema que se quer medir; foi assim que apareceu um `core=1125` num
+	# "segundo", que é impossível numa thread só.
+	var janela := maxf(_diag_t, 0.001)
 	linha += " | ms/s process=%d core=%d video=%d audio=%d" % [
-		_diag_us_process / 1000, _emu.diag_us_core / 1000,
-		_emu.diag_us_video / 1000, _emu.diag_us_audio / 1000]
+		roundi(_diag_us_process / 1000.0 / janela), roundi(_emu.diag_us_core / 1000.0 / janela),
+		roundi(_emu.diag_us_video / 1000.0 / janela), roundi(_emu.diag_us_audio / 1000.0 / janela)]
 	if _duas_telas and not _diag_caneta.is_empty():
 		linha += "\n" + _diag_caneta
 	print("DIAG ", linha)

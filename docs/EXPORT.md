@@ -595,6 +595,43 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   do `Sala: modo`. Medido no desktop: o DS dá `256x384 XRGB8888`; o N64 com
   gliden64 dá `640x480 hw`, e no Quest, com angrylion, cai num ramo de conversão.
 
+- **As quedas do N64 são o `retro_run`, e mais nada. Medido.** Star Fox 64 no
+  Quest 3S, angrylion, Fliperama, **1644 amostras de 1 s de jogo de verdade**
+  (menu fechado), com a conta de tempo por amostra:
+
+  | faixa de fps | n | fps | process | **core** | video | audio |
+  |---|---|---|---|---|---|---|
+  | ≥ 70 (normal) | 902 | 71,5 | 712 | **669** | 20 | 1 |
+  | 60-69 | 509 | 65,9 | 778 | **737** | 18 | 1 |
+  | 50-59 | 111 | 55,5 | 826 | **790** | 17 | 1 |
+  | < 50 | 122 | 34,4 | 904 | **847** | 16 | 1 |
+
+  A correlação é monótona e é toda de uma coluna: do normal à queda, o `core`
+  sobe 178 ms/s e o `process` sobe 192 — ou seja, **93 % do que piora é o
+  `retro_run`**. Nos piores segundos o `core` chega a 950-990 ms/s: a thread
+  principal fica praticamente inteira dentro do core. Os passos do emu seguem em
+  ~60, exatamente como a nota do acumulador acima prevê.
+
+  E o `video` **não cresce** — fica em 16-20 ms/s, ~2 % do orçamento, e até
+  encolhe um pouco na queda. O `audio` é 1 ms/s.
+
+  **Consequência para a otimização, e ela é grande**: o caminho de vídeo do host
+  (as três cópias, a conversão byte a byte, o upload por passo em vez de por
+  frame renderizado) custa **~20 ms/s dos ~712**. Eliminá-lo por completo — que
+  é impossível — compraria ~2 % e não moveria o fps. Era a frente que parecia
+  mais promissora antes de haver instrumento, e a medida a rebaixa a limpeza de
+  código.
+
+  O que sobra com efeito plausível é reduzir o que o `retro_run` faz, e aí só
+  resta uma opção não testada: **`mupen64plus-angrylion-vioverlay`**, hoje em
+  `Filtered`, que é anti-alias + dedither + blur por pixel **dentro** do core.
+
+  > Nota sobre a unidade: os `ms/s` são divididos pela janela real da amostra, e
+  > não por 1 s. A amostra sai quando `_diag_t` passa de 1, e ela passa em cima
+  > de um frame — que num segundo ruim é longo. A primeira versão dividia por 1 s
+  > e inflava os números na exata proporção do problema que media; apareceu um
+  > `core=1125` num "segundo", impossível numa thread só.
+
 - **Nova série do N64 (2026-07-29), com `video=` no DIAG.** Star Fox 64 no Quest
   3S, angrylion, Fliperama, **293 amostras de 1 s**, no APK de debug com a linha
   de vídeo instrumentada:
