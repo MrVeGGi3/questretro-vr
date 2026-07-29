@@ -542,6 +542,40 @@ adb logcat | grep -i "hw render"     # "libretrogd: hw render em FBO 640x480"
   **outro chefe rodou tranquilo com o fliperama ligado**. Se o salão fosse a
   causa, ele estaria lá nos dois casos igualmente — o que varia é a cena.
 
+  **A explosão de chefe, agora medida.** Relatada de dentro do headset ("uma
+  travadinha na animação, depois de derrotar o chefe antes de Venom") e achada na
+  série pela hora. É o pior episódio das 1644 amostras, e o perfil dele é o
+  argumento inteiro em quinze linhas:
+
+  | hora | fps | passos | process | core | video |
+  |---|---|---|---|---|---|
+  | 12:07:18 | 42 | 61 | 931 | 903 | 16 |
+  | 12:07:19 | 31 | 61 | 950 | 925 | 15 |
+  | 12:07:20 | 37 | 62 | 997 | 969 | 16 |
+  | *12:07:21* | — | — | — | — | — |
+  | 12:07:22 | 13 | **39** | 1138 | **1125** | 9 |
+  | 12:07:23 | 9 | **40** | 1001 | 987 | 9 |
+  | 12:07:24 | 11 | **51** | 948 | 929 | 13 |
+  | 12:07:25 | 26 | 61 | 974 | 949 | 14 |
+  | 12:07:26 | 38 | 60 | 830 | 801 | 14 |
+  | 12:07:29 | 72 | 61 | 608 | 567 | 18 |
+  | 12:07:31 | 72 | 60 | 409 | **361** | 24 |
+
+  O `core` sobe até saturar a thread, o fps desaba, e só **então** os passos do
+  emu caem — 39 e 40, contra 60. É o único episódio de mais de um segundo em toda
+  a captura em que a emulação não acompanhou: nem o teto de `MAX_PASSOS` dá
+  conta. Depois o `core` desce a 361 ms/s com o fps de volta em 72, ou seja a
+  explosão custa **~3x** a carga normal de RDP.
+
+  E **`12:07:21 não existe`**: a janela da amostra esticou por quase dois
+  segundos de relógio, porque `_diag_t` só fecha em cima de um frame e ali o
+  frame era de ~100 ms. Um segundo inteiro sem linha é, ele próprio, medida da
+  severidade.
+
+  Isso fecha a explicação com todas as pontas amarradas — e é o cenário em que
+  `angrylion-vioverlay=Unfiltered` mais teria a ganhar, porque o filtro de VI
+  custa por pixel coberto e numa explosão que toma a tela isso é a tela inteira.
+
   Ninguém achou que valia a pena fechar isso com número, e concordo: o custo
   aparece em segundos isolados, não atrapalha jogar, e a suspeita que sobra é da
   emulação. Se um dia interessar, o A/B com a **mesma cena** nos dois modos
