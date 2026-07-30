@@ -37,6 +37,17 @@ app/cores/*.dll
 app/.godot/
 *.import
 
+# Chaves de assinatura — NUNCA versionar. Quem tem o arquivo assina atualizações
+# como se fosse o projeto, e o Android não distingue uma da outra.
+#
+# A do release mora em `android/` (raiz do repo, não `app/android/`, que é o
+# template de build gerado pelo Godot e some ao ser reinstalado). Ver "Assinar o
+# release" em docs/EXPORT.md.
+*.jks
+*.keystore
+# Senha da keystore, quando guardada em arquivo (ver tools/exportar-release.sh).
+.senha-keystore
+
 # Editores / SO
 .DS_Store
 *.swp
