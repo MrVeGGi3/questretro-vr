@@ -37,10 +37,11 @@ app/cores/*.dll
 app/.godot/
 *.import
 
-# Traduções compiladas: geradas do `ui.csv` pelo importador do Godot. O que se
-# versiona é o CSV, que é o que uma pessoa edita; estes voltam a existir no
-# primeiro `godot --import` (que a CI já roda antes dos testes).
-app/traducoes/*.translation
+# Os `.translation` **são** versionados, apesar de gerados do `ui.csv`. Ignorá-los
+# quebra clone limpo: o `project.godot` os lista em `locale/translations` e o
+# motor tenta carregá-los no arranque — **antes** de qualquer `--import` poder
+# gerá-los. O sintoma é "Cannot open file 'res://traducoes/ui.en.translation'" e
+# o processo abortando com código 134, o que derrubou a CI uma vez.
 
 # Chaves de assinatura — NUNCA versionar. Quem tem o arquivo assina atualizações
 # como se fosse o projeto, e o Android não distingue uma da outra.
