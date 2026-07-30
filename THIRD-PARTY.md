@@ -55,6 +55,29 @@ RetroArch, que também não embute core no frontend.
 O `libretro.h` ser MIT (e não GPL) é justamente o que permite isso: a API é aberta de propósito
 para que hosts de qualquer licença a implementem.
 
+### O app baixa cores, e isso não é redistribuir
+
+A página **Cores** do menu busca o `.so` do buildbot oficial da libretro a pedido da pessoa.
+Facilitar a obtenção não é o mesmo ato que distribuir, e a diferença é a mesma que organiza este
+arquivo inteiro: **licença se cumpre no ato de distribuir**.
+
+Das três consequências listadas acima, duas desaparecem porque **um download não cria pacote**:
+não há um artefato onde GPL e não-comercial convivam (1), e o dever de fornecer o fonte
+correspondente recai sobre quem distribui o binário, que é o buildbot (3). A segunda — GPL e o
+Oculus SDK no mesmo processo — não muda em nada: já era assim quando o core era copiado à mão, e
+quem carrega o core continua sendo a pessoa que o obteve.
+
+É o mesmo desenho do RetroArch, que não embute core no frontend **e** oferece um baixador.
+
+Duas condições sustentam essa leitura, e por isso são requisitos do código e não boa intenção:
+
+- **O download é sempre pedido**, nunca automático. Nenhum core chega ao aparelho sem alguém
+  apertar um botão para aquele core.
+- **A licença aparece antes do botão**, e continua visível depois de baixado. Ninguém traz um
+  core para dentro do aparelho sem saber sob que termos ele vem.
+
+Ver `app/scripts/emu/baixador_cores.gd` e `app/scripts/ui/paginas/pag_cores.gd`.
+
 ## ROMs
 
 Nenhuma ROM é versionada aqui, e nenhuma vai no APK — o `.gitignore` barra as extensões de

@@ -99,7 +99,20 @@ desenvolve **e** para quem instala, com um destino diferente para cada:
 | Quem | Onde põe os `.so` |
 |---|---|
 | desenvolvendo no desktop | `app/cores/` (é o que os comandos abaixo fazem) |
-| jogando no Quest | `/sdcard/QuestRetro/cores/` — ligue o headset no PC por USB e arraste |
+| jogando no Quest | **pela página Cores do menu, sem PC** — ou em `/sdcard/QuestRetro/cores/`, arrastando pelo USB |
+
+**No headset não é preciso computador nenhum.** A página **Cores** do menu lista um
+console por linha, mostra a licença de cada core e baixa o que falta do buildbot
+oficial da libretro. É a mesma pasta da cópia manual, então os dois caminhos convivem:
+o que você arrastar pelo USB aparece lá como "no aparelho".
+
+Baixar não é o mesmo que redistribuir, e o porquê está em
+[THIRD-PARTY.md](THIRD-PARTY.md#o-app-baixa-cores-e-isso-não-é-redistribuir). Duas
+regras vêm daquela análise e valem como comportamento: o download é **sempre pedido**,
+nunca automático, e a licença aparece **antes** do botão.
+
+É também a única coisa no app que usa rede — a permissão `INTERNET` existe só para
+isso, e nada é enviado a lugar nenhum.
 
 No headset a pasta aparece sozinha na primeira execução **depois** de você conceder
 "Permitir acesso" na página de ROMs — é a mesma permissão que as ROMs já pedem, e sem

@@ -1036,7 +1036,13 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 			*reinterpret_cast<const char **>(data) = system_dir_utf8.get_data();
 			// Imprime porque "BIOS não encontrada" é indistinguível de "procurei
 			// no lugar errado" sem esta linha — e no headset não há como listar a
-			// pasta que o core enxergou. É uma linha por carga de core.
+			// pasta que o core enxergou.
+			//
+			// Não é uma linha por carga: quem decide é o core. O mupen64plus
+			// pergunta **três vezes** numa carga só (medido no Quest 3S), o
+			// genesis_plus_gx uma. Fica assim mesmo — repetição em log de carga é
+			// barata, e suprimir exigiria guardar estado para economizar duas
+			// linhas que só aparecem quando um core é aberto.
 			UtilityFunctions::print(String("libretrogd: BIOS/firmware em ") + String(system_dir_utf8.get_data()));
 			return true;
 		}

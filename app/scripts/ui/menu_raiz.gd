@@ -12,6 +12,22 @@ signal centrar_pedido
 
 const LOGO := "res://assets/logo.png"
 
+## As abas, na ordem em que aparecem na sidebar.
+##
+## **Uma lista só, e é o ponto.** A sidebar e o registro de páginas eram duas
+## listas escritas à mão que precisavam concordar; acrescentar uma página em
+## `_criar_paginas()` sem lembrar da outra derrubava `mostrar()` num
+## `_botoes[chave]` inexistente — erro que aparece no log e **não** reprova nada,
+## porque a página nova simplesmente não é exercitada. Foi o que aconteceu ao
+## acrescentar "Cores". Agora quem registra confere contra esta lista.
+##
+## **Oito é o teto com esta geometria, e a folga é zero.** Com a logo a 70 px, o
+## rodapé da página fecha em exatamente 800 de 800 — uma nona aba volta a empurrar
+## tudo para fora do painel. O `_conferir_rodape_visivel` do `test_ui` reprova
+## quando isso acontece, então quem acrescentar a nona vai saber na hora; o que
+## não dá é acrescentar e supor que coube.
+const ABAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves", "Cores"]
+
 var _cfg: ConfigEmu
 var _emu: EmuCore
 var _paginas: Dictionary = {}      ## nome -> Control
@@ -65,9 +81,16 @@ func _criar_paginas() -> void:
 	_registrar("Áudio", PagAudio.new(_cfg, _emu))
 	_registrar("Input", PagInput.new(_cfg, _emu))
 	_registrar("Saves", PagSaves.new(_emu))
+	# Depois de Saves porque é a página que se visita uma vez e esquece — ao
+	# contrário das outras, que se mexe a cada sessão.
+	_registrar("Cores", PagCores.new())
 
 
 func _registrar(nome: String, pag: Control) -> void:
+	# Sem botão na sidebar a página é inalcançável, e `mostrar()` quebra ao tentar
+	# realçar um botão que não existe. Falhar aqui, alto, é melhor do que descobrir
+	# no headset que uma aba não abre.
+	assert(nome in ABAS, "página '%s' não está em MenuRaiz.ABAS" % nome)
 	pag.visible = false
 	_paginas[nome] = pag
 	_area.add_child(pag)
@@ -92,6 +115,9 @@ func ao_abrir() -> void:
 	# os ajustes da segunda tela só existem nos sistemas que têm duas.
 	(_paginas["Input"] as PagInput).atualizar()
 	(_paginas["Tela"] as PagTela).atualizar()
+	# Um core pode ter sido copiado à mão pelo USB desde a última vez, e a página
+	# não pode contradizer a pasta.
+	(_paginas["Cores"] as PagCores).atualizar()
 	_atualizar_rodape()
 
 
@@ -108,7 +134,7 @@ func _sidebar() -> Control:
 
 	var nav := VBoxContainer.new()
 	nav.add_theme_constant_override("separation", 4)
-	for nome in ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]:
+	for nome in ABAS:
 		var bt := _item_nav(nome)
 		_botoes[nome] = bt
 		nav.add_child(bt)
@@ -123,9 +149,15 @@ func _sidebar() -> Control:
 	return painel
 
 
-## A logo empilha visor e controle, então precisa de ~120 px para o D-pad
-## continuar legível — nessa altura não cabe ao lado do nome nos 300 px da
-## sidebar, daí ela ficar acima.
+## A logo fica acima do nome, e não ao lado, porque nos 300 px da sidebar não
+## sobra largura para os dois lado a lado.
+##
+## **70 px, e não os 120 de antes.** Aqueles 120 existiam para o D-pad da arte
+## anterior continuar legível; a arte foi trocada e o motivo foi junto — o visor
+## com a escada de pixels não tem gamepad nenhum, e foi conferido a 64 px, que é
+## o tamanho de ícone de launcher. Os 50 px liberados são exatamente o que a
+## oitava aba precisava, e é melhor gastá-los aí do que encolher alvo de laser:
+## a sidebar existe justamente porque alvo grande é o que se acerta a 2 m.
 func _marca() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
@@ -133,7 +165,7 @@ func _marca() -> Control:
 	if ResourceLoader.exists(LOGO):
 		var img := TextureRect.new()
 		img.texture = load(LOGO)
-		img.custom_minimum_size = Vector2(120, 120)
+		img.custom_minimum_size = Vector2(70, 70)
 		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		col.add_child(img)
@@ -144,8 +176,7 @@ func _marca() -> Control:
 	col.add_child(nome)
 
 	# Respiro menor que o dos outros blocos: é o que sobra de folga vertical na
-	# sidebar depois de a nav baixar para 64 px (ver ALT_NAV). Os 120 px da logo
-	# ficam onde estão — encolhê-la é que apagaria o D-pad.
+	# sidebar depois de a nav baixar para 64 px (ver ALT_NAV).
 	return _margem(col, TemaVR.PAD_SIDEBAR, 0, 20, 16)
 
 

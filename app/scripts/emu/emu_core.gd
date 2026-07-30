@@ -212,10 +212,19 @@ static func arquivo_opcoes() -> String:
 ## Nome do arquivo do core deste sistema na plataforma atual. É o que a pessoa
 ## precisa baixar, então é o que a mensagem de erro e o menu mostram — e por isso
 ## sai daqui em vez de ser escrito à mão em cada lugar.
-static func nome_do_core(sis: String) -> String:
+## `plataforma` vazia significa "a de agora". Passá-la por extenso serve para quem
+## precisa do nome de **outra** plataforma que não a corrente — é o caso do
+## baixador, que monta URL do buildbot Android mesmo rodando no desktop, e sem
+## isto pediria `snes9x_libretro.so` a um endereço que só publica
+## `snes9x_libretro_android.so`.
+static func nome_do_core(sis: String, plataforma := "") -> String:
 	if not CORES.has(sis):
 		return ""
-	return String(CORES[sis]["android" if OS.has_feature("android") else "desktop"]).get_file()
+	if plataforma.is_empty():
+		plataforma = "android" if OS.has_feature("android") else "desktop"
+	if not CORES[sis].has(plataforma):
+		return ""
+	return String(CORES[sis][plataforma]).get_file()
 
 
 ## Caminho no pacote, que só existe no desktop e em build privado — o APK público

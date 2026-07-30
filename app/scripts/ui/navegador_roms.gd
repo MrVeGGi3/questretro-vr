@@ -216,6 +216,10 @@ static func garantir_pasta_local() -> void:
 	# e quem for procurar onde pôr a BIOS tem de achá-la antes de conseguir abrir
 	# um jogo, não depois.
 	Armazenamento.garantir()
+	# Restos de download interrompido. No Quest o app morre ao ser pausado, e tirar
+	# o headset é como quase toda sessão termina — então o arranque é o único lugar
+	# confiável para varrer isto.
+	BaixadorCores.limpar_temporarios()
 
 
 static func _tamanho(caminho: String) -> int:

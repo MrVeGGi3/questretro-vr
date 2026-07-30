@@ -14,7 +14,10 @@ extends Node
 ## Roda como cena, e não com `-s`, porque scripts de MainLoop travam na
 ## inicialização nesta versão do Godot com a GDExtension carregada.
 
-const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
+## Sai de `MenuRaiz.ABAS` em vez de repetir os nomes: uma página nova passa a ter
+## PNG e a ser exercitada sem ninguém lembrar de acrescentá-la aqui. Uma lista
+## paralela a mais foi justamente o que deixou "Cores" quebrada e o teste verde.
+const PAGINAS := MenuRaiz.ABAS
 
 ## Piso de conferências quando roda **sem ROM**, que é como o CI roda. Existe pelo
 ## mesmo motivo do `CONFERENCIAS` do `test_sala`: zero falha não significa nada
@@ -24,7 +27,7 @@ const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 102
+const CONFERENCIAS_MIN := 130
 
 var _falhas := 0
 var _feitas := 0
@@ -65,6 +68,8 @@ func _ready() -> void:
 	_testar_sistemas_completos()
 	_testar_primeira_carga_pelo_menu()
 	_testar_diretorio_de_sistema()
+	_testar_abas_completas(cfg, emu)
+	_testar_baixador_de_cores()
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -953,6 +958,66 @@ func _testar_diretorio_de_sistema() -> void:
 	# certa. O que importa aqui é que as subpastas sejam distintas.
 	_conferir(Armazenamento.SUB_SYSTEM != Armazenamento.SUB_CORES,
 			"BIOS e cores não caem na mesma subpasta")
+
+
+## Toda aba declarada existe, tem botão e abre.
+##
+## Existe porque acrescentar a página "Cores" quebrou `mostrar()` sem reprovar
+## nada: a sidebar tinha uma lista escrita à mão, separada do registro de
+## páginas, e a página nova entrou só numa delas. O sintoma era `SCRIPT ERROR:
+## Invalid access to property or key 'Cores'` no log — e "TUDO OK" no fim, porque
+## uma página que não abre também não é exercitada por teste nenhum.
+##
+## É o buraco que o piso de conferências sozinho não tapa: o número não cai
+## quando a página nova nunca chegou a ter asserções.
+func _testar_abas_completas(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var menu := MenuRaiz.new(cfg, emu)
+	add_child(menu)
+
+	for aba: String in MenuRaiz.ABAS:
+		_conferir(menu._paginas.has(aba), "a aba '%s' tem página registrada" % aba)
+		_conferir(menu._botoes.has(aba), "a aba '%s' tem botão na sidebar" % aba)
+
+	# Abrir cada uma: `mostrar()` percorre as duas coleções de uma vez, então é
+	# aqui que uma discordância entre elas estoura.
+	for aba: String in MenuRaiz.ABAS:
+		menu.mostrar(aba)
+		_conferir(_pagina_visivel(menu) == aba, "mostrar('%s') deixa ela visível" % aba)
+
+	menu.queue_free()
+
+
+## O baixador de cores, sem tocar na rede.
+##
+## O que se confere é o que quebra em silêncio: a URL é do buildbot **Android**,
+## e montá-la com o nome da plataforma corrente daria 404 no desktop e passaria
+## despercebido no aparelho, onde os dois nomes coincidem. Foi assim que o erro
+## apareceu — rodando este teste, antes de qualquer download.
+func _testar_baixador_de_cores() -> void:
+	for sistema: String in EmuCore.CORES:
+		var url := BaixadorCores.url_do_core(sistema)
+		_conferir(url.begins_with("https://"), "%s: URL é https (%s)" % [sistema, url])
+		_conferir(url.ends_with("_android.so.zip"),
+				"%s: URL pede o binário de Android, não o de desktop" % sistema)
+		_conferir(not url.contains("//nightly") and not url.contains("/.zip"),
+				"%s: URL sem segmento vazio" % sistema)
+		_conferir(BaixadorCores.LICENCAS.has(sistema),
+				"%s: a licença aparece antes de baixar" % sistema)
+
+	# Zip que não traz o `.so` não pode gravar nada — nem parcial.
+	var dir := OS.get_user_data_dir()
+	var zip_ruim := dir.path_join("t_semso.zip")
+	var f := FileAccess.open(zip_ruim, FileAccess.WRITE)
+	f.store_string("isto definitivamente não é um zip")
+	f.close()
+	var destino := dir.path_join("t_core.so")
+	var erro := BaixadorCores.extrair(zip_ruim, "qualquer_libretro_android.so", destino)
+	_conferir(not erro.is_empty(), "zip inválido é recusado com mensagem (%s)" % erro)
+	_conferir(not FileAccess.file_exists(destino),
+			"e não deixa core nenhum no destino")
+	_conferir(not FileAccess.file_exists(destino + BaixadorCores.SUFIXO_PARCIAL),
+			"nem sobra arquivo parcial")
+	DirAccess.remove_absolute(zip_ruim)
 
 
 func _conferir(condicao: bool, descricao: String) -> void:
