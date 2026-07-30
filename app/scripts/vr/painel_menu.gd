@@ -16,6 +16,20 @@ signal centrar_pedido
 
 const LARGURA := 1.0                ## metros
 const DIST := 1.6                   ## à frente do jogador quando abre
+
+## Camada de colisão só do painel, e o laser do menu mira **apenas** ela.
+##
+## É a mesma ideia do `no_depth_test` que faz o painel desenhar por cima, agora
+## para o alcance: assim como um menu tem de ser sempre legível, ele tem de ser
+## sempre clicável. Sem isto, qualquer corpo mais próximo intercepta o raio antes
+## e o menu para de responder — a mira some e nada acontece.
+##
+## O caso que trouxe isto foi a **tela de baixo do DS**, que fica a 1,15 m
+## enquanto o painel abre a 1,6 m: ela ficava fisicamente na frente e roubava o
+## raio. Reposicionar um em função do outro seria frágil pelo mesmo motivo de
+## antes — a tela muda de tamanho e distância com o menu aberto, e é justamente
+## a página que mexe nisso que ficava inalcançável.
+const CAMADA_PAINEL := 2
 const ABERTURA := 0.14              ## segundos da animação de escala
 
 ## Rolagem pelo thumbstick: quanto empurrar para valer, e o intervalo entre
@@ -156,6 +170,9 @@ func _montar_quad() -> void:
 	caixa.size = Vector3(LARGURA, altura, 0.02)
 	forma.shape = caixa
 	_corpo.add_child(forma)
+	# Fora da camada padrão: é o que impede outro corpo de roubar o raio do menu.
+	_corpo.collision_layer = CAMADA_PAINEL
+	_corpo.collision_mask = 0
 	_tela.add_child(_corpo)
 
 
@@ -163,6 +180,9 @@ func _montar_ponteiro(controle: XRController3D) -> void:
 	_raio = RayCast3D.new()
 	_raio.target_position = Vector3(0, 0, -5.0)
 	_raio.collide_with_areas = false
+	# Só o painel. Atravessa a tela do emulador, as telas do DS e o que mais
+	# estiver no caminho, em vez de parar no primeiro corpo.
+	_raio.collision_mask = CAMADA_PAINEL
 	controle.add_child(_raio)
 
 	# Um cilindro fino como feixe. Fica escondido enquanto o menu está fechado.

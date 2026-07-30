@@ -27,7 +27,7 @@ const PAGINAS := MenuRaiz.ABAS
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 135
+const CONFERENCIAS_MIN := 139
 
 ## Onde moram as strings da interface. O teste lê o **CSV**, e não os
 ## `.translation` gerados: é o arquivo que uma pessoa edita, e é nele que uma
@@ -77,6 +77,7 @@ func _ready() -> void:
 	_testar_baixador_de_cores()
 	_testar_csv_de_traducao()
 	_testar_sem_chave_na_tela(cfg, emu)
+	await _testar_alcance_com_barreira(cfg, emu)
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -1101,6 +1102,62 @@ func _coletar_chaves_cruas(no: Node, fora: Array[String]) -> void:
 		fora.append(texto)
 	for filho in no.get_children():
 		_coletar_chaves_cruas(filho, fora)
+
+
+## Corpo mais próximo **não** rouba o laser do menu.
+##
+## O `_testar_oclusao` acima mede desenho: o painel aparece por cima. Este mede
+## alcance, que é outra coisa e faltava — um menu visível mas não clicável é tão
+## inútil quanto um tapado.
+##
+## O caso real: a **tela de baixo do DS** fica a 1,15 m e o painel abre a 1,6 m,
+## então ela ficava na frente e o raio parava nela. A mira sumia e o menu não
+## respondia — e a página que mexe na posição daquela tela era justamente uma das
+## inalcançáveis. Camada própria para o painel é o que conserta, e é o análogo do
+## `no_depth_test` que resolveu o lado visual.
+func _testar_alcance_com_barreira(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(64, 64)
+	vp.own_world_3d = true
+	add_child(vp)
+
+	var painel := PainelMenu.new(cfg, emu)
+	vp.add_child(painel)
+	painel.global_position = Vector3(0, 1.4, -1.6)
+
+	# Uma barreira na camada padrão, mais perto que o painel: é o papel que a tela
+	# de baixo do DS fazia.
+	var barreira := StaticBody3D.new()
+	var forma := CollisionShape3D.new()
+	var caixa := BoxShape3D.new()
+	caixa.size = Vector3(4, 3, 0.02)
+	forma.shape = caixa
+	barreira.add_child(forma)
+	barreira.position = Vector3(0, 1.4, -1.15)
+	vp.add_child(barreira)
+
+	var raio := RayCast3D.new()
+	raio.target_position = Vector3(0, 0, -5.0)
+	raio.collide_with_areas = false
+	raio.collision_mask = PainelMenu.CAMADA_PAINEL
+	raio.position = Vector3(0, 1.4, 0)
+	vp.add_child(raio)
+	# Corpo recém-adicionado só entra no espaço físico no próximo tique: sem
+	# esperar, o raycast responde "não acertei nada" e o teste mediria o atraso do
+	# motor em vez da camada de colisão.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	raio.force_raycast_update()
+
+	_conferir(PainelMenu.CAMADA_PAINEL != 1,
+			"o painel não está na camada padrão (está na %d)" % PainelMenu.CAMADA_PAINEL)
+	_conferir(raio.is_colliding(), "o laser do menu alcança algo com a barreira na frente")
+	var acertou_painel := raio.is_colliding() \
+			and (raio.get_collider() as Node).is_ancestor_of(painel) == false \
+			and painel.is_ancestor_of(raio.get_collider() as Node)
+	_conferir(acertou_painel, "e o que ele acerta é o painel, não a barreira")
+
+	vp.queue_free()
 
 
 func _conferir(condicao: bool, descricao: String) -> void:
