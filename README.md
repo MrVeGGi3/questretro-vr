@@ -42,6 +42,21 @@ Extras que valem conhecer: **save states** com miniatura (aba Saves), **perfis d
 controle por cartucho** (aba Input), e três modos de **sala** em volta da tela, um
 deles passthrough (aba Sala).
 
+O app fala **português e inglês**, e abre na língua do headset sem ninguém pedir.
+Para trocar à mão: aba **Tela**, primeira linha, "Idioma / Language". A troca vale
+na hora, sem reiniciar.
+
+### Acrescentar um idioma
+
+Uma coluna a mais em [`app/traducoes/ui.csv`](app/traducoes/ui.csv) e uma entrada em
+`Idioma.LOCALES`/`ROTULOS` (`app/scripts/ui/idioma.gd`). Nada de código muda: as
+chaves ficam no `.text` dos Controls e o motor traduz ao desenhar, então o texto novo
+aparece sozinho.
+
+O português é uma tradução como qualquer outra — não há língua "embutida" no código, e
+é isso que faz o terceiro idioma custar o CSV e mais nada. O `test_ui` reprova chave
+sem tradução em qualquer idioma, e reprova chave que apareça crua na tela.
+
 O Sega CD é o único sistema que pede um arquivo a mais: a BIOS do Mega CD, em
 `/sdcard/QuestRetro/system/`. Ela não se baixa pelo app — é da Sega.
 

@@ -259,11 +259,11 @@ static func core_para_rom(rom_path: String) -> String:
 static func msg_sem_core(rom_path: String) -> String:
 	var nome := nome_do_core(NavegadorRoms.sistema_de(rom_path))
 	if nome.is_empty():
-		return "Sem core para " + rom_path.get_file()
+		return TranslationServer.translate("EMU_SEM_CORE_PARA") % rom_path.get_file()
 	var pasta := Armazenamento.cores()
 	if pasta.is_empty():
-		return "Falta o core " + nome
-	return "Falta %s em %s" % [nome, pasta]
+		return TranslationServer.translate("EMU_FALTA_CORE") % nome
+	return TranslationServer.translate("EMU_FALTA_CORE_EM") % [nome, pasta]
 
 
 ## Troca o `.so` do core sem rebuild, pelo mesmo arquivo que já sobrescreve as
@@ -299,7 +299,7 @@ static func _core_do_arquivo(sistema_novo: String) -> String:
 ## Passar um explícito serve para os testes e para o `--core` da linha de comando.
 func iniciar(core_path: String, rom_path: String) -> bool:
 	if rom_path.is_empty():
-		falhou.emit("Nenhuma ROM informada")
+		falhou.emit(tr("EMU_SEM_ROM_INFORMADA"))
 		return false
 	if core_path.is_empty():
 		core_path = core_para_rom(rom_path)
@@ -311,7 +311,7 @@ func iniciar(core_path: String, rom_path: String) -> bool:
 	if not _carregar_core(core_path, NavegadorRoms.sistema_de(rom_path)):
 		return false
 	if not _host.load_rom(rom_path):
-		falhou.emit("Falha ao carregar a ROM: " + rom_path)
+		falhou.emit(tr("EMU_FALHA_CARREGAR_ROM") % rom_path)
 		return false
 
 	_apos_carregar_rom(rom_path)
@@ -348,7 +348,7 @@ func trocar_rom(rom_path: String) -> bool:
 
 	var core_novo := core_para_rom(rom_path)
 	if core_novo.is_empty():
-		falhou.emit("Sem core para " + rom_path.get_file())
+		falhou.emit(tr("EMU_SEM_CORE_PARA") % rom_path.get_file())
 		return false
 
 	# Antes de qualquer descarga: depois dela o buffer da SRAM já morreu e
@@ -390,7 +390,7 @@ func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 	# consegue abri-lo; então preparamos uma cópia num caminho real (user://).
 	var core_real := _preparar_core(core_path)
 	if not _host.load_core(core_real):
-		falhou.emit("Falha ao carregar o core: " + core_real.get_file())
+		falhou.emit(tr("EMU_FALHA_CARREGAR_CORE") % core_real.get_file())
 		return false
 	# Aqui, e não depois do load_rom: o core lê boa parte das opções ao abrir a
 	# ROM, e as que ele já leu não voltam atrás.

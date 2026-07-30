@@ -26,7 +26,12 @@ const LOGO := "res://assets/logo.png"
 ## tudo para fora do painel. O `_conferir_rodape_visivel` do `test_ui` reprova
 ## quando isso acontece, então quem acrescentar a nona vai saber na hora; o que
 ## não dá é acrescentar e supor que coube.
-const ABAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves", "Cores"]
+## São as **chaves de tradução**, e não rótulos: o `.text` do botão recebe a
+## chave e o motor traduz ao desenhar. Usá-las também como identificador interno
+## evita um segundo mapa "id -> rótulo" que teria de concordar com este — e lista
+## paralela que precisa concordar já quebrou este menu uma vez.
+const ABAS := ["MENU_ROMS", "MENU_TELA", "MENU_SALA", "MENU_VIDEO", "MENU_AUDIO",
+		"MENU_INPUT", "MENU_SAVES", "MENU_CORES"]
 
 var _cfg: ConfigEmu
 var _emu: EmuCore
@@ -63,7 +68,18 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	linha.add_child(_area)
 
 	_criar_paginas()
-	mostrar("ROMs")
+	mostrar("MENU_ROMS")
+
+	# `auto_translate_mode` refaz sozinho todo `.text` que é uma chave, mas **não**
+	# alcança string montada com `%` — aquilo já é String comum quando chega ao
+	# Label. Remontar as páginas conserta essas, e é barato: acontece uma vez por
+	# troca de idioma, não por frame.
+	_cfg.mudou.connect(func(k: String, v: Variant) -> void:
+		if k != "app/idioma":
+			return
+		Idioma.aplicar(Idioma.indice_valido(v))
+		ao_abrir()
+	)
 
 
 func _criar_paginas() -> void:
@@ -74,16 +90,16 @@ func _criar_paginas() -> void:
 	var tela := PagTela.new(_cfg, _emu)
 	tela.centrar_pedido.connect(func() -> void: centrar_pedido.emit())
 
-	_registrar("ROMs", roms)
-	_registrar("Tela", tela)
-	_registrar("Sala", PagSala.new(_cfg))
-	_registrar("Vídeo", PagVideo.new(_cfg, _emu))
-	_registrar("Áudio", PagAudio.new(_cfg, _emu))
-	_registrar("Input", PagInput.new(_cfg, _emu))
-	_registrar("Saves", PagSaves.new(_emu))
+	_registrar("MENU_ROMS", roms)
+	_registrar("MENU_TELA", tela)
+	_registrar("MENU_SALA", PagSala.new(_cfg))
+	_registrar("MENU_VIDEO", PagVideo.new(_cfg, _emu))
+	_registrar("MENU_AUDIO", PagAudio.new(_cfg, _emu))
+	_registrar("MENU_INPUT", PagInput.new(_cfg, _emu))
+	_registrar("MENU_SAVES", PagSaves.new(_emu))
 	# Depois de Saves porque é a página que se visita uma vez e esquece — ao
 	# contrário das outras, que se mexe a cada sessão.
-	_registrar("Cores", PagCores.new())
+	_registrar("MENU_CORES", PagCores.new())
 
 
 func _registrar(nome: String, pag: Control) -> void:
@@ -108,16 +124,16 @@ func mostrar(nome: String) -> void:
 ## Chamada quando o painel abre: relê o que pode ter mudado por fora
 ## (permissão concedida no diálogo do Android, ROM trocada, novos saves).
 func ao_abrir() -> void:
-	(_paginas["ROMs"] as PagRoms).atualizar()
-	(_paginas["Saves"] as PagSaves).atualizar()
+	(_paginas["MENU_ROMS"] as PagRoms).atualizar()
+	(_paginas["MENU_SAVES"] as PagSaves).atualizar()
 	# O mapa de controle muda com o sistema da ROM, e a ROM pode ter trocado
 	# desde a última vez que o painel abriu. A página de Tela pela mesma razão:
 	# os ajustes da segunda tela só existem nos sistemas que têm duas.
-	(_paginas["Input"] as PagInput).atualizar()
-	(_paginas["Tela"] as PagTela).atualizar()
+	(_paginas["MENU_INPUT"] as PagInput).atualizar()
+	(_paginas["MENU_TELA"] as PagTela).atualizar()
 	# Um core pode ter sido copiado à mão pelo USB desde a última vez, e a página
 	# não pode contradizer a pasta.
-	(_paginas["Cores"] as PagCores).atualizar()
+	(_paginas["MENU_CORES"] as PagCores).atualizar()
 	_atualizar_rodape()
 
 
@@ -216,7 +232,7 @@ func _rodape_sidebar() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 5)
 
-	var lab := WidgetsVR.mono("RODANDO")
+	var lab := WidgetsVR.mono("MENU_RODANDO")
 	col.add_child(lab)
 
 	_rom_lab = Label.new()
@@ -232,7 +248,7 @@ func _rodape_sidebar() -> Control:
 func _atualizar_rodape() -> void:
 	if _rom_lab == null:
 		return
-	_rom_lab.text = _emu.rom_atual.get_file() if not _emu.rom_atual.is_empty() else "nenhuma ROM"
+	_rom_lab.text = _emu.rom_atual.get_file() if not _emu.rom_atual.is_empty() else tr("MENU_SEM_ROM")
 
 
 func _divisoria_vertical() -> Control:

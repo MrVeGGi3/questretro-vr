@@ -9,10 +9,10 @@ var _cfg: ConfigEmu
 
 
 func _init(cfg: ConfigEmu) -> void:
-	super("Sala")
+	super("MENU_SALA")
 	_cfg = cfg
 
-	conteudo.add_child(WidgetsVR.campo("Ambiente", "onde a tela flutua",
+	conteudo.add_child(WidgetsVR.campo("SALA_AMBIENTE", "SALA_AMBIENTE_DESC",
 			WidgetsVR.segmentado(cfg, "sala/modo", Sala.NOMES)))
 
 	# Uma linha por modo, porque "Passthrough" e "Vazio" não dizem sozinhos o
@@ -33,11 +33,11 @@ func _init(cfg: ConfigEmu) -> void:
 func _explicacao(modo: int) -> String:
 	match modo:
 		Sala.FLIPERAMA:
-			return "um salão de arcade em volta"
+			return "SALA_FLIPERAMA_DESC"
 		Sala.PASSTHROUGH:
-			return "o seu quarto, pelas câmeras do headset"
+			return "SALA_PASSTHROUGH_DESC"
 		_:
-			return "só a tela, o resto no escuro"
+			return "SALA_VAZIO_DESC"
 
 
 func _atualizar_cabecalho() -> void:

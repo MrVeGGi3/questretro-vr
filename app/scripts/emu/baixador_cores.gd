@@ -44,10 +44,10 @@ const SUFIXO_PARCIAL := ".parcial"
 ## está por extenso em `THIRD-PARTY.md`; a intenção é que ninguém baixe sem saber
 ## o que está trazendo para dentro do aparelho.
 const LICENCAS := {
-	"snes": "Licença Snes9x — veda uso comercial",
-	"n64": "GPLv2 — mupen64plus-next",
-	"megadrive": "Licença própria — veda uso comercial",
-	"nds": "GPLv3 — melonDS",
+	"snes": "CORES_LICENCA_SNES",
+	"n64": "CORES_LICENCA_N64",
+	"megadrive": "CORES_LICENCA_MEGADRIVE",
+	"nds": "CORES_LICENCA_NDS",
 }
 
 var _http: HTTPRequest
@@ -95,7 +95,7 @@ func baixar(sistema: String) -> bool:
 	var nome := nome_baixavel(sistema)
 	var destino := Armazenamento.cores()
 	if nome.is_empty() or destino.is_empty():
-		falhou.emit(sistema, "Não sei que core buscar para " + sistema)
+		falhou.emit(sistema, tr("BAIXADOR_SEM_CORE_PARA") % sistema)
 		return false
 	# `garantir()` não basta como teste de permissão: ele sai satisfeito quando a
 	# pasta **já existe**, e ela sobrevive à desinstalação do app por morar em
@@ -105,8 +105,7 @@ func baixar(sistema: String) -> bool:
 	# Medido no Quest 3S, e o único jeito de saber se dá para escrever é escrever.
 	Armazenamento.garantir()
 	if not _da_para_gravar(destino):
-		falhou.emit(sistema, "Sem permissão de armazenamento — conceda em ROMs → "
-				+ "Permitir acesso")
+		falhou.emit(sistema, tr("BAIXADOR_SEM_PERMISSAO"))
 		return false
 
 	_sistema = sistema
@@ -117,7 +116,7 @@ func baixar(sistema: String) -> bool:
 	var err := _http.request(url_do_core(sistema))
 	if err != OK:
 		_encerrar()
-		falhou.emit(sistema, "Não consegui iniciar o download (erro %d)" % err)
+		falhou.emit(sistema, tr("BAIXADOR_FALHA") % err)
 		return false
 	set_process(true)
 	return true
@@ -129,7 +128,7 @@ func cancelar() -> void:
 	_http.cancel_request()
 	var sis := _sistema
 	_encerrar()
-	falhou.emit(sis, "Cancelado")
+	falhou.emit(sis, tr("BAIXADOR_CANCELADO"))
 
 
 func _process(_delta: float) -> void:
@@ -154,7 +153,7 @@ func _ao_terminar(resultado: int, codigo: int, _headers: PackedStringArray,
 		_apagar(zip)
 		# 404 aqui quase sempre quer dizer que o buildbot renomeou o arquivo — o
 		# nightly muda, e o nome vem de `EmuCore.CORES`, que é nosso.
-		falhou.emit(sis, "Servidor respondeu %d para %s" % [codigo, nome])
+		falhou.emit(sis, tr("BAIXADOR_SERVIDOR") % [codigo, nome])
 		return
 
 	var final := Armazenamento.cores().path_join(nome)
@@ -179,7 +178,7 @@ func _ao_terminar(resultado: int, codigo: int, _headers: PackedStringArray,
 static func extrair(zip_path: String, nome_so: String, destino: String) -> String:
 	var z := ZIPReader.new()
 	if z.open(zip_path) != OK:
-		return "O arquivo baixado não é um zip válido"
+		return TranslationServer.translate("BAIXADOR_ZIP_INVALIDO")
 
 	var interno := ""
 	for f: String in z.get_files():
@@ -188,19 +187,19 @@ static func extrair(zip_path: String, nome_so: String, destino: String) -> Strin
 			break
 	if interno.is_empty():
 		z.close()
-		return "O zip não traz %s dentro" % nome_so
+		return TranslationServer.translate("BAIXADOR_ZIP_SEM_SO") % nome_so
 
 	var dados := z.read_file(interno)
 	z.close()
 	if dados.is_empty():
-		return "%s veio vazio do zip" % nome_so
+		return TranslationServer.translate("BAIXADOR_SO_VAZIO") % nome_so
 
 	# Escreve em parcial e só então renomeia: é isto que garante que nunca exista
 	# um `.so` de nome final pela metade, nem se o app morrer no meio da escrita.
 	var parcial := destino + SUFIXO_PARCIAL
 	var f := FileAccess.open(parcial, FileAccess.WRITE)
 	if f == null:
-		return "Não consegui escrever em " + parcial.get_base_dir()
+		return TranslationServer.translate("BAIXADOR_SEM_ESCRITA") % parcial.get_base_dir()
 	f.store_buffer(dados)
 	f.close()
 
@@ -208,7 +207,7 @@ static func extrair(zip_path: String, nome_so: String, destino: String) -> Strin
 		DirAccess.remove_absolute(destino)
 	if DirAccess.rename_absolute(parcial, destino) != OK:
 		DirAccess.remove_absolute(parcial)
-		return "Não consegui pôr o core em " + destino
+		return TranslationServer.translate("BAIXADOR_SEM_MOVER") % destino
 	return ""
 
 
@@ -275,15 +274,15 @@ static func _da_para_gravar(pasta: String) -> bool:
 static func _explicar(resultado: int) -> String:
 	match resultado:
 		HTTPRequest.RESULT_CANT_CONNECT, HTTPRequest.RESULT_CANT_RESOLVE:
-			return "Sem internet, ou o buildbot da libretro fora do ar"
+			return TranslationServer.translate("BAIXADOR_SEM_INTERNET")
 		HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR:
-			return "Falha de TLS ao falar com o buildbot"
+			return TranslationServer.translate("BAIXADOR_TLS")
 		HTTPRequest.RESULT_TIMEOUT, HTTPRequest.RESULT_NO_RESPONSE:
-			return "O servidor não respondeu a tempo"
+			return TranslationServer.translate("BAIXADOR_SEM_RESPOSTA")
 		HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN, HTTPRequest.RESULT_DOWNLOAD_FILE_WRITE_ERROR:
-			return "Sem permissão de armazenamento — conceda em ROMs → Permitir acesso"
+			return TranslationServer.translate("BAIXADOR_SEM_PERMISSAO")
 		_:
-			return "Download falhou (resultado %d)" % resultado
+			return TranslationServer.translate("BAIXADOR_FALHA") % resultado
 
 
 static func _apagar(caminho: String) -> void:

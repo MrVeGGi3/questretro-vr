@@ -22,7 +22,7 @@ var _andamento := {}
 
 
 func _init() -> void:
-	super("Cores")
+	super("MENU_CORES")
 
 	_baixador = BaixadorCores.new()
 	add_child(_baixador)
@@ -61,14 +61,12 @@ func atualizar() -> void:
 		# No desktop os cores vêm por `res://cores` e o fluxo de desenvolvimento já
 		# os põe lá (ver "Baixar os cores" no README). Baixar aqui só confundiria:
 		# o buildbot publica binário de Android, que não roda nesta máquina.
-		_aviso.text = "Fora do headset os cores vêm de res://cores — ver o README."
+		_aviso.text = "CORES_FORA_DO_HEADSET"
 		return
 
 	_banner.visible = not NavegadorRoms.tem_permissao()
 
-	_aviso.text = ("Os cores são de terceiros e não vão no APK: cada um tem a sua "
-			+ "licença, e é você quem escolhe trazê-lo. Baixados de "
-			+ "buildbot.libretro.com.")
+	_aviso.text = "CORES_AVISO"
 
 	for sistema: String in EmuCore.CORES:
 		_lista.add_child(_linha(sistema))
@@ -98,20 +96,18 @@ func _banner_permissao() -> Control:
 	linha.add_child(glifo)
 
 	var txt := Label.new()
-	txt.text = "Para baixar e usar cores é preciso liberar o acesso aos arquivos: " \
-			+ "eles ficam em /sdcard/QuestRetro/cores, fora do app. Toque em " \
-			+ "“Permitir acesso”, ache QuestRetro na lista de Ajustes e ligue a chave."
+	txt.text = "CORES_BANNER_PERMISSAO"
 	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	linha.add_child(txt)
 
-	var bt := WidgetsVR.botao("Permitir acesso", true)
+	var bt := WidgetsVR.botao("COMUM_PERMITIR_ACESSO", true)
 	bt.custom_minimum_size.x = 0
 	bt.pressed.connect(func() -> void:
 		NavegadorRoms.pedir_permissao()
 		# Sai do app para os Ajustes do Android; ao voltar, `ao_abrir()` relê o
 		# estado e o banner some sozinho.
-		bt.text = "Ligue em Ajustes"
+		bt.text = "COMUM_LIGUE_AJUSTES"
 	)
 	linha.add_child(bt)
 
@@ -138,18 +134,18 @@ func _linha(sistema: String) -> Control:
 
 	if _andamento.has(sistema):
 		topo.add_child(WidgetsVR.mono(_andamento[sistema]))
-		var bt_cancelar := WidgetsVR.botao("Parar")
+		var bt_cancelar := WidgetsVR.botao("CORES_PARAR")
 		bt_cancelar.custom_minimum_size.x = 0
 		bt_cancelar.pressed.connect(_baixador.cancelar)
 		topo.add_child(bt_cancelar)
 	elif presente:
-		topo.add_child(WidgetsVR.chip("no aparelho", TemaVR.ACCENT))
-		var bt_remover := WidgetsVR.botao("Remover")
+		topo.add_child(WidgetsVR.chip("CORES_NO_APARELHO", TemaVR.ACCENT))
+		var bt_remover := WidgetsVR.botao("CORES_REMOVER")
 		bt_remover.custom_minimum_size.x = 0
 		bt_remover.pressed.connect(_remover.bind(sistema, caminho))
 		topo.add_child(bt_remover)
 	else:
-		var bt := WidgetsVR.botao("Baixar", true)
+		var bt := WidgetsVR.botao("CORES_BAIXAR", true)
 		bt.custom_minimum_size.x = 0
 		# Desabilitado sem permissão: o download falharia ao abrir o arquivo de
 		# destino, e um botão que aceita o clique para depois dizer que não podia
@@ -166,7 +162,7 @@ func _linha(sistema: String) -> Control:
 	# for redistribuir o aparelho precisa saber sob que termos aquilo entrou.
 	var rodape_linha := WidgetsVR.mono("%s — %s" % [
 		BaixadorCores.nome_baixavel(sistema),
-		BaixadorCores.LICENCAS.get(sistema, "licença do upstream"),
+		tr(BaixadorCores.LICENCAS.get(sistema, "CORES_LICENCA_OUTRA")),
 	])
 	rodape_linha.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	caixa.add_child(rodape_linha)
@@ -176,9 +172,9 @@ func _linha(sistema: String) -> Control:
 
 func _baixar(sistema: String) -> void:
 	if _baixador.ocupado():
-		_aviso.text = "Um download por vez — espere o que está em curso."
+		_aviso.text = "CORES_UM_POR_VEZ"
 		return
-	_andamento[sistema] = "iniciando…"
+	_andamento[sistema] = tr("CORES_INICIANDO")
 	_baixador.baixar(sistema)
 	atualizar()
 
@@ -193,9 +189,9 @@ func _ao_progredir(sistema: String, recebido: int, total: int) -> void:
 	# Sem Content-Length não dá para mostrar porcentagem, e inventar uma seria
 	# pior: mostra o que se sabe, que é quanto já veio.
 	if total > 0:
-		_andamento[sistema] = "%d%%" % int(float(recebido) * 100.0 / float(total))
+		_andamento[sistema] = tr("CORES_PROGRESSO_PCT") % int(float(recebido) * 100.0 / float(total))
 	else:
-		_andamento[sistema] = "%d KB" % int(recebido / 1024.0)
+		_andamento[sistema] = tr("CORES_PROGRESSO_KB") % int(recebido / 1024.0)
 	for filho in _lista.get_children():
 		filho.queue_free()
 	for s: String in EmuCore.CORES:
@@ -205,7 +201,7 @@ func _ao_progredir(sistema: String, recebido: int, total: int) -> void:
 func _ao_concluir(sistema: String, caminho: String) -> void:
 	_andamento.erase(sistema)
 	print("Cores: %s baixado (%s)" % [sistema, caminho])
-	_aviso.text = "%s pronto. Já dá para abrir um jogo." % NavegadorRoms.nome_sistema(sistema)
+	_aviso.text = tr("CORES_PRONTO") % NavegadorRoms.nome_sistema(sistema)
 	atualizar()
 
 

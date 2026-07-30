@@ -24,6 +24,16 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 
+[internationalization]
+
+; O português é uma tradução como outra qualquer, e não o texto embutido no
+; código: é isso que faz o terceiro idioma ser uma coluna a mais no CSV em vez de
+; uma refatoração. As chaves ficam no `.text` dos Controls e o motor traduz na
+; hora de desenhar (auto_translate_mode), o que faz a troca de idioma valer sem
+; reconstruir o menu.
+locale/translations=PackedStringArray("res://traducoes/ui.en.translation", "res://traducoes/ui.pt_BR.translation")
+locale/fallback="pt_BR"
+
 [xr]
 
 openxr/enabled=true

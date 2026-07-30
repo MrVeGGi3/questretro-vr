@@ -145,11 +145,15 @@ func _ready() -> void:
 	# diálogo de runtime, e pedi-la aqui jogaria a pessoa para os Ajustes do
 	# Android antes mesmo de o jogo aparecer. Quem pede é o botão da página de
 	# ROMs, quando ela de fato quer procurar um jogo.
+	# Antes de qualquer UI: o menu monta o texto no `_init` das páginas, e um
+	# locale aplicado depois deixaria a primeira montagem na língua errada.
+	Idioma.aplicar(Idioma.indice_valido(_cfg.obter("app/idioma")))
+
 	NavegadorRoms.garantir_pasta_local()
 
 	var ok := _emu.iniciar(_arg("--core", ""), _arg("--rom", ROM_PADRAO))
 	if not ok:
-		_mostrar("Sem ROM. Segure o botão de menu para escolher uma.")
+		_mostrar(tr("XR_SEM_ROM_AJUDA"))
 
 	# Depois de iniciar: o id do perfil sai do nome da ROM, que só existe agora.
 	_cfg.usar_perfil(_emu.id_rom())
@@ -243,7 +247,7 @@ func _diagnostico(delta: float) -> void:
 	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | video=%dx%d %s | sala=%s | audio gerado=%d descartado=%d" % [
 		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
 		_emu.largura, _emu.altura, _emu.formato_video(),
-		Sala.NOMES[int(_cfg.obter("sala/modo"))],
+		Sala.NOMES_LOG[int(_cfg.obter("sala/modo"))],
 		_emu.diag_audio_gerado, _emu.diag_audio_descartado]
 	# Com o painel aberto, um SubViewport de 1280x800 é redesenhado a cada frame
 	# (`UPDATE_ALWAYS`) enquanto a emulação continua rodando atrás. Marcar a
@@ -479,7 +483,7 @@ func _aplicar_sala() -> void:
 	# como separar os segundos de um ambiente dos de outro, e a comparação entre
 	# salas vira relato em vez de medida — que foi exatamente o que aconteceu na
 	# primeira medição de verdade.
-	print("Sala: modo ", Sala.NOMES[modo])
+	print("Sala: modo ", Sala.NOMES_LOG[modo])
 
 
 ## Põe o OpenXR em alpha blend e abre o fundo do viewport. Devolve se conseguiu.

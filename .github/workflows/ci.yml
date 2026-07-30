@@ -168,6 +168,13 @@ jobs:
       - name: Menu e páginas (xvfb)
         run: xvfb-run -a godot --xr-mode off --path app res://cenas/test_ui.tscn
 
+      # De novo, em inglês. Não é redundância: o `_conferir_rodape_visivel` mede
+      # se o rodapé cabe no painel, e a sidebar fecha em 800 de 800 sem folga —
+      # tradução mais comprida é o jeito clássico de estourar layout, e só
+      # aparece renderizando no outro idioma.
+      - name: Menu e páginas em inglês (xvfb)
+        run: xvfb-run -a godot --language en --xr-mode off --path app res://cenas/test_ui.tscn
+
       # As páginas viram PNG em `user://`. Quando um teste de UI cai, olhar a tela
       # é mais rápido do que ler o log.
       #

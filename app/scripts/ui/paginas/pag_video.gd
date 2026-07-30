@@ -6,21 +6,21 @@ var _emu: EmuCore
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
-	super("Vídeo")
+	super("MENU_VIDEO")
 	_emu = emu
 
-	conteudo.add_child(WidgetsVR.campo("Filtro", "como o pixel é ampliado",
-			WidgetsVR.segmentado(cfg, "video/filtro_suave", ["Nítido", "Suave"])))
-	conteudo.add_child(WidgetsVR.campo("Proporção", "",
-			WidgetsVR.segmentado(cfg, "video/aspecto", ["4:3", "8:7", "16:9", "Nativa"])))
+	conteudo.add_child(WidgetsVR.campo("VIDEO_FILTRO", "VIDEO_FILTRO_DESC",
+			WidgetsVR.segmentado(cfg, "video/filtro_suave", ["VIDEO_FILTRO_NITIDO", "VIDEO_FILTRO_SUAVE"])))
+	conteudo.add_child(WidgetsVR.campo("VIDEO_PROPORCAO", "",
+			WidgetsVR.segmentado(cfg, "video/aspecto", ["4:3", "8:7", "16:9", "VIDEO_ASPECTO_NATIVA"])))
 	# "Escala inteira" saiu do mockup: só faz sentido casando pixels do jogo
 	# com pixels de um display 2D. Num quad em 3D, visto de qualquer ângulo e
 	# distância, não existe grade para casar — o toggle não teria efeito.
-	conteudo.add_child(WidgetsVR.campo("Brilho", "compensa o passthrough claro",
+	conteudo.add_child(WidgetsVR.campo("VIDEO_BRILHO", "VIDEO_BRILHO_DESC",
 			WidgetsVR.slider(cfg, "video/brilho", 0.4, 2.0, 0.05,
 					func(v: float) -> String: return "%.2f×" % v)))
 
-	conteudo.add_child(WidgetsVR.campo("Diagnóstico", "fps e ritmo do emulador na tela",
+	conteudo.add_child(WidgetsVR.campo("VIDEO_DIAGNOSTICO", "VIDEO_DIAGNOSTICO_DESC",
 			WidgetsVR.interruptor(cfg, "video/diag")))
 
 	rodape_de_ajuste(cfg, "video")
@@ -30,6 +30,6 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 func _atualizar_cabecalho() -> void:
 	if _emu.largura > 0:
-		caminho_lab.text = "%d × %d · %.2f fps" % [_emu.largura, _emu.altura, _emu.get_fps()]
+		caminho_lab.text = tr("VIDEO_MEDIDAS") % [_emu.largura, _emu.altura, _emu.get_fps()]
 	else:
-		caminho_lab.text = "sem jogo carregado"
+		caminho_lab.text = "VIDEO_SEM_JOGO"

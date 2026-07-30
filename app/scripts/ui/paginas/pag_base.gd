@@ -74,9 +74,9 @@ func espacador() -> Control:
 
 ## Rodapé padrão das páginas de ajuste: onde salva, à esquerda; restaurar, à direita.
 func rodape_de_ajuste(cfg: ConfigEmu, secao: String) -> void:
-	rodape.add_child(WidgetsVR.mono("Salvo em " + ConfigEmu.ARQUIVO))
+	rodape.add_child(WidgetsVR.mono(tr("COMUM_SALVO_EM") + " " + ConfigEmu.ARQUIVO))
 	rodape.add_child(espacador())
-	var bt := WidgetsVR.botao("Restaurar padrões")
+	var bt := WidgetsVR.botao("COMUM_RESTAURAR")
 	bt.pressed.connect(func() -> void: cfg.restaurar(secao))
 	rodape.add_child(bt)
 

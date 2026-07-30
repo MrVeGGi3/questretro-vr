@@ -24,7 +24,7 @@ var _bateria: Label
 
 
 func _init(emu: EmuCore) -> void:
-	super("Saves")
+	super("MENU_SAVES")
 	_emu = emu
 
 	# A SRAM se grava sozinha, sem o jogador pedir; esta linha é o único lugar
@@ -60,7 +60,7 @@ func atualizar() -> void:
 
 	if not _emu.suporta_estado():
 		var aviso := Label.new()
-		aviso.text = "Este core não implementa save states."
+		aviso.text = "SAVES_SEM_SUPORTE"
 		aviso.add_theme_color_override("font_color", TemaVR.DIM)
 		_grade.add_child(aviso)
 		return
@@ -114,7 +114,7 @@ func _slot(numero: int) -> Control:
 	linha.add_child(info)
 
 	var titulo := Label.new()
-	titulo.text = "Slot %d" % numero
+	titulo.text = tr("SAVES_SLOT") % numero
 	info.add_child(titulo)
 
 	var quando := WidgetsVR.mono("—")
@@ -132,14 +132,14 @@ func _slot(numero: int) -> Control:
 	linha.add_child(acoes)
 
 	if existe:
-		var bt_carregar := WidgetsVR.botao("Carregar")
+		var bt_carregar := WidgetsVR.botao("COMUM_CARREGAR")
 		bt_carregar.custom_minimum_size = Vector2(0, 52)
 		bt_carregar.pressed.connect(func() -> void:
 			_emu.carregar_estado(numero)
 		)
 		acoes.add_child(bt_carregar)
 
-	var bt_gravar := WidgetsVR.botao("Gravar")
+	var bt_gravar := WidgetsVR.botao("SAVES_GRAVAR")
 	bt_gravar.custom_minimum_size = Vector2(0, 52)
 	bt_gravar.disabled = _emu.rom_atual.is_empty()
 	bt_gravar.pressed.connect(func() -> void:
@@ -162,7 +162,7 @@ func _slot(numero: int) -> Control:
 ## Traz de volta o último estado apagado deste slot. Só aparece com o slot vazio;
 ## gravar por cima já é a maneira de dizer que o antigo não interessa mais.
 func _botao_desfazer(numero: int) -> Button:
-	var bt := WidgetsVR.botao("Desfazer")
+	var bt := WidgetsVR.botao("SAVES_DESFAZER")
 	bt.custom_minimum_size = Vector2(0, 52)
 	bt.name = "DesfazerSlot%d" % numero
 	bt.pressed.connect(func() -> void:
@@ -182,7 +182,7 @@ func _botao_desfazer(numero: int) -> Button:
 ## pessoa a confirmar sem ler. O que apaga agora move para a lixeira, e o botão
 ## "Desfazer" ocupa este mesmo canto enquanto o slot estiver vazio.
 func _botao_apagar(numero: int) -> Button:
-	var bt := WidgetsVR.botao("Apagar")
+	var bt := WidgetsVR.botao("SAVES_APAGAR")
 	bt.custom_minimum_size = Vector2(0, 52)
 	# Nomeado porque quatro botões iguais só se distinguem pelo slot, e quem
 	# procura por texto acha o primeiro — que foi como o teste deste botão
@@ -191,7 +191,7 @@ func _botao_apagar(numero: int) -> Button:
 	bt.pressed.connect(func() -> void:
 		if not bt.get_meta("armado", false):
 			bt.set_meta("armado", true)
-			bt.text = "Confirmar?"
+			bt.text = "SAVES_CONFIRMAR"
 			bt.add_theme_color_override("font_color", TemaVR.BTN_A)
 			return
 		if _emu.apagar_estado(numero):
@@ -216,7 +216,7 @@ func _miniatura(numero: int, existe: bool) -> Control:
 				return tr
 
 	var vazio := Label.new()
-	vazio.text = "vazio" if not existe else "sem imagem"
+	vazio.text = "SAVES_VAZIO" if not existe else "SAVES_SEM_IMAGEM"
 	vazio.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vazio.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	vazio.custom_minimum_size = Vector2(LARG_MINIATURA, 0)

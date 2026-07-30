@@ -52,7 +52,7 @@ var _varreu_nesta_sessao := false
 
 
 func _init(cfg: ConfigEmu) -> void:
-	super("ROMs")
+	super("MENU_ROMS")
 	_cfg = cfg
 
 	_aviso = _banner_permissao()
@@ -65,13 +65,13 @@ func _init(cfg: ConfigEmu) -> void:
 	_lista.add_theme_constant_override("separation", 3)
 	conteudo.add_child(_lista)
 
-	_bt_raizes = WidgetsVR.botao("◂ Raízes")
+	_bt_raizes = WidgetsVR.botao("ROMS_RAIZES")
 	_bt_raizes.name = "Raizes"
 	_bt_raizes.custom_minimum_size.x = 0
 	_bt_raizes.pressed.connect(_mostrar_raizes)
 	rodape.add_child(_bt_raizes)
 
-	_bt_varrer = WidgetsVR.botao("Reescanear")
+	_bt_varrer = WidgetsVR.botao("ROMS_REESCANEAR")
 	_bt_varrer.name = "Reescanear"
 	_bt_varrer.custom_minimum_size.x = 0
 	_bt_varrer.pressed.connect(func() -> void:
@@ -88,29 +88,29 @@ func _init(cfg: ConfigEmu) -> void:
 
 	rodape.add_child(espacador())
 
-	_bt_permitir = WidgetsVR.botao("Permitir acesso")
+	_bt_permitir = WidgetsVR.botao("COMUM_PERMITIR_ACESSO")
 	_bt_permitir.name = "PermitirAcesso"
 	_bt_permitir.custom_minimum_size.x = 0
 	_bt_permitir.pressed.connect(func() -> void:
 		NavegadorRoms.pedir_permissao()
 		# Sai do app para os Ajustes do Android; ao voltar, reabrir o menu relê
 		# o estado da permissão.
-		_bt_permitir.text = "Ligue em Ajustes"
+		_bt_permitir.text = "COMUM_LIGUE_AJUSTES"
 	)
 	rodape.add_child(_bt_permitir)
 
-	_bt_modo = WidgetsVR.botao("Pastas")
+	_bt_modo = WidgetsVR.botao("ROMS_PASTAS")
 	_bt_modo.name = "ModoLista"
 	_bt_modo.custom_minimum_size.x = 0
 	_bt_modo.pressed.connect(_alternar_modo)
 	rodape.add_child(_bt_modo)
 
-	var bt_cancelar := WidgetsVR.botao("Cancelar")
+	var bt_cancelar := WidgetsVR.botao("COMUM_CANCELAR")
 	bt_cancelar.custom_minimum_size.x = 0
 	bt_cancelar.pressed.connect(func() -> void: cancelado.emit())
 	rodape.add_child(bt_cancelar)
 
-	_bt_carregar = WidgetsVR.botao("Carregar", true)
+	_bt_carregar = WidgetsVR.botao("COMUM_CARREGAR", true)
 	_bt_carregar.name = "Carregar"
 	_bt_carregar.custom_minimum_size.x = 0
 	_bt_carregar.pressed.connect(func() -> void:
@@ -173,8 +173,8 @@ func _comecar_varredura() -> void:
 	_varreu_nesta_sessao = true
 	_varredura = BibliotecaRoms.new()
 	_varredura.iniciar(NavegadorRoms.raizes())
-	_bt_varrer.text = "Parar"
-	_contagem.text = "varrendo…"
+	_bt_varrer.text = "ROMS_PARAR"
+	_contagem.text = "ROMS_VARRENDO"
 	set_process(true)
 
 
@@ -187,7 +187,7 @@ func _process(_delta: float) -> void:
 		# Só o contador anda durante a varredura. Repovoar a lista a cada frame
 		# refaria centenas de botões e comeria justamente o frame que estamos
 		# tentando poupar.
-		_contagem.text = "varrendo… %d jogos" % _varredura.itens().size()
+		_contagem.text = tr("ROMS_VARRENDO_N") % _varredura.itens().size()
 
 
 func _terminar_varredura() -> void:
@@ -206,14 +206,14 @@ func _terminar_varredura() -> void:
 	_limite = PAGINA
 	_repovoar_biblioteca()
 	if lotou:
-		_contagem.text = "%d jogos (teto)" % _itens.size()
+		_contagem.text = tr("ROMS_N_JOGOS_TETO") % _itens.size()
 
 
 func _parar_varredura() -> void:
 	_varredura = null
 	set_process(false)
 	if _bt_varrer != null:
-		_bt_varrer.text = "Reescanear"
+		_bt_varrer.text = "ROMS_REESCANEAR"
 
 
 func _visiveis() -> Array:
@@ -227,8 +227,8 @@ func _repovoar_biblioteca() -> void:
 	_barra_filtro.visible = true
 	_bt_raizes.visible = false
 	_bt_varrer.visible = true
-	_bt_modo.text = "Pastas"
-	caminho_lab.text = "biblioteca"
+	_bt_modo.text = "ROMS_PASTAS"
+	caminho_lab.text = "ROMS_ROTULO_BIBLIOTECA"
 
 	var sem_permissao := not NavegadorRoms.tem_permissao()
 	_aviso.visible = sem_permissao
@@ -250,13 +250,13 @@ func _repovoar_biblioteca() -> void:
 
 	var total := visiveis.size()
 	if total == 0:
-		_contagem.text = "nenhum jogo" if NavegadorRoms.tem_permissao() else "sem acesso"
+		_contagem.text = "ROMS_NENHUM_JOGO" if NavegadorRoms.tem_permissao() else "COMUM_SEM_ACESSO"
 		_lista.add_child(_vazio_biblioteca())
 	elif restam <= 0:
-		_contagem.text = "%d de %d jogos" % [_limite, total]
+		_contagem.text = tr("ROMS_N_DE_M_JOGOS") % [_limite, total]
 		_lista.add_child(_botao_mais(total))
 	else:
-		_contagem.text = "%d jogos" % total
+		_contagem.text = tr("ROMS_N_JOGOS") % total
 
 	_bt_carregar.disabled = _selecionado.is_empty()
 
@@ -398,7 +398,7 @@ func _estrela(caminho: String, indice: int) -> Button:
 
 func _botao_mais(total: int) -> Control:
 	var faltam: int = total - _limite
-	var bt := WidgetsVR.botao("Mostrar mais %d" % mini(faltam, PAGINA))
+	var bt := WidgetsVR.botao(tr("ROMS_MOSTRAR_MAIS") % mini(faltam, PAGINA))
 	bt.name = "MostrarMais"
 	bt.pressed.connect(func() -> void:
 		_limite += PAGINA
@@ -411,8 +411,7 @@ func _vazio_biblioteca() -> Control:
 	var lab := Label.new()
 	lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lab.add_theme_color_override("font_color", TemaVR.DIM)
-	lab.text = "Nenhum jogo encontrado. Copie ROMs para o aparelho e toque em " \
-			+ "“Reescanear”, ou use “Pastas” para abrir uma ROM pelo caminho."
+	lab.text = "ROMS_VAZIO_AJUDA"
 	return lab
 
 
@@ -438,7 +437,7 @@ func _abrir(caminho: String) -> void:
 func _mostrar_raizes() -> void:
 	_pasta = ""
 	_selecionado = ""
-	caminho_lab.text = "escolha um local"
+	caminho_lab.text = "ROMS_ESCOLHA_LOCAL"
 	var itens: Array = []
 	for r in NavegadorRoms.raizes():
 		itens.append({"nome": r.nome, "caminho": r.caminho, "pasta": true, "tamanho": 0})
@@ -450,7 +449,7 @@ func _repovoar_pastas(itens: Array, com_subir: bool) -> void:
 	_barra_filtro.visible = false
 	_bt_raizes.visible = true
 	_bt_varrer.visible = false
-	_bt_modo.text = "Biblioteca"
+	_bt_modo.text = "ROMS_BIBLIOTECA"
 
 	var sem_permissao := not NavegadorRoms.tem_permissao()
 	_aviso.visible = sem_permissao
@@ -466,11 +465,11 @@ func _repovoar_pastas(itens: Array, com_subir: bool) -> void:
 
 	var roms := itens.filter(func(i: Dictionary) -> bool: return not i.pasta).size()
 	if _pasta.is_empty():
-		_contagem.text = "%d locais" % itens.size()
+		_contagem.text = tr("ROMS_N_LOCAIS") % itens.size()
 	elif itens.is_empty():
-		_contagem.text = "pasta vazia" if not sem_permissao else "sem acesso"
+		_contagem.text = "ROMS_PASTA_VAZIA" if not sem_permissao else "COMUM_SEM_ACESSO"
 	else:
-		_contagem.text = "%d ROMs" % roms
+		_contagem.text = tr("ROMS_N_ROMS") % roms
 	_bt_carregar.disabled = true
 
 
@@ -560,10 +559,7 @@ func _banner_permissao() -> Control:
 	glifo.add_theme_color_override("font_color", TemaVR.BTN_B)
 	linha.add_child(glifo)
 	var txt := Label.new()
-	txt.text = "Sem acesso ao armazenamento: /sdcard não abre e as ROMs de lá " \
-			+ "não aparecem. Toque em “Permitir acesso”, ache QuestRetro na lista " \
-			+ "de Ajustes e ligue a chave. Sem isso, só a pasta do app funciona — " \
-			+ "e nela dá para pôr ROMs por adb."
+	txt.text = "ROMS_BANNER_PERMISSAO"
 	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	linha.add_child(txt)

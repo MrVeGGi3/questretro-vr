@@ -43,6 +43,11 @@ enum { ASPECTO_4_3, ASPECTO_8_7, ASPECTO_16_9, ASPECTO_NATIVO }
 enum { LISTA_BIBLIOTECA, LISTA_PASTAS }
 
 const PADROES := {
+	# Idioma da interface. Índice de `Idioma` (0 = Auto), e não o locale por
+	# extenso, porque o `segmentado` que desenha o seletor grava inteiro. O padrão
+	# é Auto: quem instala não deveria precisar escolher para o app abrir na
+	# língua do próprio aparelho.
+	"app/idioma": Idioma.AUTO,
 	# Os padrões de tela/input vieram das constantes que antes moravam
 	# em vr/xr_main.gd — mudar aqui muda o comportamento inicial.
 	"tela/escala": 1.5,

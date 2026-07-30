@@ -60,7 +60,7 @@ var _nomes: Dictionary = {}   ## nomes dos ids vindos do core; ver _nomes_do_cor
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
-	super("Input")
+	super("MENU_INPUT")
 	_emu = emu
 	_cfg = cfg
 
@@ -94,9 +94,9 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	# Depois de montar as seções: atualizar() decide qual delas aparece.
 	atualizar()
 
-	rodape.add_child(WidgetsVR.mono("Segure o botão de menu 0,5 s para abrir/fechar"))
+	rodape.add_child(WidgetsVR.mono("INPUT_AJUDA_MENU"))
 	rodape.add_child(espacador())
-	var bt := WidgetsVR.botao("Restaurar padrões")
+	var bt := WidgetsVR.botao("COMUM_RESTAURAR")
 	bt.pressed.connect(func() -> void: cfg.restaurar("input"))
 	rodape.add_child(bt)
 
@@ -130,7 +130,7 @@ func _montar_perfil() -> Control:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 2)
 	var tit := Label.new()
-	tit.text = "Ajustes deste jogo"
+	tit.text = "INPUT_AJUSTES_DO_JOGO"
 	col.add_child(tit)
 	col.add_child(_perfil_lab)
 	linha.add_child(col)
@@ -152,7 +152,7 @@ func _ao_tocar_perfil() -> void:
 		return
 	if not _bt_perfil.get_meta("armado", false):
 		_bt_perfil.set_meta("armado", true)
-		_bt_perfil.text = "Apagar mesmo?"
+		_bt_perfil.text = "INPUT_APAGAR_MESMO"
 		_bt_perfil.add_theme_color_override("font_color", TemaVR.BTN_A)
 		return
 	_cfg.apagar_perfil()
@@ -167,16 +167,16 @@ func _atualizar_perfil() -> void:
 	var sem_rom := _emu == null or _emu.rom_atual.is_empty()
 	_bt_perfil.disabled = sem_rom
 	if sem_rom:
-		_bt_perfil.text = "Criar perfil"
-		_perfil_lab.text = "sem jogo carregado"
+		_bt_perfil.text = "INPUT_CRIAR_PERFIL"
+		_perfil_lab.text = "INPUT_SEM_JOGO"
 		return
 
 	if _cfg.tem_perfil():
-		_bt_perfil.text = "Apagar perfil"
-		_perfil_lab.text = "perfis/%s.cfg" % _cfg.perfil_id()
+		_bt_perfil.text = "INPUT_APAGAR_PERFIL"
+		_perfil_lab.text = tr("INPUT_PERFIL_ARQUIVO") % _cfg.perfil_id()
 	else:
-		_bt_perfil.text = "Criar perfil"
-		_perfil_lab.text = "seguindo os ajustes gerais"
+		_bt_perfil.text = "INPUT_CRIAR_PERFIL"
+		_perfil_lab.text = "INPUT_SEGUINDO_GERAL"
 
 
 ## Conversão analógico → D-pad, que só o SNES faz. No N64 o stick é eixo de
@@ -186,17 +186,17 @@ func _montar_dpad(cfg: ConfigEmu) -> VBoxContainer:
 	caixa.add_child(WidgetsVR.divisoria(TemaVR.LINE))
 
 	var titulo := Label.new()
-	titulo.text = "Zona morta do D-pad"
+	titulo.text = "INPUT_ZONA_MORTA_DPAD"
 	titulo.add_theme_color_override("font_color", TemaVR.DIM)
 	caixa.add_child(titulo)
 
-	caixa.add_child(WidgetsVR.campo("Engatar", "quanto empurrar para valer",
+	caixa.add_child(WidgetsVR.campo("INPUT_ENGATAR", "INPUT_ENGATAR_DESC",
 			WidgetsVR.slider(cfg, "input/dpad_engaja", 0.2, 0.9, 0.01,
 					func(v: float) -> String: return "%.2f" % v)))
-	caixa.add_child(WidgetsVR.campo("Soltar", "histerese: evita tremular",
+	caixa.add_child(WidgetsVR.campo("INPUT_SOLTAR", "INPUT_SOLTAR_DESC",
 			WidgetsVR.slider(cfg, "input/dpad_solta", 0.1, 0.8, 0.01,
 					func(v: float) -> String: return "%.2f" % v)))
-	caixa.add_child(WidgetsVR.campo("Setor cardeal", "acima de 45° gera diagonais",
+	caixa.add_child(WidgetsVR.campo("INPUT_SETOR_CARDEAL", "INPUT_SETOR_CARDEAL_DESC",
 			WidgetsVR.slider(cfg, "input/dpad_meia_cardeal", 45.0, 75.0, 1.0,
 					func(v: float) -> String: return "%d°" % roundi(v))))
 	return caixa
@@ -213,37 +213,37 @@ func _montar_guidao(cfg: ConfigEmu) -> VBoxContainer:
 	caixa.add_child(WidgetsVR.divisoria(TemaVR.LINE))
 
 	var titulo := Label.new()
-	titulo.text = "Guidão de nave"
+	titulo.text = "INPUT_GUIDAO"
 	titulo.add_theme_color_override("font_color", TemaVR.DIM)
 	caixa.add_child(titulo)
 
-	caixa.add_child(WidgetsVR.campo("Ligar", "as duas mãos viram o manche",
+	caixa.add_child(WidgetsVR.campo("INPUT_LIGAR", "INPUT_LIGAR_DESC",
 			WidgetsVR.interruptor(cfg, "input/n64_guidao")))
-	caixa.add_child(WidgetsVR.campo("Inclinação cheia", "quanto tombar para virar tudo",
+	caixa.add_child(WidgetsVR.campo("INPUT_INCLINACAO_CHEIA", "INPUT_INCLINACAO_CHEIA_DESC",
 			WidgetsVR.slider(cfg, "input/guidao_angulo_max", 15.0, 60.0, 1.0,
 					func(v: float) -> String: return "%d°" % roundi(v))))
 	# O mínimo desce a 4 cm porque 10 cm ainda era lerdo para quem pilotou; o
 	# máximo antigo (50 cm) ninguém alcança sem sair da cadeira.
-	caixa.add_child(WidgetsVR.campo("Curso cheio", "quanto empurrar para subir/descer tudo",
+	caixa.add_child(WidgetsVR.campo("INPUT_CURSO_CHEIO", "INPUT_CURSO_CHEIO_DESC",
 			WidgetsVR.slider(cfg, "input/guidao_curso", 0.04, 0.30, 0.01,
 					func(v: float) -> String: return "%d cm" % roundi(v * 100.0))))
-	caixa.add_child(WidgetsVR.campo("Zona morta", "ignora tremor de mão",
+	caixa.add_child(WidgetsVR.campo("INPUT_ZONA_MORTA", "INPUT_ZONA_MORTA_DESC",
 			WidgetsVR.slider(cfg, "input/guidao_zona_morta", 0.0, 0.3, 0.01,
 					func(v: float) -> String: return "%.2f" % v)))
 	# Acima de 1 o começo do movimento rende mais; abaixo, controle fino perto
 	# do centro. Os extremos não mudam — o eixo cheio continua alcançável em
 	# qualquer curva, então mexer aqui nunca custa manobra.
-	caixa.add_child(WidgetsVR.campo("Curva", "acima de 1: reage mais no começo",
+	caixa.add_child(WidgetsVR.campo("INPUT_CURVA", "INPUT_CURVA_DESC",
 			WidgetsVR.slider(cfg, "input/guidao_curva", 0.5, 3.0, 0.1,
 					func(v: float) -> String:
 						return "linear" if is_equal_approx(v, 1.0) else "%.1f" % v)))
 	# O Star Fox 64 já nasce invertido, e a preferência varia de pessoa para
 	# pessoa: não é escolha que dê para acertar por padrão.
-	caixa.add_child(WidgetsVR.campo("Inverter subir/descer", "empurrar mergulha",
+	caixa.add_child(WidgetsVR.campo("INPUT_INVERTER", "INPUT_INVERTER_DESC",
 			WidgetsVR.interruptor(cfg, "input/guidao_inverter_y")))
-	caixa.add_child(WidgetsVR.campo("Mostrar leitura", "os eixos ao vivo, na tela",
+	caixa.add_child(WidgetsVR.campo("INPUT_MOSTRAR_LEITURA", "INPUT_MOSTRAR_LEITURA_DESC",
 			WidgetsVR.interruptor(cfg, "input/guidao_diag")))
-	caixa.add_child(WidgetsVR.mono("Clique o analógico esquerdo para centralizar"))
+	caixa.add_child(WidgetsVR.mono("INPUT_CENTRALIZAR_AJUDA"))
 	return caixa
 
 
@@ -265,7 +265,11 @@ func atualizar() -> void:
 	if sistema == "n64" and _cfg.obter("input/n64_guidao"):
 		eixos = EIXOS_GUIDAO
 
-	caminho_lab.text = "Meta Touch · porta 1"
+	# `tr()` explícito, e não a chave crua: concatenar depois transformaria
+	# "INPUT_DISPOSITIVO · SNES" numa string que o motor não reconhece como chave e
+	# desenharia literalmente. É a armadilha do auto-translate — ele traduz o
+	# `.text` inteiro, ou nada.
+	caminho_lab.text = tr("INPUT_DISPOSITIVO")
 	if not sistema.is_empty():
 		caminho_lab.text += " · " + NavegadorRoms.nome_sistema(sistema)
 

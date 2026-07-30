@@ -27,7 +27,12 @@ const PAGINAS := MenuRaiz.ABAS
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 130
+const CONFERENCIAS_MIN := 135
+
+## Onde moram as strings da interface. O teste lê o **CSV**, e não os
+## `.translation` gerados: é o arquivo que uma pessoa edita, e é nele que uma
+## coluna vazia aparece.
+const CSV_TRADUCAO := "res://traducoes/ui.csv"
 
 var _falhas := 0
 var _feitas := 0
@@ -70,6 +75,8 @@ func _ready() -> void:
 	_testar_diretorio_de_sistema()
 	_testar_abas_completas(cfg, emu)
 	_testar_baixador_de_cores()
+	_testar_csv_de_traducao()
+	_testar_sem_chave_na_tela(cfg, emu)
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -131,7 +138,7 @@ func _testar_clique(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 	# Pergunta ao próprio botão onde ele está, em vez de recalcular o layout:
 	# assim o teste confere o mapeamento de coordenadas, não a minha aritmética.
-	for alvo_nome in ["Áudio", "Saves", "ROMs"]:
+	for alvo_nome in ["MENU_AUDIO", "MENU_SAVES", "MENU_ROMS"]:
 		var bt: Button = painel.menu._botoes[alvo_nome]
 		_clicar(painel, bt.get_global_rect().get_center())
 		await get_tree().process_frame
@@ -152,7 +159,7 @@ func _testar_rolagem(cfg: ConfigEmu, emu: EmuCore) -> void:
 	var painel := PainelMenu.new(cfg, emu)
 	add_child(painel)
 	painel.abrir()
-	painel.menu.mostrar("Input")
+	painel.menu.mostrar("MENU_INPUT")
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -414,7 +421,7 @@ func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
 	add_child(vp)
 	var menu := MenuRaiz.new(cfg, emu)
 	vp.add_child(menu)
-	menu.mostrar("Saves")
+	menu.mostrar("MENU_SAVES")
 	await get_tree().process_frame
 
 	# Pelo nome, e não pelo texto: os quatro botões dizem "Apagar", e procurar por
@@ -429,7 +436,7 @@ func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
 	bt.pressed.emit()
 	await get_tree().process_frame
 	_conferir(FileAccess.file_exists(estado), "uma batida só NÃO apaga")
-	_conferir(bt.text == "Confirmar?", "e o botão passa a perguntar")
+	_conferir(bt.text == "SAVES_CONFIRMAR", "e o botão passa a perguntar")
 
 	bt.pressed.emit()
 	await get_tree().process_frame
@@ -441,7 +448,7 @@ func _testar_apagar_estado(cfg: ConfigEmu, emu: EmuCore) -> void:
 	# Sem esta parte, "apagar" e "apagar de verdade" seriam indistinguíveis daqui.
 	_conferir(emu.tem_na_lixeira(2), "o apagado foi para a lixeira")
 
-	menu.mostrar("Saves")
+	menu.mostrar("MENU_SAVES")
 	await get_tree().process_frame
 	var bt_undo := menu.find_child("DesfazerSlot2", true, false) as Button
 	_conferir(bt_undo != null, "o slot vazio oferece Desfazer")
@@ -565,7 +572,7 @@ func _testar_botao_perfil(cfg: ConfigEmu, emu: EmuCore) -> void:
 	add_child(vp)
 	var menu := MenuRaiz.new(cfg, emu)
 	vp.add_child(menu)
-	menu.mostrar("Input")
+	menu.mostrar("MENU_INPUT")
 	await get_tree().process_frame
 
 	var bt := menu.find_child("PerfilJogo", true, false) as Button
@@ -582,7 +589,7 @@ func _testar_botao_perfil(cfg: ConfigEmu, emu: EmuCore) -> void:
 	bt.pressed.emit()
 	await get_tree().process_frame
 	_conferir(cfg.tem_perfil(), "uma batida só NÃO apaga o perfil")
-	_conferir(bt.text == "Apagar mesmo?", "e o botão passa a perguntar")
+	_conferir(bt.text == "INPUT_APAGAR_MESMO", "e o botão passa a perguntar")
 
 	bt.pressed.emit()
 	await get_tree().process_frame
@@ -644,7 +651,7 @@ func _testar_remap(cfg: ConfigEmu, emu: EmuCore) -> void:
 	add_child(vp)
 	var menu := MenuRaiz.new(cfg, emu)
 	vp.add_child(menu)
-	menu.mostrar("Input")
+	menu.mostrar("MENU_INPUT")
 	await get_tree().process_frame
 
 	var linha := menu.find_child("Origem_dir_ax", true, false) as Button
@@ -781,7 +788,7 @@ func _testar_biblioteca(cfg: ConfigEmu, emu: EmuCore) -> void:
 	add_child(vp)
 	var menu := MenuRaiz.new(cfg, emu)
 	vp.add_child(menu)
-	menu.mostrar("ROMs")
+	menu.mostrar("MENU_ROMS")
 	await get_tree().process_frame
 
 	# Array, e não uma String: a lambda captura o local por **valor**, então
@@ -1018,6 +1025,82 @@ func _testar_baixador_de_cores() -> void:
 	_conferir(not FileAccess.file_exists(destino + BaixadorCores.SUFIXO_PARCIAL),
 			"nem sobra arquivo parcial")
 	DirAccess.remove_absolute(zip_ruim)
+
+
+## O CSV de tradução está completo e sem repetição.
+##
+## Pega o caso comum de quem acrescenta texto: criar a chave, traduzir para uma
+## língua e esquecer da outra. Sem isto, a coluna vazia vira a **chave crua**
+## desenhada na tela, e só se descobre dentro do headset.
+func _testar_csv_de_traducao() -> void:
+	var f := FileAccess.open(CSV_TRADUCAO, FileAccess.READ)
+	if f == null:
+		_conferir(false, "achei %s" % CSV_TRADUCAO)
+		return
+
+	var cabecalho := f.get_csv_line()
+	_conferir(cabecalho.size() >= 3 and cabecalho[0] == "keys",
+			"o CSV começa com a coluna 'keys' e tem ao menos dois idiomas (%s)" % [cabecalho])
+
+	var vistas := {}
+	var sem_traducao: Array[String] = []
+	var duplicadas: Array[String] = []
+	var total := 0
+	while not f.eof_reached():
+		var linha := f.get_csv_line()
+		if linha.size() < 2 or linha[0].is_empty():
+			continue
+		total += 1
+		if vistas.has(linha[0]):
+			duplicadas.append(linha[0])
+		vistas[linha[0]] = true
+		for i in range(1, cabecalho.size()):
+			if i >= linha.size() or linha[i].strip_edges().is_empty():
+				sem_traducao.append("%s/%s" % [linha[0], cabecalho[i]])
+	f.close()
+
+	_conferir(total > 100, "o CSV tem as strings da interface (%d chaves)" % total)
+	_conferir(sem_traducao.is_empty(), "toda chave está traduzida em todos os idiomas%s"
+			% ("" if sem_traducao.is_empty() else " — faltam: %s" % [sem_traducao.slice(0, 5)]))
+	_conferir(duplicadas.is_empty(), "nenhuma chave repetida%s"
+			% ("" if duplicadas.is_empty() else " — repetidas: %s" % [duplicadas.slice(0, 5)]))
+
+
+## Nenhum texto desenhado pode **parecer uma chave**.
+##
+## É o teste que pega a chave que ficou sem entrada no CSV: ela não dá erro
+## nenhum: o Godot desenha a própria chave, e o sintoma é `CORES_BAIXAR` escrito
+## no botão dentro do headset. Percorre as páginas montadas de verdade, então
+## cobre também o texto que só existe depois de um `atualizar()`.
+func _testar_sem_chave_na_tela(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var menu := MenuRaiz.new(cfg, emu)
+	add_child(menu)
+
+	var cruas: Array[String] = []
+	for aba: String in MenuRaiz.ABAS:
+		menu.mostrar(aba)
+		_coletar_chaves_cruas(menu._paginas[aba], cruas)
+	_coletar_chaves_cruas(menu, cruas)
+
+	_conferir(cruas.is_empty(), "nenhuma chave de tradução aparece crua na tela%s"
+			% ("" if cruas.is_empty() else " — apareceram: %s" % [cruas.slice(0, 6)]))
+	menu.queue_free()
+
+
+## Texto que casa com o formato de chave (MAIÚSCULAS_COM_SUBLINHADO) e **não**
+## tem tradução. A segunda condição importa: "ROMs" e "TV" são texto legítimo, e
+## chave que traduz para ela mesma (como `MENU_ROMS`) já foi resolvida.
+func _coletar_chaves_cruas(no: Node, fora: Array[String]) -> void:
+	var texto := ""
+	if no is Label:
+		texto = (no as Label).text
+	elif no is Button:
+		texto = (no as Button).text
+	if not texto.is_empty() and texto == texto.to_upper() and texto.contains("_") \
+			and TranslationServer.translate(texto) == texto:
+		fora.append(texto)
+	for filho in no.get_children():
+		_coletar_chaves_cruas(filho, fora)
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

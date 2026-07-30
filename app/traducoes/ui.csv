@@ -1,0 +1,159 @@
+keys,pt_BR,en
+MENU_ROMS,ROMs,ROMs
+MENU_TELA,Tela,Screen
+MENU_SALA,Sala,Room
+MENU_VIDEO,Vídeo,Video
+MENU_AUDIO,Áudio,Audio
+MENU_INPUT,Input,Input
+MENU_SAVES,Saves,Saves
+MENU_CORES,Cores,Cores
+MENU_RODANDO,RODANDO,PLAYING
+MENU_SEM_ROM,nenhuma ROM,no ROM
+COMUM_CANCELAR,Cancelar,Cancel
+COMUM_CARREGAR,Carregar,Load
+COMUM_RESTAURAR,Restaurar padrões,Reset to defaults
+COMUM_SALVO_EM,Salvo em,Saved in
+COMUM_PERMITIR_ACESSO,Permitir acesso,Grant access
+COMUM_LIGUE_AJUSTES,Ligue em Ajustes,Enable in Settings
+COMUM_SEM_ACESSO,sem acesso,no access
+ROMS_RAIZES,◂ Raízes,◂ Locations
+ROMS_REESCANEAR,Reescanear,Rescan
+ROMS_PARAR,Parar,Stop
+ROMS_PASTAS,Pastas,Folders
+ROMS_BIBLIOTECA,Biblioteca,Library
+ROMS_ROTULO_BIBLIOTECA,biblioteca,library
+ROMS_ESCOLHA_LOCAL,escolha um local,choose a location
+ROMS_VARRENDO,varrendo…,scanning…
+ROMS_VARRENDO_N,varrendo… %d jogos,scanning… %d games
+ROMS_N_JOGOS,%d jogos,%d games
+ROMS_N_DE_M_JOGOS,%d de %d jogos,%d of %d games
+ROMS_N_JOGOS_TETO,%d jogos (teto),%d games (cap)
+ROMS_NENHUM_JOGO,nenhum jogo,no games
+ROMS_N_LOCAIS,%d locais,%d locations
+ROMS_N_ROMS,%d ROMs,%d ROMs
+ROMS_PASTA_VAZIA,pasta vazia,empty folder
+ROMS_MOSTRAR_MAIS,Mostrar mais %d,Show %d more
+ROMS_VAZIO_AJUDA,"Nenhum jogo encontrado. Copie ROMs para o aparelho e toque em “Reescanear”, ou use “Pastas” para abrir uma ROM pelo caminho.","No games found. Copy ROMs to the headset and tap “Rescan”, or use “Folders” to open a ROM by path."
+ROMS_BANNER_PERMISSAO,"Sem acesso ao armazenamento: /sdcard não abre e as ROMs de lá não aparecem. Toque em “Permitir acesso”, ache QuestRetro na lista de Ajustes e ligue a chave. Sem isso, só a pasta do app funciona — e nela dá para pôr ROMs por adb.","No storage access: /sdcard will not open and the ROMs there will not show up. Tap “Grant access”, find QuestRetro in the Settings list and turn the switch on. Without it only the app's own folder works — and you can put ROMs there over adb."
+TELA_IDIOMA,Idioma / Language,Idioma / Language
+TELA_PREDEFINICAO,Predefinição,Preset
+TELA_CENTRALIZAR,Centralizar,Recenter
+TELA_CENTRALIZAR_DESC,clique do analógico direito,right stick click
+TELA_TRAZER_FRENTE,Trazer para a frente,Bring to front
+TELA_TAMANHO,Tamanho,Size
+TELA_TAMANHO_DESC,analógico direito ↕,right stick ↕
+TELA_DISTANCIA,Distância,Distance
+TELA_DISTANCIA_DESC,analógico direito ↔,right stick ↔
+TELA_ALTURA,Altura,Height
+TELA_ALTURA_DESC,relativa aos olhos,relative to your eyes
+TELA_CURVATURA,Curvatura,Curvature
+TELA_CURVATURA_DESC,vira uma malha em arco,becomes a curved mesh
+TELA_DE_BAIXO,Tela de baixo,Bottom screen
+TELA_DE_BAIXO_DESC,a da caneta,the stylus one
+TELA_POSICAO_PROPRIA,posição própria,its own position
+TELA_ALCANCE_BRACO,ao alcance do braço,within arm's reach
+TELA_MEDIDAS,%.2f m de largura a %.2f m,%.2f m wide at %.2f m
+SALA_AMBIENTE,Ambiente,Environment
+SALA_AMBIENTE_DESC,onde a tela flutua,where the screen floats
+VIDEO_FILTRO,Filtro,Filter
+VIDEO_FILTRO_DESC,como o pixel é ampliado,how pixels are scaled
+VIDEO_PROPORCAO,Proporção,Aspect ratio
+VIDEO_BRILHO,Brilho,Brightness
+VIDEO_BRILHO_DESC,compensa o passthrough claro,compensates bright passthrough
+VIDEO_DIAGNOSTICO,Diagnóstico,Diagnostics
+VIDEO_DIAGNOSTICO_DESC,fps e ritmo do emulador na tela,fps and emulator pacing on screen
+VIDEO_MEDIDAS,%d × %d · %.2f fps,%d × %d · %.2f fps
+VIDEO_SEM_JOGO,sem jogo carregado,no game loaded
+AUDIO_VOLUME,Volume,Volume
+AUDIO_MUDO,Mudo,Mute
+AUDIO_MEDIDAS,%d Hz · bus %s,%d Hz · bus %s
+INPUT_AJUDA_MENU,"Segure o botão de menu 0,5 s para abrir/fechar",Hold the menu button 0.5 s to open/close
+INPUT_AJUSTES_DO_JOGO,Ajustes deste jogo,This game's settings
+INPUT_CRIAR_PERFIL,Criar perfil,Create profile
+INPUT_APAGAR_PERFIL,Apagar perfil,Delete profile
+INPUT_APAGAR_MESMO,Apagar mesmo?,Delete for real?
+INPUT_SEM_JOGO,sem jogo carregado,no game loaded
+INPUT_SEGUINDO_GERAL,seguindo os ajustes gerais,following the general settings
+INPUT_PERFIL_ARQUIVO,perfis/%s.cfg,perfis/%s.cfg
+INPUT_ZONA_MORTA_DPAD,Zona morta do D-pad,D-pad dead zone
+INPUT_ENGATAR,Engatar,Engage
+INPUT_ENGATAR_DESC,quanto empurrar para valer,how far to push to count
+INPUT_SOLTAR,Soltar,Release
+INPUT_SOLTAR_DESC,"histerese: evita tremular","hysteresis: stops flicker"
+INPUT_SETOR_CARDEAL,Setor cardeal,Cardinal sector
+INPUT_SETOR_CARDEAL_DESC,acima de 45° gera diagonais,above 45° yields diagonals
+INPUT_GUIDAO,Guidão de nave,Flight yoke
+INPUT_LIGAR,Ligar,Enable
+INPUT_LIGAR_DESC,as duas mãos viram o manche,both hands become the stick
+INPUT_INCLINACAO_CHEIA,Inclinação cheia,Full tilt
+INPUT_INCLINACAO_CHEIA_DESC,quanto tombar para virar tudo,how far to lean for a full turn
+INPUT_CURSO_CHEIO,Curso cheio,Full travel
+INPUT_CURSO_CHEIO_DESC,quanto empurrar para subir/descer tudo,how far to push for full climb/dive
+INPUT_ZONA_MORTA,Zona morta,Dead zone
+INPUT_ZONA_MORTA_DESC,ignora tremor de mão,ignores hand tremor
+INPUT_CURVA,Curva,Curve
+INPUT_CURVA_DESC,"acima de 1: reage mais no começo","above 1: reacts more at the start"
+INPUT_INVERTER,Inverter subir/descer,Invert climb/dive
+INPUT_INVERTER_DESC,empurrar mergulha,pushing dives
+INPUT_MOSTRAR_LEITURA,Mostrar leitura,Show readout
+INPUT_MOSTRAR_LEITURA_DESC,"os eixos ao vivo, na tela",live axes on screen
+INPUT_CENTRALIZAR_AJUDA,Clique o analógico esquerdo para centralizar,Click the left stick to recenter
+INPUT_DISPOSITIVO,Meta Touch · porta 1,Meta Touch · port 1
+SAVES_SEM_SUPORTE,Este core não implementa save states.,This core does not implement save states.
+SAVES_SLOT,Slot %d,Slot %d
+SAVES_GRAVAR,Gravar,Save
+SAVES_APAGAR,Apagar,Delete
+SAVES_CONFIRMAR,Confirmar?,Confirm?
+SAVES_DESFAZER,Desfazer,Undo
+SAVES_VAZIO,vazio,empty
+SAVES_SEM_IMAGEM,sem imagem,no image
+CORES_AVISO,"Os cores são de terceiros e não vão no APK: cada um tem a sua licença, e é você quem escolhe trazê-lo. Baixados de buildbot.libretro.com.","Cores are third-party and are not bundled in the APK: each has its own license, and bringing one in is your choice. Downloaded from buildbot.libretro.com."
+CORES_FORA_DO_HEADSET,Fora do headset os cores vêm de res://cores — ver o README.,Outside the headset cores come from res://cores — see the README.
+CORES_BANNER_PERMISSAO,"Para baixar e usar cores é preciso liberar o acesso aos arquivos: eles ficam em /sdcard/QuestRetro/cores, fora do app. Toque em “Permitir acesso”, ache QuestRetro na lista de Ajustes e ligue a chave.","Downloading and using cores requires file access: they live in /sdcard/QuestRetro/cores, outside the app. Tap “Grant access”, find QuestRetro in the Settings list and turn the switch on."
+CORES_BAIXAR,Baixar,Download
+CORES_REMOVER,Remover,Remove
+CORES_PARAR,Parar,Stop
+CORES_NO_APARELHO,no aparelho,installed
+CORES_INICIANDO,iniciando…,starting…
+CORES_PROGRESSO_KB,%d KB,%d KB
+CORES_PROGRESSO_PCT,%d%%,%d%%
+CORES_UM_POR_VEZ,Um download por vez — espere o que está em curso.,One download at a time — wait for the current one.
+CORES_PRONTO,%s pronto. Já dá para abrir um jogo.,%s ready. You can open a game now.
+CORES_LICENCA_SNES,Licença Snes9x — veda uso comercial,Snes9x license — forbids commercial use
+CORES_LICENCA_N64,GPLv2 — mupen64plus-next,GPLv2 — mupen64plus-next
+CORES_LICENCA_MEGADRIVE,Licença própria — veda uso comercial,Custom license — forbids commercial use
+CORES_LICENCA_NDS,GPLv3 — melonDS,GPLv3 — melonDS
+CORES_LICENCA_OUTRA,licença do upstream,upstream license
+BAIXADOR_SEM_PERMISSAO,Sem permissão de armazenamento — conceda em ROMs → Permitir acesso,No storage permission — grant it in ROMs → Grant access
+BAIXADOR_SEM_INTERNET,"Sem internet, ou o buildbot da libretro fora do ar","No internet, or the libretro buildbot is down"
+BAIXADOR_TLS,Falha de TLS ao falar com o buildbot,TLS failure talking to the buildbot
+BAIXADOR_SEM_RESPOSTA,O servidor não respondeu a tempo,The server did not answer in time
+BAIXADOR_FALHA,Download falhou (resultado %d),Download failed (result %d)
+BAIXADOR_SEM_CORE_PARA,Não sei que core buscar para %s,I don't know which core to fetch for %s
+BAIXADOR_ZIP_INVALIDO,O arquivo baixado não é um zip válido,The downloaded file is not a valid zip
+BAIXADOR_ZIP_SEM_SO,O zip não traz %s dentro,The zip does not contain %s
+BAIXADOR_SO_VAZIO,%s veio vazio do zip,%s came out of the zip empty
+BAIXADOR_SEM_ESCRITA,Não consegui escrever em %s,Could not write to %s
+BAIXADOR_SEM_MOVER,Não consegui pôr o core em %s,Could not put the core in %s
+BAIXADOR_SERVIDOR,Servidor respondeu %d para %s,Server answered %d for %s
+BAIXADOR_CANCELADO,Cancelado,Canceled
+EMU_SEM_ROM_INFORMADA,Nenhuma ROM informada,No ROM given
+EMU_SEM_CORE_CARREGADO,Sem core carregado,No core loaded
+EMU_SEM_CORE_PARA,Sem core para %s,No core for %s
+EMU_FALTA_CORE,Falta o core %s,Missing core %s
+EMU_FALTA_CORE_EM,Falta %s em %s,Missing %s in %s
+EMU_FALHA_CARREGAR_ROM,Falha ao carregar a ROM: %s,Failed to load the ROM: %s
+EMU_FALHA_CARREGAR_CORE,Falha ao carregar o core: %s,Failed to load the core: %s
+XR_SEM_ROM_AJUDA,Sem ROM. Segure o botão de menu para escolher uma.,No ROM. Hold the menu button to pick one.
+TELA_PRE_PORTATIL,Portátil,Handheld
+TELA_PRE_TV,TV,TV
+TELA_PRE_CINEMA,Cinema,Cinema
+VIDEO_FILTRO_NITIDO,Nítido,Sharp
+VIDEO_FILTRO_SUAVE,Suave,Smooth
+VIDEO_ASPECTO_NATIVA,Nativa,Native
+SALA_VAZIO,Vazio,Empty
+SALA_FLIPERAMA,Fliperama,Arcade
+SALA_PASSTHROUGH,Passthrough,Passthrough
+SALA_VAZIO_DESC,"só a tela, o resto no escuro","just the screen, everything else dark"
+SALA_FLIPERAMA_DESC,um salão de arcade em volta,an arcade hall around you
+SALA_PASSTHROUGH_DESC,"o seu quarto, pelas câmeras do headset","your own room, through the headset cameras"

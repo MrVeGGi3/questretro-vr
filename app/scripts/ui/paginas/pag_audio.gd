@@ -7,13 +7,13 @@ var _emu: EmuCore
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
-	super("Áudio")
+	super("MENU_AUDIO")
 	_emu = emu
 
-	conteudo.add_child(WidgetsVR.campo("Volume", "",
+	conteudo.add_child(WidgetsVR.campo("AUDIO_VOLUME", "",
 			WidgetsVR.slider(cfg, "audio/volume", 0.0, 1.0, 0.01,
 					func(v: float) -> String: return "%d %%" % roundi(v * 100.0))))
-	conteudo.add_child(WidgetsVR.campo("Mudo", "",
+	conteudo.add_child(WidgetsVR.campo("AUDIO_MUDO", "",
 			WidgetsVR.interruptor(cfg, "audio/mudo")))
 
 	rodape_de_ajuste(cfg, "audio")
@@ -22,4 +22,4 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 
 func _atualizar_cabecalho() -> void:
-	caminho_lab.text = "%d Hz · bus %s" % [roundi(_emu.get_sample_rate()), EmuCore.BUS_AUDIO]
+	caminho_lab.text = tr("AUDIO_MEDIDAS") % [roundi(_emu.get_sample_rate()), EmuCore.BUS_AUDIO]

@@ -24,7 +24,13 @@ enum { VAZIO, FLIPERAMA, PASSTHROUGH }
 
 ## Nomes na ordem do enum. A página de Sala mostra esta lista, então acrescentar
 ## um modo aqui e no enum é o que basta para ele aparecer no menu.
-const NOMES := ["Vazio", "Fliperama", "Passthrough"]
+## Chaves de tradução: o `.text` do botão recebe a chave e o motor traduz.
+const NOMES := ["SALA_VAZIO", "SALA_FLIPERAMA", "SALA_PASSTHROUGH"]
+
+## Para o **log**, que não é traduzido: procurar por "Passthrough" no `logcat` é
+## como se diagnostica isto, e uma linha que mudasse de língua com o idioma da
+## interface tornaria toda instrução de diagnóstico dependente do aparelho.
+const NOMES_LOG := ["Vazio", "Fliperama", "Passthrough"]
 
 # --- Dimensões do salão -----------------------------------------------------
 # Saem do alcance da tela, e não do que pareceria um fliperama plausível: a tela
