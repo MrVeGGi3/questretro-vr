@@ -776,7 +776,7 @@ func _ler_input_vr(delta: float) -> void:
 	# core nenhum (o mapa de input cobre só ax/by, gatilhos e grips), e o do
 	# esquerdo já recentra o guidão — os dois cliques ficam simétricos, cada um
 	# recentrando uma coisa.
-	var clique_dir := _ctrl_aponta().is_button_pressed(&"primary_click")
+	var clique_dir := _ctrl_dir.is_button_pressed(&"primary_click")
 	if clique_dir and not _centrar_tela_antes:
 		_centrar_tela("Tela centralizada")
 	_centrar_tela_antes = clique_dir
@@ -791,10 +791,14 @@ func _ler_input_vr(delta: float) -> void:
 		# Redimensionar/reposicionar com o thumbstick direito. No N64 esse stick
 		# são os C-buttons, e o jogo ganha: a tela se ajusta pelos sliders da
 		# página Tela, que é para onde este atalho é um atalho.
-		_ajustar_tela_com_stick(_ctrl_aponta().get_vector2(&"primary"))
+		_ajustar_tela_com_stick(_ctrl_dir.get_vector2(&"primary"))
 
 
-## Controle que **aponta**: caneta do DS, laser do menu e ajustes de tela.
+## Controle que **aponta**: a caneta do DS e o laser do menu, que andam juntos.
+##
+## Botão de menu, D-pad, ajustes de tela e C-buttons ficam fixos de propósito —
+## são mapa de controle, território do `mapa_input`, remapeável por cartucho. A
+## linha que separa os dois grupos é simples: ponteiro segue a mão, botão não.
 ##
 ## Ser canhoto é propriedade da pessoa, não do jogo — por isso a chave mora em
 ## `app/` e não em `input/`, que é sobrescrito por perfil de cartucho.
@@ -802,22 +806,28 @@ func _ctrl_aponta() -> XRController3D:
 	return _ctrl_esq if int(_cfg.obter("app/mao_aponta")) == MAO_ESQUERDA else _ctrl_dir
 
 
-## O outro: botão de menu e o stick do D-pad. Apontar e abrir o menu com a mesma
-## mão é desconfortável, então eles espelham juntos.
-func _ctrl_outro() -> XRController3D:
-	return _ctrl_dir if int(_cfg.obter("app/mao_aponta")) == MAO_ESQUERDA else _ctrl_esq
-
-
-## Reparenta o que mora no controle. Chamado no arranque e a cada troca.
+## Reparenta os nós da caneta. Chamado no arranque e a cada troca.
 func _aplicar_mao() -> void:
 	if not _xr_ativo:
 		return
 	var aponta := _ctrl_aponta()
+	var movidos := 0
 	for no: Node3D in [_raio_ds, _laser_ds]:
 		if no != null and no.get_parent() != null and no.get_parent() != aponta:
 			no.reparent(aponta, false)
+			movidos += 1
+	# O laser do menu vai junto: é o que a descrição do seletor promete, e um
+	# ponteiro que aponta com uma mão no jogo e com a outra no menu é o atrito que
+	# a opção existe para remover.
 	if _painel != null:
 		_painel.trocar_controle(aponta)
+	# Sem esta linha, "a caneta não funciona" e "a caneta está na outra mão" são
+	# indistinguíveis dentro do headset, onde não há como inspecionar a árvore.
+	print("Caneta: mão %s (%d nós movidos, raio=%s)" % [
+		"esquerda" if aponta == _ctrl_esq else "direita",
+		movidos,
+		"ok" if _raio_ds != null else "ainda não existe",
+	])
 
 
 func _ajustar_tela_com_stick(rstick: Vector2) -> void:
@@ -908,7 +918,7 @@ func _esconder_caneta() -> void:
 func _input_dpad_digital() -> void:
 	# As quatro direções não passam por origem nenhuma: saem do analógico
 	# esquerdo, que não é remapeável.
-	var dpad := _dpad_do_stick(_ctrl_outro().get_vector2(&"primary"))
+	var dpad := _dpad_do_stick(_ctrl_esq.get_vector2(&"primary"))
 	_aplicar_mapa(_emu.sistema, {
 		LibretroHost.JOYPAD_LEFT: dpad.left,
 		LibretroHost.JOYPAD_RIGHT: dpad.right,
@@ -931,7 +941,7 @@ func _input_n64() -> void:
 	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_X, manche.x)
 	_emu.set_analog(0, LibretroHost.ANALOG_LEFT, LibretroHost.ANALOG_Y, manche.y)
 
-	var c := _ctrl_aponta().get_vector2(&"primary")
+	var c := _ctrl_dir.get_vector2(&"primary")
 	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_X, c.x)
 	_emu.set_analog(0, LibretroHost.ANALOG_RIGHT, LibretroHost.ANALOG_Y, -c.y)
 
@@ -983,12 +993,12 @@ func _origem_pressionada(origem: String) -> bool:
 func _manche_do_n64() -> Vector2:
 	if not _cfg.obter("input/n64_guidao"):
 		# O Y do thumbstick cresce para cima; o do libretro, para baixo.
-		var stick := _ctrl_outro().get_vector2(&"primary")
+		var stick := _ctrl_esq.get_vector2(&"primary")
 		return Vector2(stick.x, -stick.y)
 
 	# Clique do thumbstick esquerdo recentra. Em modo guidão ele está livre —
 	# era ele o manche —, então não disputa com nada do mapa do N64.
-	var clique := _ctrl_outro().is_button_pressed(&"primary_click")
+	var clique := _ctrl_esq.is_button_pressed(&"primary_click")
 	if clique and not _recentrar_antes:
 		_centrar_guidao("Guidão centralizado")
 	_recentrar_antes = clique
@@ -1039,7 +1049,7 @@ func _start_com_pulso(segurado: bool) -> bool:
 
 ## Toque curto no botão de menu = Start; segurar = abre/fecha o painel.
 func _ler_toggle_menu(delta: float) -> void:
-	var agora := _ctrl_outro().is_button_pressed(&"menu_button")
+	var agora := _ctrl_esq.is_button_pressed(&"menu_button")
 
 	if agora:
 		if not _menu_antes:

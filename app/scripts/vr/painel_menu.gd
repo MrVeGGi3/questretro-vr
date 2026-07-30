@@ -1,7 +1,13 @@
 class_name PainelMenu
 extends Node3D
 ## O menu como objeto no espaço: um SubViewport 2D desenhado num quad, apontado
-## com o laser do controle direito.
+## com o laser de um dos controles.
+##
+## Qual deles sai da preferência "Mão que aponta", a mesma da caneta do DS:
+## apontar é apontar, e exigir a outra mão só para o menu seria o atrito que
+## aquela opção existe para remover. O que **não** se move com ela é botão de
+## menu, D-pad e ajustes de tela — mapa de controle é território do `mapa_input`,
+## remapeável por cartucho.
 ##
 ## Reaproveitar Control/Theme do Godot num viewport custa muito menos que
 ## construir widgets 3D à mão, e o preço é este arquivo: traduzir o raycast em
@@ -74,9 +80,8 @@ func conectar_xr(camera: XRCamera3D, controle: XRController3D) -> void:
 
 ## Passa o laser para o outro controle, sem remontar nada.
 ##
-## Existe para o modo canhoto: os nós do ponteiro são filhos do controle, então
-## trocar de mão é reparentá-los. Reconstruí-los perderia o estado do arrasto em
-## curso e criaria lixo a cada troca.
+## Os nós do ponteiro são filhos do controle, então trocar de mão é reparentá-los.
+## Reconstruí-los perderia o arrasto em curso e criaria lixo a cada troca.
 func trocar_controle(controle: XRController3D) -> void:
 	if controle == null or controle == _controle:
 		return
