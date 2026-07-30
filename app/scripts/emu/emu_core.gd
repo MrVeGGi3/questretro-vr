@@ -42,8 +42,10 @@ const CORES := {
 		"android": "res://cores/mupen64plus_next_gles3_libretro_android.so",
 	},
 	# Um core para cartucho de Mega Drive e disco de Sega CD. O disco precisa da
-	# BIOS do Mega CD em `user://system` (`bios_CD_U.bin` e irmãos) — sem ela o
-	# core carrega e mostra tela preta, que é o formato mais confuso de falha.
+	# BIOS do Mega CD (`bios_CD_U.bin` e irmãos) — sem ela o core carrega e mostra
+	# tela preta, que é o formato mais confuso de falha. Onde ela vai depende da
+	# plataforma, e quem decide é `_apontar_diretorios()`: no Quest é
+	# `/sdcard/QuestRetro/system`, alcançável sem `adb`; no desktop, `user://system`.
 	"megadrive": {
 		"desktop": "res://cores/genesis_plus_gx_libretro.so",
 		"android": "res://cores/genesis_plus_gx_libretro_android.so",
@@ -370,6 +372,11 @@ func trocar_rom(rom_path: String) -> bool:
 
 
 func _carregar_core(core_path: String, sistema_novo: String) -> bool:
+	# **Antes** do load_core, e não é ordem à toa: o core pergunta os diretórios
+	# de sistema e de save de dentro do próprio retro_set_environment, que roda
+	# durante a carga. Depois dela, ninguém pergunta de novo.
+	_apontar_diretorios()
+
 	# No Android o core vive dentro do APK (res:// virtual) e o dlopen não
 	# consegue abri-lo; então preparamos uma cópia num caminho real (user://).
 	var core_real := _preparar_core(core_path)
@@ -384,6 +391,29 @@ func _carregar_core(core_path: String, sistema_novo: String) -> bool:
 		_host.set_option("mupen64plus-rdp-plugin", rdp_do_n64())
 	_aplicar_opcoes_do_arquivo(sistema_novo)
 	return true
+
+
+## Aponta o core para as pastas de BIOS e de save que **a pessoa alcança**.
+##
+## O padrão do host é `user://`, que no desktop resolve e num APK release não:
+## `user://` lá é a pasta interna do app, alcançável só por `run-as`, que existe
+## apenas em build de debug. Ou seja, sem isto o Sega CD é injogável para quem
+## instala o APK — o core procura a BIOS num lugar onde a pessoa não tem como pôr
+## nada, e falha com "tela preta", que é o formato mais confuso de erro.
+##
+## Fora do Android, `Armazenamento` devolve "" e ficamos com o padrão do host.
+##
+## **O `save_dir` fica onde está, e é decisão, não esquecimento.** A BIOS precisa
+## mudar porque é a *pessoa* que põe o arquivo lá; os saves quem escreve é o app,
+## que alcança o `user://` sem ajuda de ninguém. Movê-los orfanaria a bateria de
+## quem já jogou, em troca de nada que ela tenha pedido. O setter existe no host
+## para quando houver um motivo (exportar saves sem `adb` seria um), e este não é.
+func _apontar_diretorios() -> void:
+	var sis := Armazenamento.sistema()
+	if sis.is_empty():
+		return
+	Armazenamento.garantir()
+	_host.set_system_dir(sis)
 
 
 ## Sobrescritas do `opcoes_core.cfg` em vigor (ver `arquivo_opcoes()`), se houver.

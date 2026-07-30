@@ -207,9 +207,14 @@ static func garantir_pasta_local() -> void:
 	# A externa some quando o app é desinstalado, então recriamos sempre.
 	if precisa_permissao() and not DirAccess.dir_exists_absolute(pasta_externa()):
 		DirAccess.make_dir_recursive_absolute(pasta_externa())
-	# A pasta dos cores do usuário, que ao contrário das duas de cima é alcançável
-	# de fora do headset. Depende da permissão, então falha calada aqui e passa a
-	# funcionar assim que a pessoa a concede — ver `Armazenamento.garantir()`.
+	# As pastas do usuário — cores e BIOS —, que ao contrário das duas de cima são
+	# alcançáveis de fora do headset. Depende da permissão, então falha calada
+	# aqui e passa a funcionar assim que a pessoa a concede — ver
+	# `Armazenamento.garantir()`.
+	#
+	# No arranque, e não na primeira carga de core: pasta que existe é descobrível,
+	# e quem for procurar onde pôr a BIOS tem de achá-la antes de conseguir abrir
+	# um jogo, não depois.
 	Armazenamento.garantir()
 
 

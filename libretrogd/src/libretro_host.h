@@ -143,6 +143,18 @@ public:
 	// Array de Dictionary: port, device, index, id, desc.
 	Array get_input_descriptors() const;
 
+	// Onde o core procura BIOS/firmware e onde grava saves. O padrão é `user://`,
+	// que num APK release **não é alcançável por ninguém** — só por `run-as`, que
+	// existe apenas em build de debug. Quem instala o APK precisa apontar isto
+	// para uma pasta que ele consiga abrir; ver `Armazenamento` no GDScript.
+	//
+	// Tem de valer **antes** do load_core(): é durante o retro_set_environment
+	// dele que o core pergunta os dois caminhos.
+	void set_system_dir(const String &p_path) { system_dir = p_path; }
+	String get_system_dir() const { return system_dir; }
+	void set_save_dir(const String &p_path) { save_dir = p_path; }
+	String get_save_dir() const { return save_dir; }
+
 	bool is_core_loaded() const { return core_loaded; }
 	bool is_game_loaded() const { return game_loaded; }
 
@@ -273,6 +285,20 @@ private:
 	// diretórios de sistema/save entregues ao core
 	String system_dir;
 	String save_dir;
+
+	// Buffers dos dois caminhos acima, em UTF-8, para as respostas de
+	// GET_SYSTEM_DIRECTORY e GET_SAVE_DIRECTORY.
+	//
+	// **São membros, e isso não é detalhe.** O core recebe um `const char *` que
+	// precisa continuar válido depois que `_on_environment` retorna, então o
+	// buffer não pode ser local. A versão anterior resolvia com `static` dentro
+	// da função — o que congela o caminho na **primeira** chamada de todo o
+	// processo e o compartilha entre todas as instâncias de LibretroHost. Um
+	// `set_system_dir` posterior, ou um segundo host, não teria efeito nenhum: o
+	// core receberia o caminho do primeiro. O sintoma seria "BIOS não
+	// encontrada" com o arquivo exatamente onde deveria estar.
+	CharString system_dir_utf8;
+	CharString save_dir_utf8;
 };
 
 } // namespace godot

@@ -24,7 +24,7 @@ const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 97
+const CONFERENCIAS_MIN := 102
 
 var _falhas := 0
 var _feitas := 0
@@ -64,6 +64,7 @@ func _ready() -> void:
 	await _testar_biblioteca(cfg, emu)
 	_testar_sistemas_completos()
 	_testar_primeira_carga_pelo_menu()
+	_testar_diretorio_de_sistema()
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -914,6 +915,44 @@ func _testar_primeira_carga_pelo_menu() -> void:
 					% ("nada" if msgs.is_empty() else msgs[0]))
 
 	emu.queue_free()
+
+
+## Regressão: cada host tem o **seu** diretório de sistema, e o setter vale.
+##
+## Antes, o caminho entregue ao core saía de um `static` dentro de
+## `_on_environment` — congelado na primeira chamada do processo e compartilhado
+## por todas as instâncias. Um `set_system_dir` posterior não tinha efeito
+## nenhum, e o sintoma no headset seria "BIOS não encontrada" com o arquivo
+## exatamente onde deveria estar. Medido antes da correção: dois hosts apontados
+## para pastas diferentes recebiam **os dois** a primeira.
+##
+## Aqui se confere o que dá para conferir sem carregar core: que o valor é por
+## instância e sobrevive ao setter. Que ele chega ao core é o que a linha
+## "libretrogd: BIOS/firmware em ..." mostra no log a cada carga.
+func _testar_diretorio_de_sistema() -> void:
+	var h1 := LibretroHost.new()
+	var h2 := LibretroHost.new()
+
+	_conferir(not String(h1.get_system_dir()).is_empty(),
+			"host novo já vem com um diretório de sistema (%s)" % h1.get_system_dir())
+
+	h1.set_system_dir("/tmp/qr_sys_um")
+	h2.set_system_dir("/tmp/qr_sys_dois")
+	_conferir(String(h1.get_system_dir()) == "/tmp/qr_sys_um",
+			"set_system_dir vale no host 1")
+	_conferir(String(h2.get_system_dir()) == "/tmp/qr_sys_dois",
+			"e o host 2 não herda o do host 1 (deu «%s»)" % h2.get_system_dir())
+
+	# `Armazenamento` decide o caminho por plataforma: fora do Android devolve ""
+	# e o padrão `user://` do host permanece, que no desktop é alcançável.
+	var esperado_android := "/sdcard/QuestRetro/system"
+	_conferir(Armazenamento.BASE.path_join(Armazenamento.SUB_SYSTEM) == esperado_android,
+			"a pasta de BIOS do Quest é %s" % esperado_android)
+	# Comparar as constantes, e não `sistema()`/`cores()`: fora do Android as duas
+	# devolvem "" e seriam iguais — o que reprovaria no desktop uma coisa que está
+	# certa. O que importa aqui é que as subpastas sejam distintas.
+	_conferir(Armazenamento.SUB_SYSTEM != Armazenamento.SUB_CORES,
+			"BIOS e cores não caem na mesma subpasta")
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

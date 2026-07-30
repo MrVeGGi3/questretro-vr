@@ -24,6 +24,11 @@ extends RefCounted
 ## liga o headset no PC. Fica ao lado de `Download` e `ROMs`, não escondido.
 const BASE := "/sdcard/QuestRetro"
 const SUB_CORES := "cores"
+## BIOS e firmware que o core procura. O nome é `system` porque é assim que a
+## própria libretro chama (`GET_SYSTEM_DIRECTORY`), e é o nome que qualquer
+## instrução de emulação na internet vai usar — inventar um diferente só faria a
+## pessoa procurar no lugar errado.
+const SUB_SYSTEM := "system"
 const NOME_OPCOES := "opcoes_core.cfg"
 
 ## Também procuramos aqui: é onde o navegador do headset baixa, e é razoável que
@@ -43,6 +48,12 @@ static func cores() -> String:
 	return BASE.path_join(SUB_CORES) if ativo() else ""
 
 
+## Pasta de BIOS/firmware. "" fora do Android, e aí quem chama fica no
+## `user://system` do motor — que no desktop é alcançável e resolve.
+static func sistema() -> String:
+	return BASE.path_join(SUB_SYSTEM) if ativo() else ""
+
+
 ## Cria as pastas para elas **aparecerem** quando a pessoa ligar o USB: pasta que
 ## existe é descobrível, caminho escrito no README não é.
 ##
@@ -50,13 +61,18 @@ static func cores() -> String:
 ## explica a permissão é o banner da página de ROMs; um `push_error` no arranque
 ## poluiria o log de todo mundo que ainda não passou pelos Ajustes, e o arranque é
 ## justamente onde ninguém pediu nada ainda.
+## Cria **as duas** de uma vez, e de propósito: a pessoa liga o USB uma vez só, e
+## uma pasta que só aparece depois de ela já ter procurado não serve de dica.
 static func garantir() -> bool:
 	if not ativo():
 		return false
-	var alvo := cores()
-	if DirAccess.dir_exists_absolute(alvo):
-		return true
-	return DirAccess.make_dir_recursive_absolute(alvo) == OK
+	var ok := true
+	for alvo in [cores(), sistema()]:
+		if DirAccess.dir_exists_absolute(alvo):
+			continue
+		if DirAccess.make_dir_recursive_absolute(alvo) != OK:
+			ok = false
+	return ok
 
 
 ## Sobrescrita de opções na pasta do usuário, se ela existir. "" quando não há —

@@ -134,9 +134,30 @@ unzip -o '*.so.zip' && rm -f *.so.zip
 O DS **não** precisa de BIOS: o melonDS traz FreeBIOS e gera a firmware, e os
 jogos arrancam sem `bios7`/`bios9`/`firmware` no disco.
 
-O Sega CD precisa da BIOS do Mega CD em `user://system/`, com os nomes que o
-core procura — `bios_CD_U.bin`, `bios_CD_E.bin`, `bios_CD_J.bin`. Sem ela o
-disco não abre.
+O Sega CD precisa da BIOS do Mega CD, com os nomes que o core procura —
+`bios_CD_U.bin`, `bios_CD_E.bin`, `bios_CD_J.bin`. Sem ela o disco não abre, e o
+sintoma é tela preta em vez de erro.
+
+Onde ela vai depende de onde você está jogando, pela mesma razão dos cores:
+
+| Quem | Onde põe a BIOS |
+|---|---|
+| desenvolvendo no desktop | `user://system/` |
+| jogando no Quest | `/sdcard/QuestRetro/system/` — a pasta aparece sozinha, ao lado de `cores/` |
+
+**No Quest não é `user://`, e não é preferência.** Lá o `user://` é a pasta
+interna do app, alcançável só por `run-as` — que existe apenas em build de debug.
+Num APK release não há como pôr arquivo nenhum ali, nem com o headset ligado no
+PC: seria pedir à pessoa exatamente aquilo que ela não tem como fazer.
+
+A pasta que o core está de fato enxergando aparece no log a cada carga:
+
+```
+libretrogd: BIOS/firmware em /sdcard/QuestRetro/system
+```
+
+Essa linha existe porque "BIOS não encontrada" e "procurei no lugar errado" são
+indistinguíveis sem ela — e dentro do headset não há como listar a pasta.
 
 O core sai da extensão da ROM (`EmuCore.core_para_rom`): `.smc/.sfc/.fig/.swc/.zip`
 vão para o snes9x, `.z64/.n64/.v64` para o mupen64plus,

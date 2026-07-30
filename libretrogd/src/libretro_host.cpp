@@ -88,6 +88,13 @@ static void cb_log(enum retro_log_level level, const char *fmt, ...) {
 // LibretroHost
 // ---------------------------------------------------------------------------
 void LibretroHost::_bind_methods() {
+	// Antes de load_core na lista porque é antes dele no uso: o core pergunta os
+	// diretórios durante o próprio retro_set_environment.
+	ClassDB::bind_method(D_METHOD("set_system_dir", "path"), &LibretroHost::set_system_dir);
+	ClassDB::bind_method(D_METHOD("get_system_dir"), &LibretroHost::get_system_dir);
+	ClassDB::bind_method(D_METHOD("set_save_dir", "path"), &LibretroHost::set_save_dir);
+	ClassDB::bind_method(D_METHOD("get_save_dir"), &LibretroHost::get_save_dir);
+
 	ClassDB::bind_method(D_METHOD("load_core", "path"), &LibretroHost::load_core);
 	ClassDB::bind_method(D_METHOD("load_rom", "path"), &LibretroHost::load_rom);
 	ClassDB::bind_method(D_METHOD("unload_rom"), &LibretroHost::unload_rom);
@@ -1021,14 +1028,21 @@ bool LibretroHost::_on_environment(unsigned cmd, void *data) {
 			*reinterpret_cast<bool *>(data) = true;
 			return true;
 		}
+		// Os buffers são membros (ver o comentário deles no cabeçalho): o ponteiro
+		// entregue ao core sobrevive ao retorno desta função, e recalcular a cada
+		// chamada é o que faz `set_system_dir` valer.
 		case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
-			static CharString sd = globalize(system_dir).utf8();
-			*reinterpret_cast<const char **>(data) = sd.get_data();
+			system_dir_utf8 = globalize(system_dir).utf8();
+			*reinterpret_cast<const char **>(data) = system_dir_utf8.get_data();
+			// Imprime porque "BIOS não encontrada" é indistinguível de "procurei
+			// no lugar errado" sem esta linha — e no headset não há como listar a
+			// pasta que o core enxergou. É uma linha por carga de core.
+			UtilityFunctions::print(String("libretrogd: BIOS/firmware em ") + String(system_dir_utf8.get_data()));
 			return true;
 		}
 		case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
-			static CharString sv = globalize(save_dir).utf8();
-			*reinterpret_cast<const char **>(data) = sv.get_data();
+			save_dir_utf8 = globalize(save_dir).utf8();
+			*reinterpret_cast<const char **>(data) = save_dir_utf8.get_data();
 			return true;
 		}
 		case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
