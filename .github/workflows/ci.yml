@@ -98,7 +98,13 @@ jobs:
 
           echo "ok: app/bin/$esperado, referenciado pelo .gdextension"
 
+      # O `.so` sobe como artefato por conveniência, e **não** como dependência de
+      # ninguém: `continue-on-error` porque a cota de artefato é da conta inteira,
+      # e já barrou uma execução em que os quatro builds tinham passado. Guardar o
+      # binário é comodidade; provar que ele compila é o teste, e esse já
+      # aconteceu no passo anterior.
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: libretrogd-${{ matrix.plataforma }}-${{ matrix.alvo }}
           path: app/bin/*.so
@@ -107,23 +113,30 @@ jobs:
   testes:
     name: testes sem headset
     runs-on: ubuntu-latest
-    # Só o template_debug: o motor de editor resolve a tag `editor`, que o
-    # `.gdextension` aponta para o binário de debug. O de release é compilado
-    # acima para provar que compila, e não é preciso aqui.
-    needs: extensao
-    # `always()` porque o GitHub não deixa depender de uma perna só da matriz: sem
-    # isto, um build de Android quebrado esconderia o resultado dos testes, que
-    # não têm nada com Android. Se a perna linux/template_debug for justamente a
-    # que caiu, o download do artefato falha aqui — que é o certo.
-    if: always()
+    # Sem `needs`: este job compila o seu próprio `template_debug` em vez de
+    # baixar o da matriz. Custa uma compilação repetida e paga com duas coisas —
+    # roda **em paralelo** com a matriz em vez de esperar por ela, e não depende
+    # de cota de artefato, que é da conta e não do repositório.
+    #
+    # Só o `template_debug`: o motor de editor resolve a tag `editor`, que o
+    # `.gdextension` aponta para o binário de debug. O `template_release` é
+    # compilado na matriz para provar que compila, e não é preciso aqui.
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: libretrogd-linux-template_debug
-          path: app/bin
+      - name: Clonar godot-cpp
+        run: |
+          git clone --depth 1 --branch "$GODOT_CPP_BRANCH" \
+            https://github.com/godotengine/godot-cpp.git libretrogd/godot-cpp
+
+      - name: Compilar a extensão (template_debug)
+        run: |
+          cmake -S libretrogd -B libretrogd/build-linux-template_debug \
+            -DGODOTCPP_TARGET=template_debug \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build libretrogd/build-linux-template_debug -j"$(nproc)"
+          test -f app/bin/libretrogd.linux.template_debug.x86_64.so
 
       - name: Instalar Godot e xvfb
         run: |
@@ -170,6 +183,7 @@ jobs:
 
       - name: Guardar as capturas
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: capturas-do-menu
