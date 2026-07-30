@@ -46,6 +46,9 @@ O app fala **português e inglês**, e abre na língua do headset sem ninguém p
 Para trocar à mão: aba **Tela**, primeira linha, "Idioma / Language". A troca vale
 na hora, sem reiniciar.
 
+**Canhoto?** Aba **Input**, primeira linha, "Mão que aponta". Move a caneta do DS e
+o laser do menu para a esquerda, também na hora (ver "Canhotos" mais abaixo).
+
 ### Acrescentar um idioma
 
 Uma coluna a mais em [`app/traducoes/ui.csv`](app/traducoes/ui.csv) e uma entrada em
@@ -287,6 +290,31 @@ de 6 botões vão para a esquerda.
 
 O **Nintendo DS** tem seção própria mais abaixo, porque a tela de baixo é caneta
 e isso muda o mapa: o gatilho direito nasce em "Nada" por ser a ponta da caneta.
+
+### Canhotos: a mão que aponta
+
+Primeira linha da página **Input**: "Mão que aponta — Direita / Esquerda". Move
+**a caneta do DS e o laser do menu** para a mão escolhida, e vale na hora.
+
+A regra do que se move é curta: **ponteiro segue a mão, botão não.** Botão de
+menu, D-pad, manche e recentrar do N64, C-buttons e os ajustes de tela ficam onde
+estão — são mapa de controle, e mapa de controle já é remapeável por cartucho na
+mesma página. Espelhar os dois criaria dois lugares para consertar a mesma coisa.
+
+O **guidão de nave** do N64 também não espelha, e por um motivo diferente: ele usa
+as duas mãos ao mesmo tempo e o sentido do rolamento vem da diferença entre elas.
+Trocá-las faria a nave virar ao contrário. Um volante é simétrico — quem o segura
+não tem "mão que aponta".
+
+A preferência fica em `app/`, e **não** em `input/`: ser canhoto é propriedade da
+pessoa, não do cartucho, então nenhum perfil de jogo a sobrescreve.
+
+O log registra cada troca, porque dentro do headset não há como inspecionar a
+árvore de nós:
+
+```
+Caneta: mão esquerda (2 nós movidos, raio=ok)
+```
 
 ### Trazer a tela para a frente
 
