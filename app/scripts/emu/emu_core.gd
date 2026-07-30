@@ -325,9 +325,15 @@ const RECARREGA_SEMPRE := ["n64"]
 ## troca de core quando a ROM é de outro sistema (ou quando o core não suporta
 ## uma segunda carga; ver RECARREGA_SEMPRE).
 func trocar_rom(rom_path: String) -> bool:
+	# Sem host não há o que trocar: isto é a **primeira** carga, e a primeira
+	# carga é `iniciar`. Não é caso de borda — é o caminho normal de quem instala
+	# o APK. Desde que o pacote deixou de embarcar a ROM demo, `ROM_PADRAO` é ""
+	# e o `iniciar` do arranque sai em "Nenhuma ROM informada" **antes** de criar
+	# `_host`; daí em diante toda ROM escolhida no menu cai aqui. Sem esta
+	# delegação o app responde "Sem core carregado" para sempre e não abre jogo
+	# nenhum, com o core no lugar certo e a mensagem culpando o core.
 	if _host == null:
-		falhou.emit("Sem core carregado")
-		return false
+		return iniciar("", rom_path)
 
 	var core_novo := core_para_rom(rom_path)
 	if core_novo.is_empty():

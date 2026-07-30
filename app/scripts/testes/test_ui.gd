@@ -24,7 +24,7 @@ const PAGINAS := ["ROMs", "Tela", "Sala", "Vídeo", "Áudio", "Input", "Saves"]
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 95
+const CONFERENCIAS_MIN := 97
 
 var _falhas := 0
 var _feitas := 0
@@ -63,6 +63,7 @@ func _ready() -> void:
 	await _testar_remap(cfg, emu)
 	await _testar_biblioteca(cfg, emu)
 	_testar_sistemas_completos()
+	_testar_primeira_carga_pelo_menu()
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -882,6 +883,37 @@ func _conferir_rodape_visivel(menu: MenuRaiz, pagina: String) -> void:
 	_conferir(fim <= float(TemaVR.PAINEL.y),
 			"o rodapé de %s termina dentro do painel (%d de %d)" % [
 				pagina, int(fim), TemaVR.PAINEL.y])
+
+
+## Regressão: escolher uma ROM no menu, sem sessão aberta, tem de virar primeira
+## carga em vez de morrer em "Sem core carregado".
+##
+## Quando o APK deixou de embarcar a ROM demo, `ROM_PADRAO` virou "" e o
+## `iniciar` do arranque passou a sair em "Nenhuma ROM informada" **antes** de
+## criar `_host`. Como toda ROM escolhida no menu vai para `trocar_rom`, o app
+## respondia "Sem core carregado" para sempre e não abria jogo nenhum — com o
+## core no lugar certo, e a mensagem culpando o core. Passou batido em tudo o que
+## roda sem headset, e só apareceu no Quest.
+##
+## Não precisa de ROM nem de core: o que se confere é **qual** falha acontece, e
+## por isso o teste vale igual na CI (sem core no disco) e nesta máquina (com).
+func _testar_primeira_carga_pelo_menu() -> void:
+	var emu := EmuCore.new()
+	add_child(emu)
+	var msgs: Array[String] = []
+	emu.falhou.connect(func(m: String) -> void: msgs.append(m))
+
+	# Caminho que não existe de propósito: a carga vai falhar de todo jeito, e é
+	# o *motivo* da falha que está sob teste.
+	emu.trocar_rom("/nao/existe/jogo.sfc")
+
+	_conferir(not msgs.is_empty(), "trocar_rom sem sessão reporta alguma falha")
+	_conferir(not msgs.has("Sem core carregado"),
+			"trocar_rom sem sessão delega para iniciar em vez de parar em "
+					+ "«Sem core carregado» (deu «%s»)"
+					% ("nada" if msgs.is_empty() else msgs[0]))
+
+	emu.queue_free()
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

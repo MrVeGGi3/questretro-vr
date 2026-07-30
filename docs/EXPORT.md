@@ -121,6 +121,29 @@ export ANDROID_HOME=~/Android/Sdk ANDROID_SDK_ROOT=~/Android/Sdk
 godot --headless --path app --export-debug "Quest (Meta)" "$PWD/dist/questretro-vr.apk"
 ```
 
+### O release em `--headless` precisa do keystore por variável
+
+`--export-release` falha com *"O keystore de lançamento não foi encontrado"* se rodado
+como acima. Não é preset faltando: em `--headless` o Godot **não instancia as
+EditorSettings**, e é lá que o keystore de debug está configurado. Pelo editor funciona
+e pela linha de comando não, com a mesma árvore.
+
+```bash
+export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/.local/share/godot/keystores/debug.keystore"
+export GODOT_ANDROID_KEYSTORE_RELEASE_USER="androiddebugkey"
+export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="android"
+godot --headless --path app --export-release "Quest (Meta)" "$PWD/dist/questretro-vr-release.apk"
+```
+
+**É a keystore do Godot, não a do Android SDK.** A de `~/.android/debug.keystore`
+existe, o export com ela termina em sucesso, e o APK resultante é **recusado na
+instalação** — `INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match`. O erro só
+aparece no `adb install`, um export inteiro depois. A que o editor usa está em
+`export/android/debug_keystore` no `~/.config/godot/editor_settings-4.*.tres`.
+
+Sem assinar com a mesma chave do que já está instalado, a saída seria desinstalar — o
+que apaga o `user://` inteiro, isto é, saves, save states e configurações.
+
 O preset `Quest (Meta)` (em `app/export_presets.cfg`) já traz:
 `gradle_build=true`, `arm64-v8a`, `xr_mode=1`, `enable_meta_plugin=true`,
 suporte a Quest 2/3/Pro, `min_sdk=24`, `target_sdk=32`.
