@@ -72,10 +72,23 @@ Pré-requisitos: `cmake`, `g++`, e o `godot-cpp` clonado.
 ```bash
 cd libretrogd
 git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git   # se ainda não tiver
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j"$(nproc)"
-# gera: app/bin/libretrogd.linux.x86_64.so
+for T in template_debug template_release; do
+  cmake -S . -B build-linux-$T -DGODOTCPP_TARGET=$T -DCMAKE_BUILD_TYPE=Release
+  cmake --build build-linux-$T -j"$(nproc)"
+done
+# gera: app/bin/libretrogd.linux.template_{debug,release}.x86_64.so
 ```
+
+**`GODOTCPP_TARGET` não é opcional, e `CMAKE_BUILD_TYPE` não substitui.** O
+primeiro escolhe a variante da API do godot-cpp; o segundo só liga otimização. O
+padrão do `GODOTCPP_TARGET` é `template_debug`, então quem passa apenas
+`-DCMAKE_BUILD_TYPE=Release` leva um binário de *debug* — que funciona no editor e
+no APK debug, e mata o app no arranque do release, com SIGSEGV dentro do motor e
+nenhum quadro da extensão no backtrace. Já aconteceu aqui, e `docs/EXPORT.md`
+traz o rastro inteiro em "Por que dois alvos da extensão, e não um".
+
+Para rodar os testes basta o `template_debug` (é o que a tag `editor` do
+`.gdextension` aponta); o `template_release` é o que o APK de release carrega.
 
 ## Baixar os cores
 

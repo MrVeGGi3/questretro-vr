@@ -1,0 +1,177 @@
+# CI: o que se prova sem o headset.
+#
+# O projeto é de VR, então a maior parte do valor só aparece no Quest 3S — mas
+# três coisas não precisam dele e são justamente as que já quebraram: a extensão
+# que não compila, o nome do binário que não bate com o `.gdextension`, e a
+# lógica de biblioteca/menu que regride em silêncio.
+#
+# O que deliberadamente **não** está aqui: `test_troca_rom`, `test_sram` e
+# `test_estado` dependem de ROMs, que não são versionadas e nem poderiam ser; e
+# nada que meça fps, porque medição fora do headset vestido não vale (o número
+# sai, e mente).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # O motor usado no desenvolvimento. A extensão é forward-compatible
+  # (`compatibility_minimum = 4.5`), então buildar contra godot-cpp 4.5 e rodar
+  # num motor mais novo é o arranjo pretendido, não um acidente.
+  GODOT_VERSION: "4.6.3"
+  GODOT_CPP_BRANCH: "4.5"
+  ANDROID_API: "29"
+
+jobs:
+  extensao:
+    name: extensão ${{ matrix.plataforma }} / ${{ matrix.alvo }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Sem fail-fast: quando o alvo release quebra e o debug não, ver os dois
+      # resultados lado a lado é metade do diagnóstico.
+      fail-fast: false
+      matrix:
+        plataforma: [linux, android]
+        alvo: [template_debug, template_release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Não é submódulo de propósito (ver `.gitignore`), então a CI clona como o
+      # README manda.
+      - name: Clonar godot-cpp
+        run: |
+          git clone --depth 1 --branch "$GODOT_CPP_BRANCH" \
+            https://github.com/godotengine/godot-cpp.git libretrogd/godot-cpp
+
+      - name: Configurar (linux)
+        if: matrix.plataforma == 'linux'
+        run: |
+          cmake -S libretrogd -B "libretrogd/build-linux-${{ matrix.alvo }}" \
+            -DGODOTCPP_TARGET=${{ matrix.alvo }} \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # `ANDROID_NDK_ROOT` já vem no runner do GitHub.
+      - name: Configurar (android)
+        if: matrix.plataforma == 'android'
+        run: |
+          cmake -S libretrogd -B "libretrogd/build-android-${{ matrix.alvo }}" \
+            -DGODOTCPP_TARGET=${{ matrix.alvo }} \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM="android-$ANDROID_API" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar
+        run: cmake --build "libretrogd/build-${{ matrix.plataforma }}-${{ matrix.alvo }}" -j"$(nproc)"
+
+      # O passo que existe por causa de um bug real. Uma extensão compilada
+      # contra `template_debug` e carregada por um motor `template_release` passa
+      # pelo `dlopen` sem erro e mata o processo depois — SIGSEGV dentro do motor,
+      # sem um único quadro da extensão no backtrace (ver docs/EXPORT.md).
+      #
+      # O que protege contra isso é o alvo estar no **nome** do arquivo, e o
+      # `.gdextension` escolher por ele. Então a CI confere que o nome saiu como o
+      # `.gdextension` espera, em vez de confiar que saiu.
+      - name: Conferir o nome contra o .gdextension
+        run: |
+          case "${{ matrix.plataforma }}" in
+            linux)   esperado="libretrogd.linux.${{ matrix.alvo }}.x86_64.so" ;;
+            android) esperado="libretrogd.android.${{ matrix.alvo }}.arm64.so" ;;
+          esac
+
+          if [ ! -f "app/bin/$esperado" ]; then
+            echo "::error::esperava app/bin/$esperado, e ele não existe"
+            echo "o que o build produziu:"
+            ls -1 app/bin/ || echo "  (app/bin/ nem existe)"
+            exit 1
+          fi
+
+          if ! grep -qF "res://bin/$esperado" app/libretrogd.gdextension; then
+            echo "::error::$esperado não é referenciado por app/libretrogd.gdextension"
+            echo "o binário existe mas nenhum tipo de build vai carregá-lo."
+            exit 1
+          fi
+
+          echo "ok: app/bin/$esperado, referenciado pelo .gdextension"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libretrogd-${{ matrix.plataforma }}-${{ matrix.alvo }}
+          path: app/bin/*.so
+          if-no-files-found: error
+
+  testes:
+    name: testes sem headset
+    runs-on: ubuntu-latest
+    # Só o template_debug: o motor de editor resolve a tag `editor`, que o
+    # `.gdextension` aponta para o binário de debug. O de release é compilado
+    # acima para provar que compila, e não é preciso aqui.
+    needs: extensao
+    # `always()` porque o GitHub não deixa depender de uma perna só da matriz: sem
+    # isto, um build de Android quebrado esconderia o resultado dos testes, que
+    # não têm nada com Android. Se a perna linux/template_debug for justamente a
+    # que caiu, o download do artefato falha aqui — que é o certo.
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: libretrogd-linux-template_debug
+          path: app/bin
+
+      - name: Instalar Godot e xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb
+          curl -fsSLO "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          sudo install -m755 "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          godot --version
+
+      # Passo obrigatório, e o mais fácil de esquecer. Num checkout limpo não
+      # existe `app/.godot/` (é gitignored), e mandar o Godot abrir uma cena antes
+      # de importar **trava sem imprimir nada** — parece job pendurado, e o job
+      # morre no timeout sem uma linha de erro. Medido num clone limpo antes de
+      # este arquivo existir.
+      - name: Importar recursos
+        run: godot --headless --xr-mode off --path app --import
+
+      # Lógica de arquivo e de texto, sem uma linha de XR ou de UI. O que este
+      # teste pega e nenhum PNG pegaria: varredura que perde estado ao ceder o
+      # frame, que no headset apareceria como jogo faltando na lista, sem erro no
+      # log.
+      - name: Biblioteca (headless)
+        run: godot --headless --xr-mode off --path app res://cenas/test_biblioteca.tscn
+
+      # `--xr-mode off` é obrigatório aqui e acima: o projeto liga OpenXR, e sem
+      # runtime ativo o Godot trava no arranque sob Xvfb, sem imprimir nada.
+      # Parece travamento do teste; é do motor.
+      - name: Menu e páginas (xvfb)
+        run: xvfb-run -a godot --xr-mode off --path app res://cenas/test_ui.tscn
+
+      # As páginas viram PNG em `user://`. Quando um teste de UI cai, olhar a tela
+      # é mais rápido do que ler o log.
+      #
+      # A cópia existe porque o `upload-artifact` **não expande `~`**: apontar
+      # direto para `~/.local/share/...` subiria um artefato vazio sem falhar, que
+      # é o pior dos dois mundos.
+      - name: Reunir as capturas
+        if: always()
+        run: |
+          mkdir -p capturas
+          cp "$HOME/.local/share/godot/app_userdata/QuestRetro"/ui_*.png capturas/ || true
+          ls -1 capturas/
+
+      - name: Guardar as capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-do-menu
+          path: capturas/
+          if-no-files-found: warn
