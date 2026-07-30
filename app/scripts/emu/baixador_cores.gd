@@ -97,8 +97,16 @@ func baixar(sistema: String) -> bool:
 	if nome.is_empty() or destino.is_empty():
 		falhou.emit(sistema, "Não sei que core buscar para " + sistema)
 		return false
-	if not Armazenamento.garantir():
-		falhou.emit(sistema, "Sem permissão para gravar em " + destino)
+	# `garantir()` não basta como teste de permissão: ele sai satisfeito quando a
+	# pasta **já existe**, e ela sobrevive à desinstalação do app por morar em
+	# `/sdcard`. Depois de reinstalar, a permissão volta a zero e a pasta continua
+	# lá — então a checagem passava e a falha só aparecia lá na frente, como
+	# `RESULT_DOWNLOAD_FILE_CANT_OPEN`, que a UI mostrava como "resultado 10".
+	# Medido no Quest 3S, e o único jeito de saber se dá para escrever é escrever.
+	Armazenamento.garantir()
+	if not _da_para_gravar(destino):
+		falhou.emit(sistema, "Sem permissão de armazenamento — conceda em ROMs → "
+				+ "Permitir acesso")
 		return false
 
 	_sistema = sistema
@@ -140,7 +148,7 @@ func _ao_terminar(resultado: int, codigo: int, _headers: PackedStringArray,
 
 	if resultado != HTTPRequest.RESULT_SUCCESS:
 		_apagar(zip)
-		falhou.emit(sis, "Download falhou (resultado %d)" % resultado)
+		falhou.emit(sis, _explicar(resultado))
 		return
 	if codigo != 200:
 		_apagar(zip)
@@ -243,6 +251,39 @@ static func _tamanho(caminho: String) -> int:
 	var n := f.get_length()
 	f.close()
 	return int(n)
+
+
+## Só se sabe se dá para gravar gravando: no Android a permissão de armazenamento
+## não se lê por API que valha, e `dir_exists_absolute` responde true para pasta
+## que existe mas está fora do alcance.
+static func _da_para_gravar(pasta: String) -> bool:
+	var teste := pasta.path_join(".escrita" + SUFIXO_PARCIAL)
+	var f := FileAccess.open(teste, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.close()
+	DirAccess.remove_absolute(teste)
+	return true
+
+
+## Traduz o código do HTTPRequest para algo que diga o que fazer.
+##
+## O número cru não serve para quem está dentro do headset: "resultado 10" é
+## `RESULT_DOWNLOAD_FILE_CANT_OPEN`, que na prática quer dizer "a permissão de
+## armazenamento não foi concedida" — e sem esta tradução a mensagem manda a
+## pessoa procurar problema na internet dela.
+static func _explicar(resultado: int) -> String:
+	match resultado:
+		HTTPRequest.RESULT_CANT_CONNECT, HTTPRequest.RESULT_CANT_RESOLVE:
+			return "Sem internet, ou o buildbot da libretro fora do ar"
+		HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR:
+			return "Falha de TLS ao falar com o buildbot"
+		HTTPRequest.RESULT_TIMEOUT, HTTPRequest.RESULT_NO_RESPONSE:
+			return "O servidor não respondeu a tempo"
+		HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN, HTTPRequest.RESULT_DOWNLOAD_FILE_WRITE_ERROR:
+			return "Sem permissão de armazenamento — conceda em ROMs → Permitir acesso"
+		_:
+			return "Download falhou (resultado %d)" % resultado
 
 
 static func _apagar(caminho: String) -> void:

@@ -16,6 +16,7 @@ extends PagBase
 var _baixador: BaixadorCores
 var _lista: VBoxContainer
 var _aviso: Label
+var _banner: Control
 ## Estado por sistema, só para a linha saber o que desenhar enquanto baixa.
 var _andamento := {}
 
@@ -28,6 +29,9 @@ func _init() -> void:
 	_baixador.concluido.connect(_ao_concluir)
 	_baixador.falhou.connect(_ao_falhar)
 	_baixador.progresso.connect(_ao_progredir)
+
+	_banner = _banner_permissao()
+	conteudo.add_child(_banner)
 
 	_aviso = WidgetsVR.mono("", TemaVR.DIM)
 	_aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -60,12 +64,60 @@ func atualizar() -> void:
 		_aviso.text = "Fora do headset os cores vêm de res://cores — ver o README."
 		return
 
+	_banner.visible = not NavegadorRoms.tem_permissao()
+
 	_aviso.text = ("Os cores são de terceiros e não vão no APK: cada um tem a sua "
 			+ "licença, e é você quem escolhe trazê-lo. Baixados de "
 			+ "buildbot.libretro.com.")
 
 	for sistema: String in EmuCore.CORES:
 		_lista.add_child(_linha(sistema))
+
+
+## Avisa **antes** de a pessoa tentar, e não depois de falhar.
+##
+## Sem a permissão de armazenamento o download morre ao abrir o arquivo de
+## destino, e o Godot devolve só `RESULT_DOWNLOAD_FILE_CANT_OPEN` — que vira uma
+## mensagem sobre um erro já acontecido, quando o problema era evitável e a
+## solução fica a dois toques daqui.
+##
+## A permissão some ao desinstalar o app, e as pastas em `/sdcard` **não** somem:
+## quem reinstala encontra os cores no lugar e o acesso a eles revogado, que é o
+## estado mais confuso possível se ninguém avisar.
+func _banner_permissao() -> Control:
+	var caixa := PanelContainer.new()
+	caixa.add_theme_stylebox_override("panel",
+			TemaVR.caixa(Color(TemaVR.BTN_B, 0.12), TemaVR.RAIO, Color(TemaVR.BTN_B, 0.45)))
+
+	var linha := HBoxContainer.new()
+	linha.add_theme_constant_override("separation", 16)
+
+	var glifo := Label.new()
+	glifo.text = "△"
+	glifo.add_theme_color_override("font_color", TemaVR.BTN_B)
+	linha.add_child(glifo)
+
+	var txt := Label.new()
+	txt.text = "Para baixar e usar cores é preciso liberar o acesso aos arquivos: " \
+			+ "eles ficam em /sdcard/QuestRetro/cores, fora do app. Toque em " \
+			+ "“Permitir acesso”, ache QuestRetro na lista de Ajustes e ligue a chave."
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	linha.add_child(txt)
+
+	var bt := WidgetsVR.botao("Permitir acesso", true)
+	bt.custom_minimum_size.x = 0
+	bt.pressed.connect(func() -> void:
+		NavegadorRoms.pedir_permissao()
+		# Sai do app para os Ajustes do Android; ao voltar, `ao_abrir()` relê o
+		# estado e o banner some sozinho.
+		bt.text = "Ligue em Ajustes"
+	)
+	linha.add_child(bt)
+
+	caixa.add_child(linha)
+	caixa.visible = false
+	return caixa
 
 
 func _linha(sistema: String) -> Control:
@@ -99,6 +151,11 @@ func _linha(sistema: String) -> Control:
 	else:
 		var bt := WidgetsVR.botao("Baixar", true)
 		bt.custom_minimum_size.x = 0
+		# Desabilitado sem permissão: o download falharia ao abrir o arquivo de
+		# destino, e um botão que aceita o clique para depois dizer que não podia
+		# é pior do que um botão que se anuncia indisponível. O banner acima
+		# explica o que fazer.
+		bt.disabled = not NavegadorRoms.tem_permissao()
 		# `ocupado()` é conferido no clique, e não aqui, porque a página não é
 		# redesenhada a cada byte: o botão existe desde antes de o download começar.
 		bt.pressed.connect(_baixar.bind(sistema))

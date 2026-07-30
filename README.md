@@ -10,6 +10,40 @@ cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fo
 > remapeáveis com perfil por cartucho, o "guidão de nave" do N64, a **sala** em
 > volta da tela (vazio, fliperama ou passthrough) e a **caneta** do DS. Ver o
 > Roadmap abaixo e `docs/EXPORT.md`.
+>
+> **O app se basta dentro do headset**: os cores de emulação se baixam pela aba
+> Cores do menu, e as ROMs você põe em qualquer pasta do Quest. Depois de instalar
+> o APK, nenhum passo exige computador.
+
+## Instalar e jogar
+
+Para quem só quer usar o app no Quest — nada aqui precisa de computador depois do
+sideload.
+
+1. **Instale o APK** dos [Releases](https://github.com/MrVeGGi3/questretro-vr/releases)
+   por SideQuest ou `adb install questretro-vr-release.apk`.
+2. **Libere o acesso aos arquivos.** Abra o menu (segure o botão de menu do controle
+   esquerdo por 0,5 s), vá em **ROMs** e toque em **"Permitir acesso"**; nos Ajustes do
+   Android que abrirem, ache QuestRetro e ligue a chave.
+
+   **Este passo não é opcional e é o que mais confunde.** Sem ele o app não enxerga
+   nem os seus jogos nem os cores — e como cores e ROMs ficam em `/sdcard`, fora do
+   app, eles **continuam lá** se você reinstalar, enquanto a permissão volta a zero.
+   O resultado é um app que parece ter perdido tudo e só precisa da chave religada.
+3. **Baixe um core** na aba **Cores** do menu. Um por console, com a licença à vista
+   antes de baixar. O APK não traz nenhum, e o porquê está em
+   [THIRD-PARTY.md](THIRD-PARTY.md).
+4. **Ponha suas ROMs** em qualquer pasta do headset — `Download` serve. A aba **ROMs**
+   varre o armazenamento e monta uma lista de jogos.
+5. **Jogue.** Segure o botão de menu para abrir o painel a qualquer momento; toque
+   curto é Start.
+
+Extras que valem conhecer: **save states** com miniatura (aba Saves), **perfis de
+controle por cartucho** (aba Input), e três modos de **sala** em volta da tela, um
+deles passthrough (aba Sala).
+
+O Sega CD é o único sistema que pede um arquivo a mais: a BIOS do Mega CD, em
+`/sdcard/QuestRetro/system/`. Ela não se baixa pelo app — é da Sega.
 
 ## Estrutura
 
