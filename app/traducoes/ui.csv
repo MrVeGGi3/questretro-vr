@@ -157,3 +157,7 @@ SALA_PASSTHROUGH,Passthrough,Passthrough
 SALA_VAZIO_DESC,"só a tela, o resto no escuro","just the screen, everything else dark"
 SALA_FLIPERAMA_DESC,um salão de arcade em volta,an arcade hall around you
 SALA_PASSTHROUGH_DESC,"o seu quarto, pelas câmeras do headset","your own room, through the headset cameras"
+INPUT_MAO,Mão que aponta,Pointing hand
+INPUT_MAO_DESC,caneta do DS e laser do menu,DS stylus and menu laser
+INPUT_MAO_DIR,Direita,Right
+INPUT_MAO_ESQ,Esquerda,Left

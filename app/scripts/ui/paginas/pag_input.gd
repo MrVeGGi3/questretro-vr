@@ -64,6 +64,13 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	_emu = emu
 	_cfg = cfg
 
+	# Primeiro de tudo, e fora do bloco de perfil de propósito: ser canhoto é
+	# propriedade da pessoa, não do cartucho, e a chave mora em `app/` justamente
+	# para nenhum perfil de jogo sobrescrevê-la.
+	conteudo.add_child(WidgetsVR.campo("INPUT_MAO", "INPUT_MAO_DESC",
+			WidgetsVR.segmentado(cfg, "app/mao_aponta", ["INPUT_MAO_DIR", "INPUT_MAO_ESQ"])))
+	conteudo.add_child(WidgetsVR.divisoria())
+
 	_linhas = VBoxContainer.new()
 	conteudo.add_child(_linhas)
 

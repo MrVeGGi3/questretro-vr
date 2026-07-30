@@ -72,6 +72,20 @@ func conectar_xr(camera: XRCamera3D, controle: XRController3D) -> void:
 		_montar_ponteiro(controle)
 
 
+## Passa o laser para o outro controle, sem remontar nada.
+##
+## Existe para o modo canhoto: os nós do ponteiro são filhos do controle, então
+## trocar de mão é reparentá-los. Reconstruí-los perderia o estado do arrasto em
+## curso e criaria lixo a cada troca.
+func trocar_controle(controle: XRController3D) -> void:
+	if controle == null or controle == _controle:
+		return
+	_controle = controle
+	for no: Node3D in [_raio, _laser]:
+		if no != null and no.get_parent() != null:
+			no.reparent(controle, false)
+
+
 func esta_aberto() -> bool:
 	return _aberto
 

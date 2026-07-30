@@ -48,6 +48,14 @@ const PADROES := {
 	# é Auto: quem instala não deveria precisar escolher para o app abrir na
 	# língua do próprio aparelho.
 	"app/idioma": Idioma.AUTO,
+	# Qual mão aponta: a caneta do DS, o laser do menu e os ajustes de tela vão
+	# nela; o botão de menu e o D-pad vão na outra.
+	#
+	# **Fica em `app/` e não em `input/` de propósito**: tudo sob `input/` pode ser
+	# sobrescrito por perfil de cartucho (ver `PERFIL_PREFIXO`), e ser canhoto é
+	# propriedade da pessoa, não do jogo. Um perfil que lembrasse uma mão para o
+	# Star Fox e outra para o Mario seria um defeito, não um recurso.
+	"app/mao_aponta": 0,
 	# Os padrões de tela/input vieram das constantes que antes moravam
 	# em vr/xr_main.gd — mudar aqui muda o comportamento inicial.
 	"tela/escala": 1.5,
