@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "O app não acha meus jogos / \"Sem core carregado\" — App can't find my games"
+    url: https://github.com/MrVeGGi3/questretro-vr/blob/master/CONTRIBUTING.md#antes-de-abrir-uma-issue
+    about: "Quase sempre é a permissão de armazenamento (menu → ROMs → Permitir acesso). Leia antes de abrir. / Almost always the storage permission — read this first."
+  - name: "Por que o APK não traz os cores? — Why doesn't the APK ship cores?"
+    url: https://github.com/MrVeGGi3/questretro-vr/blob/master/THIRD-PARTY.md
+    about: "As licenças dos quatro cores não convivem num mesmo pacote. O raciocínio completo está aqui. / The four cores' licenses don't coexist in one package; full reasoning here."

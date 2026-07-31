@@ -1,0 +1,59 @@
+name: Bug
+description: "Algo não funciona / Something doesn't work"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Português ou inglês, tanto faz. / English or Portuguese, either is fine.
+
+        Antes: se o app **não acha os seus jogos** ou diz que **não há core**, é
+        quase sempre a permissão de armazenamento — menu → ROMs → "Permitir
+        acesso". Ela volta a zero ao reinstalar o APK, enquanto os arquivos
+        continuam em `/sdcard`.
+
+  - type: dropdown
+    id: onde
+    attributes:
+      label: Onde aconteceu / Where
+      options:
+        - Quest 3S (APK)
+        - Quest (outro modelo / another model)
+        - Desktop (Linux)
+        - Outro / Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Console e core / Console and core
+      options:
+        - SNES (snes9x)
+        - Nintendo 64 (mupen64plus-next)
+        - Mega Drive / Sega CD (genesis_plus_gx)
+        - Nintendo DS (melonDS)
+        - "Nenhum: é do app / None: it's the app itself"
+    validations:
+      required: true
+
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu / What happened
+      description: "O que você esperava, o que veio no lugar, e os passos para chegar lá."
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "No Quest: `adb logcat -s godot`. Sem log a investigação começa no escuro. / On the Quest, `adb logcat -s godot`."
+      render: text
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do app / App version
+      placeholder: "v0.1.0"

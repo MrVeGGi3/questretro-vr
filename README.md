@@ -1,5 +1,7 @@
 # questretro-vr
 
+***Português** · [English](README.en.md)*
+
 Emulador **VR-nativo** para Meta Quest 3S, feito em **Godot 4** com cores
 **libretro**. Diferenciais de projeto: tela redimensionável (de portátil a
 cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fox).
@@ -748,6 +750,15 @@ xvfb-run -a godot --xr-mode off --path app res://cenas/test_sram.tscn -- \
 O caminho do `.srm` sai do nome da ROM, então o teste faz backup do save que já
 existir e o devolve no fim — inclusive se falhar no meio. Testar a segurança do
 save destruindo um save seria irônico demais.
+
+## Contribuir
+
+[CONTRIBUTING.md](CONTRIBUTING.md) — como rodar os testes, o que nunca entra no
+repositório, e a regra que mais importa aqui: mudança que aparece no headset se
+prova no headset. Issues e PRs em português ou inglês.
+
+Falha de segurança vai por canal privado, não por issue: ver
+[SECURITY.md](SECURITY.md).
 
 ## Licença
 
