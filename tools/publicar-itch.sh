@@ -14,7 +14,10 @@ cd "$(dirname "$0")/.."
 RAIZ="$PWD"
 
 APK="${1:-$RAIZ/dist/questretro-vr-release.apk}"
-ALVO="${QUESTRETRO_ITCH:-veggi3/questretro-vr}"
+# `questretrovr` sem hífen: é a URL que o projeto de fato tem na itch, e ela não
+# coincide com o nome do repositório. Errar aqui não dá erro claro — o butler
+# responde "invalid game", que soa como problema de permissão.
+ALVO="${QUESTRETRO_ITCH:-veggi3/questretrovr}"
 
 # O canal **precisa** conter "android": é dele que a itch infere a plataforma do
 # arquivo. Num canal chamado "quest" o APK sobe, aparece na página e **não**

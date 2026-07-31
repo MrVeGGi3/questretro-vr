@@ -5,7 +5,14 @@ circula. Ela não tem a revisão de loja que barraria um emulador — e a posiç
 deste app é a mais segura possível, porque o que se distribui é um host, sem core
 e sem ROM dentro.
 
-Conta: **`veggi3`**. Alvo do butler: **`veggi3/questretro-vr:android`**.
+Conta: **`veggi3`**. Alvo do butler: **`veggi3/questretrovr:android`**.
+Página: <https://veggi3.itch.io/questretrovr>
+
+**A URL é `questretrovr`, sem hífen, e não coincide com o nome do repositório.**
+Errar isso não produz erro claro: o butler responde `invalid game`, que soa como
+problema de permissão ou de login. O jeito de distinguir é que um jogo que existe e
+ainda não tem build responde `No channel found` — mensagem diferente, e é ela que
+confirma que o alvo está certo.
 
 ## Subir uma versão
 
@@ -34,7 +41,7 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 |---|---|
 | Title | QuestRetro |
 | Short description / tagline | `An arcade that fits in your bedroom — SNES, N64, Mega Drive, Sega CD and DS` |
-| Project URL | `questretro-vr` |
+| Project URL | `questretrovr` (é o que já está criado) |
 | Classification | **Tool** — é um emulador, não um jogo. Custa alcance (a vitrine de Games é muito maior), e mesmo assim é o rótulo honesto |
 | Kind of project | Downloadable |
 | Release status | Released |
