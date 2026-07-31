@@ -956,6 +956,13 @@ func _input_n64() -> void:
 ## ser mapeado ficaria preso no último estado que teve — remapear com o dedo no
 ## gatilho deixaria o tiro travado ligado, e o jogo pareceria quebrado.
 func _aplicar_mapa(sistema: String, pre: Dictionary) -> void:
+	# Sem ROM carregada o sistema é vazio, não existe chave de mapa para ele, e
+	# `obter` devolve null — que `int()` recusa, uma vez por origem e por frame.
+	# Não há input a aplicar aqui: quem fecha o menu antes de escolher um jogo
+	# não está jogando nada.
+	if sistema.is_empty():
+		return
+
 	var mapa := {}
 	var pressionadas := {}
 	for entrada in MapaInput.ORIGENS:

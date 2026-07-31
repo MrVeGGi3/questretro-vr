@@ -251,7 +251,7 @@ func _testar_cabe_a_tela() -> void:
 
 	# A tela no preset Cinema, que é o maior tamanho que o menu oferece por
 	# botão (o slider vai além, e aí a saída honesta é o modo Vazio).
-	var largura_cinema: float = 1.4 * PagTela.PREDEFINICOES["Cinema"][0]
+	var largura_cinema: float = 1.4 * PagTela.PREDEFINICOES["TELA_PRE_CINEMA"][0]
 	_conferir(Sala.LARGURA > largura_cinema,
 			"o salão é mais largo que a tela no Cinema (%.1f > %.1f)"
 					% [Sala.LARGURA, largura_cinema])
