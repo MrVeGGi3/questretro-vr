@@ -129,9 +129,8 @@ Use o script; ele existe porque a alternativa é uma linha de 400 caracteres:
 tools/exportar-release.sh
 ```
 
-Ele acha a chave em `android/meta_quest.keystore`, pega a senha (de
-`android/.senha-keystore`, da variável `QUESTRETRO_SENHA` ou perguntando no terminal),
-exporta e **confere a assinatura no fim**. O esperado é:
+Ele acha a chave do projeto, obtém a senha, exporta e **confere a assinatura no
+fim**. O esperado é:
 
 ```
 V2 Signer: certificate DN: CN=QuestRetro, O=MrVeGGi3, C=BR
@@ -153,12 +152,11 @@ chave de assinatura, então trocar de chave depois de publicar obriga todo mundo
 desinstalar para atualizar — e desinstalar apaga o `user://`: saves de bateria, save
 states e perfis por cartucho. Duas consequências práticas:
 
-- `android/meta_quest.keystore` precisa de **backup fora da máquina**, junto da senha.
-  Perder o arquivo significa nunca mais poder atualizar o app para quem já instalou.
-  É o único artefato deste projeto que não se reconstrói.
-- Ela é gitignored (`*.keystore`, `*.jks`, `.senha-keystore`) e mora em `android/` na
-  raiz — **não** em `app/android/`, que é o template de build gerado pelo Godot e some
-  ao ser reinstalado.
+- A keystore de release precisa de **backup fora da máquina**, junto da senha. Perder o
+  arquivo significa nunca mais poder atualizar o app para quem já instalou. É o único
+  artefato deste projeto que não se reconstrói.
+- Ela é gitignored (`*.keystore`, `*.jks`) e mora **fora** de `app/android/`, que é o
+  template de build gerado pelo Godot e some ao ser reinstalado.
 
 Para builds de **debug** o Godot usa a keystore dele em
 `~/.local/share/godot/keystores/debug.keystore` (o caminho está em
