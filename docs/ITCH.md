@@ -33,6 +33,7 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | campo | valor |
 |---|---|
 | Title | QuestRetro |
+| Short description / tagline | `An arcade that fits in your bedroom — SNES, N64, Mega Drive, Sega CD and DS` |
 | Project URL | `questretro-vr` |
 | Classification | **Tool** — é um emulador, não um jogo. Custa alcance (a vitrine de Games é muito maior), e mesmo assim é o rótulo honesto |
 | Kind of project | Downloadable |
@@ -40,7 +41,22 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Pricing | **`Donate`** — baixa de graça, com botão de doação. Não é `No payments` (esse tira o botão) nem `$X or more` (esse cobra) |
 | Uploads | o APK, marcado **Android** |
 | Cover | `docs/loja/capa-itch.png` (630×500, gerada por `tools/gerar-capa-itch.sh`) |
+| Description | o corpo de `docs/loja/descricao-itch.md` |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
+
+E o bloco de metadados, que a itch mostra na lateral como "More information":
+
+| campo | valor |
+|---|---|
+| Made with | Godot |
+| Languages | English, Português (Brasil) |
+| Inputs | marcar suporte a **VR** e a controle; o app não usa teclado nem mouse no headset |
+| License | MIT |
+| Links | `Source code` → <https://github.com/MrVeGGi3/questretro-vr> |
+
+O link para o GitHub vai **nos metadados**, e não só no corpo: é ali que quem procura
+a fonte olha primeiro, e é o que separa este app dos APKs anônimos que circulam no
+mesmo nicho.
 
 **Sobre o preço.** A decisão de não cobrar estava registrada como "porque snes9x e
 genesis_plus_gx vedam uso comercial". Esse motivo caducou: ele valia quando os cores

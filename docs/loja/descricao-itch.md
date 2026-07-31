@@ -3,11 +3,30 @@
 Para colar no corpo da página. Inglês primeiro — é o público que baixa sideload de
 Quest —, português abaixo.
 
+## Tagline
+
+O campo curto, que aparece embaixo do título na busca e na vitrine:
+
+```
+An arcade that fits in your bedroom — SNES, N64, Mega Drive, Sega CD and DS
+```
+
+Escolhido por fazer duas coisas de uma vez: dá uma imagem na cabeça (é o que faz
+clicar) e nomeia os consoles (é o que a busca indexa). A abertura da descrição abaixo
+foi escrita para **entregar** essa promessa na primeira linha — se o tagline mudar, a
+abertura muda junto, senão a página promete uma coisa e começa com outra.
+
+Em português, se um dia a página for traduzida:
+
+```
+Um fliperama que cabe no seu quarto — SNES, N64, Mega Drive, Sega CD e DS
+```
+
 ---
 
 **A VR-native emulator for the Meta Quest.** Your game runs on a screen you resize
-from handheld to cinema, floating in a room — or in passthrough, in your actual
-bedroom.
+from handheld to cinema — floating in an arcade hall, alone in the dark, or in
+passthrough, in your actual bedroom.
 
 Five consoles: **SNES, Nintendo 64, Mega Drive, Sega CD and Nintendo DS.**
 
@@ -59,8 +78,8 @@ Free and open source (MIT). Code, full reasoning and issues:
 ## Português
 
 **Emulador VR-nativo para Meta Quest.** O jogo roda numa tela que você redimensiona
-de portátil a cinema, dentro de uma sala — ou em passthrough, no seu quarto de
-verdade.
+de portátil a cinema — dentro de um salão de arcade, sozinho no escuro, ou em
+passthrough, no seu quarto de verdade.
 
 Cinco consoles: **SNES, Nintendo 64, Mega Drive, Sega CD e Nintendo DS.**
 
