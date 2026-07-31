@@ -42,12 +42,26 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Cover | `docs/loja/capa-itch.png` (630×500, gerada por `tools/gerar-capa-itch.sh`) |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
 
-**Sobre o preço:** a decisão de não cobrar estava registrada como "porque snes9x e
-genesis_plus_gx vedam uso comercial". Esse motivo caducou — ele valia quando os
-cores iam no pacote, e eles saíram. Hoje nada no APK barra cobrar. O que sustenta
-a gratuidade agora é outra coisa, e é escolha, não obrigação: o código é MIT e o
-APK já está de graça nos Releases, então preço seria só um pedágio para quem não
-conhece o outro link.
+**Sobre o preço.** A decisão de não cobrar estava registrada como "porque snes9x e
+genesis_plus_gx vedam uso comercial". Esse motivo caducou: ele valia quando os cores
+iam no pacote, e eles saíram. Hoje nada no APK barra cobrar.
+
+Fica grátis por escolha, então, e por três razões que se sustentam sem aquela:
+
+1. O APK já está de graça nos Releases e o código é MIT — preço seria pedágio para
+   quem não achou o outro link.
+2. O nicho é gratuito por inteiro. O **EmuVR**, que é o análogo mais próximo (frontend
+   de VR sobre cores libretro, com o usuário fornecendo tudo), diz explicitamente que
+   é grátis e sempre será.
+3. **Monetizar é o agravante que atrai processo.** O Yuzu tirava ~US$ 30 mil/mês de
+   Patreon e fechou acordo de US$ 2,4 milhões com a Nintendo em 2024. O dinheiro não
+   foi a causa isolada — ia junto com contornar criptografia e emular console da
+   geração corrente, e este projeto não faz nenhum dos dois —, mas foi o que
+   transformou um alvo tolerado em alvo prioritário.
+
+Se um dia mudar de ideia, o caminho pisado é o do **PPSSPP Gold**: build paga
+idêntica à livre, fonte aberta, sem tier de acesso antecipado — que foi justamente a
+forma que a Nintendo atacou.
 
 ### Tags
 
