@@ -15,12 +15,16 @@ SAIDA="${1:-docs/loja}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-FB=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
-FR=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+# Open Sans, e não uma fonte qualquer: é a fonte padrão do Godot 4, e o projeto
+# não define nenhuma outra — ou seja, é literalmente a fonte que aparece dentro
+# do headset. A arte da loja usar outra era uma inconsistência silenciosa, do
+# tipo que ninguém aponta e todo mundo sente.
+FB=/usr/share/fonts/truetype/open-sans/OpenSans-Bold.ttf
+FR=/usr/share/fonts/truetype/open-sans/OpenSans-Regular.ttf
 
 for f in "$FB" "$FR"; do
 	if [ ! -f "$f" ]; then
-		echo "erro: fonte não encontrada: $f (instale fonts-dejavu)" >&2
+		echo "erro: fonte não encontrada: $f (instale fonts-open-sans)" >&2
 		exit 1
 	fi
 done

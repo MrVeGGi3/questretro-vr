@@ -93,6 +93,37 @@ forma que a Nintendo atacou.
 `emulator`, `virtual-reality`, `vr`, `meta-quest`, `retro`, `snes`, `nintendo-64`,
 `sega-genesis`, `nintendo-ds`, `godot`, `open-source`, `libretro`
 
+## Tema (Edit theme)
+
+A página usa a paleta do próprio app (`app/scripts/ui/tema.gd`), para quem sai da
+loja e entra no headset não sentir que trocou de produto.
+
+| campo da itch | valor | de onde vem |
+|---|---|---|
+| BG | `#0e0c12` | base do `fundo-itch.png`, para a imagem assentar sem emenda |
+| BG2 (coluna) | `#1f1c26` | `SURFACE` — no app é a sidebar, o mesmo papel de "painel sobre o mundo" |
+| Text | `#efecf4` | `INK` — 14,4:1 sobre a coluna, AAA |
+| Link | `#9a85e8` | `ACCENT` — 5,5:1, AA |
+| Buttons | `#7b6aba` | `ACCENT` escurecido; ver abaixo |
+| Headers | `#efecf4` | `INK`, **não** o accent |
+| Font (corpo e títulos) | **Open Sans** | é a fonte padrão do Godot 4, e o projeto não define outra — literalmente a fonte que aparece dentro do headset |
+
+Três escolhas que não são gosto, e que a conta de contraste decidiu:
+
+- **Buttons não é o mesmo roxo do Link.** O mesmo tom não serve para os dois papéis:
+  como texto claro sobre fundo escuro o `ACCENT` dá 5,5:1 e passa; como **fundo** sob
+  o texto branco do botão de download ele dá **3,05:1**, que só passa por ser texto
+  grande. `#7b6aba` é o mesmo matiz (253°) escurecido até 4,55:1 com branco. O botão
+  de download é o elemento que converte a página — é onde não se economiza contraste.
+- **Headers é branco, não roxo.** No app os rótulos de seção são accent, e ali isso
+  funciona porque não existe link nenhum. Na web, roxo é a convenção de "clicável":
+  título não clicável na mesma cor dos links treina a pessoa a clicar no que não
+  responde.
+- **BG e BG2 quase não se distinguem** (1,16:1), e isso é de propósito **enquanto
+  houver imagem de fundo** — é o `fundo-itch.png` que separa a coluna, não o degrau de
+  cor. Se você tirar a imagem, suba o BG2 para `#2a2534` (`RAISED`), senão a coluna
+  some.
+
 ## Arte
 
 As três peças saem de um comando:
