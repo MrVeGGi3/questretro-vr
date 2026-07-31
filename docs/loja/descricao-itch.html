@@ -1,0 +1,91 @@
+<!--
+  Corpo da página da itch.io. Colar no editor em "Edit as HTML".
+
+  Só tags que o sanitizador da itch aceita: h3, p, strong, em, ul, li, a, code,
+  hr. Nada de div, span, class ou style — o editor os remove ao salvar, e o que
+  volta é um texto com a formatação pela metade, sem avisar que removeu.
+
+  Inglês primeiro: é o público que baixa sideload de Quest. O português vem
+  abaixo, na mesma página, porque a itch não tem campo por idioma.
+
+  A primeira frase existe para entregar o que o tagline promete ("an arcade that
+  fits in your bedroom"). Mudou um, muda o outro — ver docs/ITCH.md.
+-->
+
+<p><strong>A VR-native emulator for the Meta Quest.</strong> Your game runs on a screen you resize from handheld to cinema — floating in an arcade hall, alone in the dark, or in passthrough, in your actual bedroom.</p>
+
+<p>Five consoles: <strong>SNES, Nintendo 64, Mega Drive, Sega CD and Nintendo DS.</strong></p>
+
+<h3>No computer needed after install</h3>
+
+<p>Grant file access, download a core from the menu's Cores page, drop your ROMs in any folder on the headset. That's it. No <code>adb</code>, no PC, no cable.</p>
+
+<h3>What it does that a flat emulator can't</h3>
+
+<ul>
+  <li><strong>A flight yoke for Star Fox 64</strong> — both hands' poses map onto the stick axes.</li>
+  <li><strong>The DS stylus is your pointing laser</strong>, with the two screens as separate objects in space: top one large and far, bottom one close and tilted back, like a console resting in your hands.</li>
+  <li><strong>Three rooms</strong> — empty void, an arcade hall built entirely in code, or passthrough.</li>
+  <li><strong>A game library, not a file list.</strong> It scans your headset, cleans up titles from filenames and groups by console. Bad dumps get flagged, not hidden.</li>
+  <li><strong>Per-cartridge control profiles</strong> — the Star Fox map doesn't follow you into Mario 64.</li>
+  <li><strong>Save states with thumbnails</strong>, undo-on-delete, and battery saves in RetroArch's format, so your saves travel both ways.</li>
+</ul>
+
+<p>Left-handed? One row in the Input tab moves the stylus and the menu laser. Speaks English and Portuguese, and starts in your headset's language without being asked.</p>
+
+<h3>It ships no cores and no ROMs, on purpose</h3>
+
+<p>The emulation cores are third-party and their licenses don't coexist in one package. So this app does what RetroArch does — it's a host that loads a core <strong>you</strong> obtained — and the Cores page fetches each one from libretro's official buildbot, at your request, showing the license before downloading. ROMs are someone else's work and you use your own.</p>
+
+<p>That's also the only thing here that touches the network. Nothing is ever uploaded: no telemetry, no account, no server.</p>
+
+<h3>Notes</h3>
+
+<ul>
+  <li>Built and measured on <strong>Quest 3S</strong>. Quest 2/3 should work and weren't measured.</li>
+  <li>N64 uses the software renderer on the headset — GLideN64 crashes on the Adreno. Star Fox 64 runs smooth.</li>
+  <li>Sega CD needs the Mega CD BIOS, which is Sega's and can't ship here.</li>
+</ul>
+
+<p>Free and open source (MIT). Code, full reasoning and issues: <a href="https://github.com/MrVeGGi3/questretro-vr">github.com/MrVeGGi3/questretro-vr</a></p>
+
+<hr>
+
+<h3>Português</h3>
+
+<p><strong>Emulador VR-nativo para Meta Quest.</strong> O jogo roda numa tela que você redimensiona de portátil a cinema — dentro de um salão de arcade, sozinho no escuro, ou em passthrough, no seu quarto de verdade.</p>
+
+<p>Cinco consoles: <strong>SNES, Nintendo 64, Mega Drive, Sega CD e Nintendo DS.</strong></p>
+
+<h3>Nenhum passo precisa de computador</h3>
+
+<p>Conceda o acesso aos arquivos, baixe um core pela página Cores do menu, e ponha suas ROMs em qualquer pasta do headset. Só isso. Sem <code>adb</code>, sem PC, sem cabo.</p>
+
+<h3>O que ele faz que emulador de tela plana não faz</h3>
+
+<ul>
+  <li><strong>O guidão de nave do Star Fox 64</strong> — a pose das duas mãos vira os eixos do manche.</li>
+  <li><strong>A caneta do DS é o seu laser</strong>, com as duas telas como objetos separados no espaço: a de cima grande e longe, a de baixo perto e inclinada, como um console apoiado nas mãos.</li>
+  <li><strong>Três salas</strong> — o vazio, um salão de arcade construído em código, ou passthrough.</li>
+  <li><strong>Uma biblioteca de jogos, não uma lista de arquivos.</strong> Varre o headset, limpa o título do nome do arquivo e agrupa por console. Dump ruim é sinalizado, não escondido.</li>
+  <li><strong>Perfil de controle por cartucho</strong> — o mapa do Star Fox não vai junto para o Mario 64.</li>
+  <li><strong>Save states com miniatura</strong>, desfazer ao apagar, e saves de bateria no formato do RetroArch, que vão e voltam.</li>
+</ul>
+
+<p>Canhoto? Uma linha na aba Input move a caneta e o laser do menu. Fala português e inglês, e abre na língua do headset sem ninguém pedir.</p>
+
+<h3>Não traz core nem ROM, de propósito</h3>
+
+<p>Os cores são de terceiros e as licenças deles não convivem num mesmo pacote. Então o app faz o que o RetroArch faz — é um host que carrega um core que <strong>você</strong> obteve — e a página Cores busca cada um do buildbot oficial da libretro, a seu pedido, mostrando a licença antes de baixar. ROMs são obra de terceiros e você usa as suas.</p>
+
+<p>É também a única coisa aqui que usa rede. Nada é enviado a lugar nenhum: sem telemetria, sem conta, sem servidor.</p>
+
+<h3>Limites</h3>
+
+<ul>
+  <li>Feito e medido no <strong>Quest 3S</strong>. Quest 2/3 devem funcionar e não foram medidos.</li>
+  <li>O N64 usa o renderizador por software no headset — o GLideN64 derruba o app na Adreno. Star Fox 64 roda fluido.</li>
+  <li>O Sega CD precisa da BIOS do Mega CD, que é da Sega e não pode acompanhar.</li>
+</ul>
+
+<p>Grátis e open source (MIT). Código, o raciocínio completo e as issues: <a href="https://github.com/MrVeGGi3/questretro-vr">github.com/MrVeGGi3/questretro-vr</a></p>

@@ -41,7 +41,7 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Pricing | **`Donate`** — baixa de graça, com botão de doação. Não é `No payments` (esse tira o botão) nem `$X or more` (esse cobra) |
 | Uploads | o APK, marcado **Android** |
 | Cover | `docs/loja/capa-itch.png` (630×500, gerada por `tools/gerar-capa-itch.sh`) |
-| Description | o corpo de `docs/loja/descricao-itch.md` |
+| Description | `docs/loja/descricao-itch.html`, colado no **"Edit as HTML"** do editor |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
 
 E o bloco de metadados, que a itch mostra na lateral como "More information":
@@ -57,6 +57,13 @@ E o bloco de metadados, que a itch mostra na lateral como "More information":
 O link para o GitHub vai **nos metadados**, e não só no corpo: é ali que quem procura
 a fonte olha primeiro, e é o que separa este app dos APKs anônimos que circulam no
 mesmo nicho.
+
+**Sobre o tagline.** Ele foi escolhido por fazer duas coisas de uma vez: dá uma imagem
+na cabeça (é o que faz clicar) e nomeia os consoles (é o que a busca indexa). A
+**abertura da descrição foi escrita para entregar essa promessa na primeira frase** —
+se o tagline mudar, a abertura muda junto, senão a vitrine promete uma coisa e a
+página começa com outra. Em português, se um dia a página for traduzida:
+`Um fliperama que cabe no seu quarto — SNES, N64, Mega Drive, Sega CD e DS`.
 
 **Sobre o preço.** A decisão de não cobrar estava registrada como "porque snes9x e
 genesis_plus_gx vedam uso comercial". Esse motivo caducou: ele valia quando os cores
