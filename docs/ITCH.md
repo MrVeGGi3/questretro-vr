@@ -40,7 +40,9 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Release status | Released |
 | Pricing | **`Donate`** — baixa de graça, com botão de doação. Não é `No payments` (esse tira o botão) nem `$X or more` (esse cobra) |
 | Uploads | o APK, marcado **Android** |
-| Cover | `docs/loja/capa-itch.png` (630×500, gerada por `tools/gerar-capa-itch.sh`) |
+| Cover | `docs/loja/capa-itch.png` (630×500) |
+| Banner | `docs/loja/banner-itch.png` (1920×480) — vai em "Edit theme" |
+| Background | `docs/loja/fundo-itch.png` (1920×1080), em "Edit theme" → Background image |
 | Description | `docs/loja/descricao-itch.html`, colado no **"Edit as HTML"** do editor |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
 
@@ -90,6 +92,32 @@ forma que a Nintendo atacou.
 
 `emulator`, `virtual-reality`, `vr`, `meta-quest`, `retro`, `snes`, `nintendo-64`,
 `sega-genesis`, `nintendo-ds`, `godot`, `open-source`, `libretro`
+
+## Arte
+
+As três peças saem de um comando:
+
+```bash
+tools/gerar-arte-itch.sh    # -> docs/loja/{capa,banner,fundo}-itch.png
+```
+
+**A capa é composição; o banner e o fundo são o salão de arcade de verdade** — o
+mesmo `Sala.aplicar(Sala.FLIPERAMA)` que roda no headset, renderizado em outra
+proporção por `app/scripts/loja/banner_sala.gd`. A página promete "um fliperama que
+cabe no seu quarto", e a arte que sustenta isso é a coisa em si.
+
+Três decisões que não são gosto:
+
+- **O banner leva só o wordmark.** O tagline não entra: a itch já o imprime logo
+  abaixo do banner, e na imagem ele cairia em cima das linhas de neon que convergem
+  — o pior lugar possível para texto claro. Testado, e ilegível.
+- **O fundo é escurecido e desfocado com força** (`-blur 0x8 -modulate 42`). A coluna
+  de conteúdo tem ~960px e fica por cima dele; a página é quase toda texto, e fundo
+  com contraste real a torna cansativa. Se ainda assim atrapalhar, a saída sem risco é
+  cor chapada `#0e0c12`, que é o mesmo tom.
+- **O render precisa de `xvfb-run`.** Em `--headless` puro o SubViewport sai preto,
+  sem uma linha de erro no log — o script já cuida disso, mas quem chamar o `.gd` à
+  mão vai tropeçar.
 
 ## Capturas
 
