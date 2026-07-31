@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
 project(libretrogd LANGUAGES CXX)
 
+# Caminho de compilação fora do binário. Os macros de erro do godot-cpp gravam
+# `__FILE__` em `.rodata`, então o caminho absoluto da máquina que compilou vai
+# junto no `.so` — e no APK publicado. Não é debug info: o binário já sai
+# stripado e as strings continuam lá, então `strip` não resolve.
+#
+# `-ffile-prefix-map` implica `-fmacro-prefix-map` (que é o que alcança
+# `__FILE__`) e `-fdebug-prefix-map`. Precisa vir **antes** do
+# `add_subdirectory`: `add_compile_options` só alcança alvos criados depois.
+add_compile_options("-ffile-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}/=")
+
 # godot-cpp (branch 4.5) fornece o target `godot-cpp` e os headers da API.
 add_subdirectory(godot-cpp)
 
