@@ -1,0 +1,89 @@
+<!--
+  Campo "Install instructions" da itch.io — separado da descrição, e colado do
+  mesmo jeito: no "Edit as HTML".
+
+  Só tags que o sanitizador aceita: h3, p, strong, em, ul, ol, li, a, code, hr.
+
+  A ordem dos passos não é arbitrária: a permissão vem **antes** de baixar core
+  ou copiar ROM, porque sem ela as duas coisas seguintes falham de um jeito que
+  não se parece com falta de permissão — o app simplesmente não vê nada, e quem
+  instalou conclui que o app está quebrado.
+-->
+
+<p><strong>You need a Meta Quest and a way to sideload.</strong> Nothing after that needs a computer.</p>
+
+<h3>1. Install the APK</h3>
+
+<p>Download <code>questretro-vr-release.apk</code> above and install it with SideQuest, or over USB with <code>adb install questretro-vr-release.apk</code>.</p>
+
+<h3>2. Grant file access — don't skip this</h3>
+
+<p>Put the headset on and open QuestRetro. Hold the <strong>menu button on the left controller for half a second</strong> to open the panel, go to <strong>ROMs</strong> and tap <strong>"Allow access"</strong>. Android settings will open: find QuestRetro and turn the switch on.</p>
+
+<p>This is the step that confuses everyone, so it's worth knowing why. Your cores and ROMs live in <code>/sdcard</code>, outside the app. That means they <strong>survive a reinstall</strong> — but the permission does not. Reinstall the APK and you get an app that looks like it lost everything, when it only needs the switch turned back on.</p>
+
+<h3>3. Download a core</h3>
+
+<p>Menu → <strong>Cores</strong>. One line per console, each showing its license before the download button. Pick the console you want to play.</p>
+
+<p>The APK ships no cores — the reason is in the description above. Downloads come from libretro's official buildbot, only when you ask.</p>
+
+<h3>4. Add your games</h3>
+
+<p>Put your ROMs in <strong>any folder</strong> on the headset — <code>Download</code> works fine. You can copy them over USB, or straight from the Quest's own Files app. The <strong>ROMs</strong> tab scans storage and builds a list of games.</p>
+
+<p>Sega CD is the only system needing one more file: the Mega CD BIOS, in <code>/sdcard/QuestRetro/system/</code>. That folder appears on its own after step 2. The app can't download it — it's Sega's.</p>
+
+<h3>5. Play</h3>
+
+<p>Pick a game in the ROMs tab. Hold the menu button any time to open the panel; a short tap is Start.</p>
+
+<h3>If something looks wrong</h3>
+
+<ul>
+  <li><strong>"No games found" or "no core loaded"</strong> — it's almost always step 2. Check the switch is still on.</li>
+  <li><strong>The Cores page can't download</strong> — it needs internet, and it's the only thing in the app that does.</li>
+  <li><strong>Sega CD boots to a black screen</strong> — that's the missing BIOS. It fails quietly instead of erroring.</li>
+  <li><strong>Still stuck?</strong> <a href="https://github.com/MrVeGGi3/questretro-vr/issues">Open an issue</a> — say which console and core, and paste the log from <code>adb logcat -s godot</code>.</li>
+</ul>
+
+<hr>
+
+<h3>Português</h3>
+
+<p><strong>Você precisa de um Meta Quest e de um jeito de fazer sideload.</strong> Depois disso, nada exige computador.</p>
+
+<h3>1. Instale o APK</h3>
+
+<p>Baixe o <code>questretro-vr-release.apk</code> acima e instale pelo SideQuest, ou por USB com <code>adb install questretro-vr-release.apk</code>.</p>
+
+<h3>2. Libere o acesso aos arquivos — não pule</h3>
+
+<p>Ponha o headset e abra o QuestRetro. Segure o <strong>botão de menu do controle esquerdo por meio segundo</strong> para abrir o painel, vá em <strong>ROMs</strong> e toque em <strong>"Permitir acesso"</strong>. Abrem os Ajustes do Android: ache o QuestRetro e ligue a chave.</p>
+
+<p>É o passo que mais confunde, e vale saber por quê. Seus cores e ROMs ficam em <code>/sdcard</code>, fora do app. Isso faz com que eles <strong>sobrevivam a uma reinstalação</strong> — mas a permissão não. Reinstalou o APK, aparece um app que parece ter perdido tudo, quando só falta religar a chave.</p>
+
+<h3>3. Baixe um core</h3>
+
+<p>Menu → <strong>Cores</strong>. Uma linha por console, cada uma mostrando a licença antes do botão. Escolha o console que você quer jogar.</p>
+
+<p>O APK não traz core nenhum — o porquê está na descrição acima. O download vem do buildbot oficial da libretro, e só a seu pedido.</p>
+
+<h3>4. Ponha seus jogos</h3>
+
+<p>Deixe suas ROMs em <strong>qualquer pasta</strong> do headset — <code>Download</code> serve. Dá para copiar por USB, ou direto pelo app Arquivos do próprio Quest. A aba <strong>ROMs</strong> varre o armazenamento e monta a lista de jogos.</p>
+
+<p>O Sega CD é o único que pede um arquivo a mais: a BIOS do Mega CD, em <code>/sdcard/QuestRetro/system/</code>. Essa pasta aparece sozinha depois do passo 2. O app não pode baixá-la — ela é da Sega.</p>
+
+<h3>5. Jogue</h3>
+
+<p>Escolha um jogo na aba ROMs. Segure o botão de menu a qualquer momento para abrir o painel; toque curto é Start.</p>
+
+<h3>Se algo parecer errado</h3>
+
+<ul>
+  <li><strong>"Nenhum jogo encontrado" ou "sem core carregado"</strong> — quase sempre é o passo 2. Confira se a chave continua ligada.</li>
+  <li><strong>A página Cores não baixa</strong> — ela precisa de internet, e é a única coisa no app que usa rede.</li>
+  <li><strong>Sega CD abre em tela preta</strong> — é a BIOS faltando. Ele falha calado, sem dar erro.</li>
+  <li><strong>Continua travado?</strong> <a href="https://github.com/MrVeGGi3/questretro-vr/issues">Abra uma issue</a> — diga o console e o core, e cole o log de <code>adb logcat -s godot</code>.</li>
+</ul>

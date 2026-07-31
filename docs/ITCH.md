@@ -51,6 +51,7 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Banner | `docs/loja/banner-itch.png` (1920×480) — vai em "Edit theme" |
 | Background | `docs/loja/fundo-itch.png` (1920×1080), em "Edit theme" → Background image |
 | Description | `docs/loja/descricao-itch.html`, colado no **"Edit as HTML"** do editor |
+| Install instructions | `docs/loja/instalacao-itch.html` — campo próprio, também em "Edit as HTML" |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
 
 E o bloco de metadados, que a itch mostra na lateral como "More information":
@@ -175,6 +176,30 @@ que vale mostrar.
 
 Elas não são versionadas, porque os testes as regeram a cada execução e a última
 limpeza de histórico deste repo nasceu de PNG versionado. Gere antes de subir.
+
+### Direitos autorais nas capturas
+
+Vale saber onde está o risco de verdade, porque ele **não** está no conjunto atual.
+
+As capturas de hoje mostram **menu, e nada mais**: nenhum frame de jogo. Os dois
+títulos que aparecem na aba ROMs (`Chrono Trigger`, `Star Fox 64`) são fixtures do
+`test_biblioteca.gd` — arquivos falsos de **4 KB**, e o próprio tamanho aparece na
+tela. Título de jogo citado para descrever compatibilidade é uso nominativo, que é o
+que todo emulador faz.
+
+**O risco nasce na próxima captura, não nesta.** A imagem que falta é a tela
+flutuando na sala, e o que estiver *dentro* dessa tela é obra audiovisual de terceiro
+— aí sim exposta, em destaque, numa página de loja. É a diferença entre citar um nome
+e reproduzir a obra.
+
+A saída que zera a questão sem custar nada à imagem: **fotografar com homebrew ou ROM
+de domínio público**. O conceito que a captura precisa vender é a tela gigante dentro
+do salão, e isso independe de qual jogo está rodando. Cenas de homebrew existem para
+os cinco sistemas.
+
+Vale lembrar que uma notificação de remoção é barata para quem envia e cara para
+contestar — e que a itch e o GitHub atendem as duas. Não é conselho jurídico; é a
+diferença entre uma pergunta em aberto e nenhuma pergunta.
 
 **O buraco que só o headset preenche.** A tela flutuando na sala é o argumento
 inteiro do projeto e não existe em captura nenhuma aqui — as de interface mostram
