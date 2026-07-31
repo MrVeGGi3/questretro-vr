@@ -37,7 +37,7 @@ O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:
 | Classification | **Tool** — é um emulador, não um jogo. Custa alcance (a vitrine de Games é muito maior), e mesmo assim é o rótulo honesto |
 | Kind of project | Downloadable |
 | Release status | Released |
-| Pricing | **No payments**, com "Donate" ligado — grátis, doação opcional |
+| Pricing | **`Donate`** — baixa de graça, com botão de doação. Não é `No payments` (esse tira o botão) nem `$X or more` (esse cobra) |
 | Uploads | o APK, marcado **Android** |
 | Cover | `docs/loja/capa-itch.png` (630×500, gerada por `tools/gerar-capa-itch.sh`) |
 | Community | Comments — dá um canal a quem não tem conta no GitHub |
