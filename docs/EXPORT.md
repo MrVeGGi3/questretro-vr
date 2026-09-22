@@ -118,6 +118,11 @@ para o SDK e o JDK 17.
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export ANDROID_HOME=~/Android/Sdk ANDROID_SDK_ROOT=~/Android/Sdk
+# A mesma chave do release também no debug: é o que permite instalar um por
+# cima do outro sem desinstalar. Ver "Debug ou release" abaixo.
+export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$KEYSTORE"
+export GODOT_ANDROID_KEYSTORE_DEBUG_USER="$ALIAS"
+export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="$SENHA"
 godot --headless --path app --export-debug "Quest (Meta)" "$PWD/dist/questretro-vr.apk"
 ```
 
@@ -146,6 +151,10 @@ faltando, o erro não diz qual, diz *"Você deve configurar: uma Keystore de Lan
 OU Usuário e Senha de Lançamento, OU nenhum deles"*, que parece falar da keystore e
 fala da configuração parcial. É o mesmo erro que aparece quando a keystore **não
 existe**, porque aí o caminho conta como não configurado.
+
+**E vão por variável de ambiente, não pelo preset.** O `export_presets.cfg` é
+versionado: senha escrita ali sobe para o GitHub junto com o resto. O Godot lê as
+variáveis e não grava nada no arquivo.
 
 **A chave de release não é substituível.** O Android identifica um app por pacote mais
 chave de assinatura, então trocar de chave depois de publicar obriga todo mundo a
@@ -193,41 +202,11 @@ tempo de execução, e o `all_resources` sozinho não o alcança.
 > `git checkout -- app/project.godot` depois do export devolve os comentários
 > sem mexer no APK, que já foi gerado com as mesmas chaves efetivas.
 
-## Export release
+## Debug ou release, e a assinatura de cada um
 
-O comando acima gera um APK **debug**, e é o que todas as medições deste
-documento usaram até 2026-07-29. Para o build que a pessoa que instala deveria
-receber:
-
-```bash
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export ANDROID_HOME=~/Android/Sdk ANDROID_SDK_ROOT=~/Android/Sdk
-# Mesma keystore do debug de propósito — ver abaixo.
-export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/.local/share/godot/keystores/debug.keystore"
-export GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
-export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
-godot --headless --path app --export-release "Quest (Meta)" "$PWD/dist/questretro-vr-release.apk"
-```
-
-**A keystore vai por variável de ambiente, e não pelo preset.** O
-`export_presets.cfg` é versionado: senha escrita ali sobe para o GitHub. O Godot
-lê estas três variáveis e não grava nada no arquivo.
-
-**Assinar o release com a keystore de *debug* é escolha, não descuido.** A
-assinatura é o que o Android usa para decidir se um APK é atualização do que já
-está instalado. Com uma keystore nova, `adb install -r` recusa
-(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) e a única saída é desinstalar — o que
-**apaga save states, SRAM, perfis e configuração**, e num release não há
-`run-as` para restaurar. Mantendo a assinatura, o install vira upgrade e os dados
-sobrevivem. Para publicar de verdade um dia, aí sim gera-se uma keystore própria
-— e o preço a pagar é esse, uma vez.
-
-> A keystore de debug do Godot **não** é a do `~/.android`: ela fica em
-> `~/.local/share/godot/keystores/debug.keystore` (alias `androiddebugkey`, senha
-> `android`), e é o `export/android/debug_keystore` das editor settings. Usar a
-> errada dá exatamente o `INSTALL_FAILED_UPDATE_INCOMPATIBLE` acima, com as duas
-> chamadas "Android Debug" no certificado — conferir com
-> `apksigner verify --print-certs`.
+O comando de *Gerar o APK* produz um APK **debug**, e é o que todas as medições
+deste documento usaram até 2026-07-29. O release é o de
+`tools/exportar-release.sh`, logo acima.
 
 **O que se perde no release**, e é bastante para investigar:
 
@@ -238,8 +217,30 @@ adb shell run-as com.questretro.vr ls files
 
 Sem `run-as` não há `opcoes_core.cfg`, não dá para ler `user://`, nem para puxar
 save states para o desktop. Ou seja: **release para jogar, debug para
-investigar**. As duas assinaturas são iguais, então trocar de um para o outro é
-só reinstalar, sem perder dados.
+investigar**.
+
+**Trocar de um para o outro só é reinstalar se os dois estiverem assinados com a
+mesma chave** — e em `--headless` isso não acontece sozinho. Sem as variáveis
+abaixo o Godot cai na keystore de debug dele, o APK sai com `CN=Android Debug`, e
+o `adb install -r` por cima do release recusa:
+
+```
+INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.questretro.vr
+signatures do not match newer version; ignoring!
+```
+
+A saída óbvia — desinstalar — é a cara: leva junto `user://`, ou seja save
+states, SRAM, perfis e configuração. A saída barata é reexportar o debug com a
+chave do projeto, que é o que o bloco de *Gerar o APK* faz.
+
+> Este parágrafo já disse o contrário, e custou um export: **"as duas assinaturas
+> são iguais"** era verdade até 2026-07-29, quando o release ia assinado com a
+> keystore de debug do Godot justamente para que batessem. Desde que o release
+> passou a ir com a chave própria do projeto (2026-07-30) a igualdade deixou de
+> ser automática, e pelo editor ela continua acontecendo — é lá que as EditorSettings
+> existem —, o que esconde o problema de quem exporta pelo script e pela linha de
+> comando. Conferir com `apksigner verify --print-certs` antes de instalar sai
+> mais barato do que descobrir na recusa.
 
 ## Sideload no Quest 3S
 
