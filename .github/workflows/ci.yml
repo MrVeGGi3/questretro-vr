@@ -1,9 +1,10 @@
 # CI: o que se prova sem o headset.
 #
 # O projeto é de VR, então a maior parte do valor só aparece no Quest 3S — mas
-# três coisas não precisam dele e são justamente as que já quebraram: a extensão
-# que não compila, o nome do binário que não bate com o `.gdextension`, e a
-# lógica de biblioteca/menu que regride em silêncio.
+# quatro coisas não precisam dele e são justamente as que já quebraram: a
+# extensão que não compila, o nome do binário que não bate com o `.gdextension`,
+# a lógica de biblioteca/menu que regride em silêncio, e a geometria da sala e da
+# tela, que é trigonometria e não sabe se há headset.
 #
 # O que deliberadamente **não** está aqui: `test_troca_rom`, `test_sram` e
 # `test_estado` dependem de ROMs, que não são versionadas e nem poderiam ser; e
@@ -175,6 +176,16 @@ jobs:
       - name: Menu e páginas em inglês (xvfb)
         run: xvfb-run -a godot --language en --xr-mode off --path app res://cenas/test_ui.tscn
 
+      # A sala e a geometria da tela. Faltava aqui, e a falta cobrou: o teste
+      # ficou quebrado três commits em silêncio, porque a renomeação das chaves de
+      # `PagTela.PREDEFINICOES` não passa por nada que o CI rodasse — só apareceu
+      # ao rodar o export à mão, antes de um release.
+      #
+      # Não precisa de ROM nem de core (a `Sala` é geometria, e o rótulo da tela é
+      # trigonometria), então cabe aqui pelo mesmo critério dos dois acima.
+      - name: Sala e geometria da tela (xvfb)
+        run: xvfb-run -a godot --xr-mode off --path app res://cenas/test_sala.tscn
+
       # As páginas viram PNG em `user://`. Quando um teste de UI cai, olhar a tela
       # é mais rápido do que ler o log.
       #
@@ -186,6 +197,7 @@ jobs:
         run: |
           mkdir -p capturas
           cp "$HOME/.local/share/godot/app_userdata/QuestRetro"/ui_*.png capturas/ || true
+          cp "$HOME/.local/share/godot/app_userdata/QuestRetro"/sala_*.png capturas/ || true
           ls -1 capturas/
 
       - name: Guardar as capturas

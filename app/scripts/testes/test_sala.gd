@@ -30,7 +30,7 @@ const TAM_FOTO := Vector2i(960, 720)
 ## derrubar o teste: as asserções simplesmente não acontecem, e o final imprimia
 ## "TUDO OK" com o salão sem compilar. Zero falha só vale alguma coisa junto com
 ## a conta de quantas passaram.
-const CONFERENCIAS := 45
+const CONFERENCIAS := 49
 
 ## Os métodos de `XRInterface` que o `xr_main` usa para ligar o passthrough.
 ## Nomes, e não chamadas: sem runtime de XR não há o que chamar aqui.
@@ -52,6 +52,7 @@ func _ready() -> void:
 	_testar_cabe_a_tela()
 	_testar_persistencia()
 	await _testar_centrar_tela()
+	await _testar_rotulo_legivel()
 	await _fotografar()
 
 	if _feitas != CONFERENCIAS:
@@ -128,6 +129,88 @@ func _testar_centrar_tela() -> void:
 		_conferir(is_equal_approx(p.x, 1.0) and is_equal_approx(p.z, 4.0) and is_zero_approx(p.y),
 				"a %.0f° a âncora pega a posição da câmera, e zera a altura" % graus)
 
+	cena.queue_free()
+	await get_tree().process_frame
+
+
+## O rótulo abaixo da tela continua do mesmo tamanho **aparente**, e continua à
+## vista, em toda a barra de distância e de escala.
+##
+## Nasceu de um relato de dentro do headset ("a letra embaixo da tela é pequena
+## demais para ler", pior no Quest 2 e piorando ao deslizar a tela para frente e
+## para trás). A causa era `pixel_size` fixo, que é tamanho fixo **em metros**: o
+## olho lê ângulo, e o mesmo texto a 8,0 m ocupa um décimo do ângulo que ocupava a
+## 0,8 m. Nenhum teste podia pegar isso antes porque nenhum media ângulo — e no
+## desktop, a uma distância só, os dois comportamentos são idênticos.
+##
+## Roda sem XR, como o `_testar_centrar_tela` acima: a conta é geometria, e não
+## sabe se há headset. O que ele **não** afirma é onde fica o limite do legível —
+## isso é pixels por grau do aparelho, e é medição de headset.
+func _testar_rotulo_legivel() -> void:
+	var cena: Node3D = load("res://cenas/vr_main.tscn").instantiate()
+	add_child(cena)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# A configuração é a do usuário (o `carregar()` do arranque), e o teste mexe
+	# nela: guardar e devolver, senão rodar o teste muda a tela de quem joga.
+	var dist_antes: float = cena._cfg.obter("tela/distancia")
+	var escala_antes: float = cena._cfg.obter("tela/escala")
+
+	cena._ancora_pos = Vector3.ZERO
+	cena._ancora_guinada = 0.0
+	var olhos := Vector3(0.0, cena._altura_olhos(), 0.0)
+
+	var angulos: Array[float] = []
+	var tombos: Array[float] = []
+	for dist: float in [PagTela.DIST_MIN, 2.2, PagTela.DIST_MAX]:
+		for escala: float in [PagTela.ESCALA_MIN, 1.5, PagTela.ESCALA_MAX]:
+			cena._cfg.definir("tela/distancia", dist)
+			cena._cfg.definir("tela/escala", escala)
+			cena._posicionar_tela()
+			var ate_olhos: float = cena._label.global_position.distance_to(olhos)
+			# Tamanho aparente: metros por pixel divididos pela distância. É o que
+			# o olho recebe, e é o que tem de ser constante.
+			angulos.append(cena._label.pixel_size / ate_olhos)
+			var do_olho: Vector3 = cena._label.global_position - olhos
+			var queda := -do_olho.y
+			do_olho.y = 0.0
+			tombos.append(rad_to_deg(atan2(queda, do_olho.length())))
+
+	var menor: float = angulos.min()
+	var maior: float = angulos.max()
+	_conferir(maior / menor < 1.01,
+			"o tamanho aparente do rótulo não muda com distância nem escala (%.1f%% de variação em %d combinações)"
+					% [(maior / menor - 1.0) * 100.0, angulos.size()])
+
+	var pior: float = tombos.max()
+	_conferir(pior <= cena.LABEL_TOMBO_MAX + 0.5,
+			"o rótulo nunca desce mais que o limite abaixo da linha dos olhos (%.1f° de %.1f°)"
+					% [pior, cena.LABEL_TOMBO_MAX])
+
+	# Tela pequena: o limite não pode ter virado um piso que descola o rótulo da
+	# borda de baixo. A conta aqui é a mesma do `_posicionar_label`, de propósito
+	# — o que se afirma é que o limite **não pegou**.
+	cena._cfg.definir("tela/distancia", 2.2)
+	cena._cfg.definir("tela/escala", PagTela.ESCALA_MIN)
+	cena._posicionar_tela()
+	var razao: float = cena._cfg.aspecto_como_razao(cena._aspecto_nativo)
+	var meia: float = (cena.LARGURA_BASE / razao) * PagTela.ESCALA_MIN * 0.5
+	var colado: float = cena._tela.global_position.y - (meia + 0.12)
+	_conferir(absf(cena._label.global_position.y - colado) < 0.001,
+			"em tela pequena ele continua colado na borda de baixo")
+
+	# E o caso que motivou o limite: a maior tela na menor distância, onde a
+	# borda de baixo fica 4,2 m abaixo do centro — ou seja, enterrada.
+	cena._cfg.definir("tela/distancia", PagTela.DIST_MIN)
+	cena._cfg.definir("tela/escala", PagTela.ESCALA_MAX)
+	cena._posicionar_tela()
+	_conferir(cena._label.global_position.y > 0.3,
+			"e na maior tela mais perto ele para antes do chão (%.2f m)"
+					% cena._label.global_position.y)
+
+	cena._cfg.definir("tela/distancia", dist_antes)
+	cena._cfg.definir("tela/escala", escala_antes)
 	cena.queue_free()
 	await get_tree().process_frame
 

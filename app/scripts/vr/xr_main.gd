@@ -31,6 +31,25 @@ const ROM_PADRAO := ""
 
 const LARGURA_BASE := 1.4       # metros, largura da tela em escala 1.0
 
+## Tamanho do rótulo abaixo da tela, e a distância em que esse tamanho foi
+## calibrado — `LABEL_DIST_REF` é o `tela/distancia` padrão (`ConfigEmu.PADROES`),
+## porque foi olhando dali que 0,0015 m por pixel pareceu certo.
+##
+## O par existe porque tamanho **fixo em metros** era o defeito: `tela/distancia`
+## vai de 0,8 a 8,0 m, e o mesmo rótulo encolhia 10× em **ângulo** de uma ponta à
+## outra da barra. Ângulo é o que o olho lê, e num Quest 2 (menos pixels por grau)
+## ele cruza o limite de legibilidade antes. Por isso `_posicionar_label()`
+## recalcula o `pixel_size` a cada frame em vez de o nó guardar um número fixo.
+const LABEL_PIXEL_BASE := 0.0015
+const LABEL_DIST_REF := 2.2
+
+## Quanto o rótulo pode pender abaixo do centro da tela, em graus. Ele acompanha
+## a borda de baixo, e essa borda desce com `tela/escala`: em escala 8 são 4,2 m
+## abaixo do centro, e numa tela perto isso põe o texto no chão, fora do campo de
+## visão — legível e invisível ao mesmo tempo. O limite é em **ângulo**, e não em
+## metros, para valer igual a 0,8 m e a 8,0 m de distância.
+const LABEL_TOMBO_MAX := 25.0
+
 ## Quanto segurar o botão de menu para abrir o painel. Toque mais curto que
 ## isto continua valendo como Start — todos os outros botões já estão no SNES,
 ## e o botão de sistema do controle direito é reservado pelo Quest.
@@ -256,10 +275,15 @@ func _diagnostico(delta: float) -> void:
 	# já rodando, todas as amostras até a primeira troca ficam sem dono — foram 71
 	# de 92 numa medição real, e o A/B inteiro se perdeu. Estado na amostra não
 	# tem esse buraco, e ainda dispensa casar horários entre duas linhas.
-	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | video=%dx%d %s | sala=%s | audio gerado=%d descartado=%d" % [
+	#
+	# `tela` entra pela mesma razão, e por um relato concreto: "o rótulo embaixo
+	# da tela fica ilegível" chegou sem os dois números que decidem a causa, e
+	# anotá-los dentro do headset é justamente o que ninguém faz no meio do jogo.
+	var linha := "render=%.1f fps | passos do emu=%d/s (core pede %.1f) | video=%dx%d %s | sala=%s | tela=%.2fx a %.2f m | audio gerado=%d descartado=%d" % [
 		Engine.get_frames_per_second(), _diag_passos, _emu.get_fps(),
 		_emu.largura, _emu.altura, _emu.formato_video(),
 		Sala.NOMES_LOG[int(_cfg.obter("sala/modo"))],
+		_cfg.obter("tela/escala"), _cfg.obter("tela/distancia"),
 		_emu.diag_audio_gerado, _emu.diag_audio_descartado]
 	# Com o painel aberto, um SubViewport de 1280x800 é redesenhado a cada frame
 	# (`UPDATE_ALWAYS`) enquanto a emulação continua rodando atrás. Marcar a
@@ -408,7 +432,8 @@ func _montar_cena() -> void:
 	# — o texto ia parar na altura dos pés, junto com a fonte esticada na mesma
 	# proporção. Quem posiciona é `_posicionar_tela()`, em metros de verdade.
 	_label = Label3D.new()
-	_label.pixel_size = 0.0015
+	# Valor de partida; quem manda é `_posicionar_label()`, a cada frame.
+	_label.pixel_size = LABEL_PIXEL_BASE
 	_label.modulate = Color.WHITE
 	_label.outline_size = 12
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -631,8 +656,14 @@ func _construir_mesh_tela(largura: float, altura: float, curvatura: float) -> Me
 	return st.commit()
 
 
+## Altura dos olhos em metros. No desktop não há câmera de XR para perguntar, e
+## 1,4 m é o chute de alguém sentado — o mesmo que a tela sempre usou.
+func _altura_olhos() -> float:
+	return _camera.global_position.y if _xr_ativo else 1.4
+
+
 func _posicionar_tela() -> void:
-	var altura_olhos := _camera.global_position.y if _xr_ativo else 1.4
+	var altura_olhos := _altura_olhos()
 	# Frente da âncora: -Z girado pela guinada guardada. Com a âncora zerada isto
 	# dá exatamente (0, y, -distancia), que é onde a tela sempre nasceu.
 	var frente := Basis(Vector3.UP, _ancora_guinada) * Vector3.FORWARD
@@ -702,15 +733,44 @@ func _centrar_tela(msg := "") -> void:
 		_mostrar(msg)
 
 
-## Logo abaixo da borda de baixo da tela, a uma distância fixa **em metros** —
-## que é o que faz o texto continuar legível e no mesmo lugar relativo, seja a
-## tela portátil ou de cinema.
+## Logo abaixo da borda de baixo da tela, e do mesmo tamanho **aparente** em
+## qualquer distância.
+##
+## Duas coisas que o rótulo não pode herdar da tela, e as duas já apareceram como
+## "não dá para ler":
+##
+## **Tamanho.** Um `pixel_size` fixo é tamanho fixo em metros, e o olho lê ângulo:
+## o mesmo texto a 8 m ocupa um décimo do ângulo que ocupava a 0,8 m. Escalar o
+## `pixel_size` pela distância até os olhos cancela exatamente a perspectiva, e o
+## rótulo passa a ter o mesmo tamanho na tela inteira da barra. `tela/escala`
+## **não** entra nesta conta de propósito: legibilidade é ângulo, crescer junto
+## com a tela é proporção, e mexer nos dois de uma vez tornaria impossível dizer
+## no headset qual deles resolveu.
+##
+## **Queda.** A borda de baixo afasta-se do centro com `tela/escala`, até 4,2 m no
+## fim da barra. Seguir a borda até lá joga o texto para o chão; o limite de
+## ângulo o segura na parte de baixo da imagem, que numa tela desse tamanho é o
+## que ainda se enxerga sem virar o pescoço. Em tela pequena o limite nunca pega,
+## e o rótulo continua colado embaixo dela.
 func _posicionar_label() -> void:
 	if _label == null:
 		return
 	var razao := _cfg.aspecto_como_razao(_aspecto_nativo)
 	var meia_altura: float = (LARGURA_BASE / razao) * _cfg.obter("tela/escala") * 0.5
-	_label.global_position = _tela.global_position - Vector3(0, meia_altura + 0.12, 0)
+	var olhos := _ancora_pos + Vector3.UP * _altura_olhos()
+
+	# Distância horizontal até a tela: é o cateto de onde sai o tombo máximo.
+	var no_plano := _tela.global_position - olhos
+	no_plano.y = 0.0
+	var tombo_max := no_plano.length() * tan(deg_to_rad(LABEL_TOMBO_MAX))
+
+	var tombo := minf(meia_altura + 0.12, tombo_max)
+	_label.global_position = _tela.global_position - Vector3(0, tombo, 0)
+
+	# O `maxf` é só contra a divisão por zero de uma tela colada no rosto: a
+	# distância mínima da barra é 0,8 m, e a mínima do rótulo é maior que isso.
+	var dist := maxf(_label.global_position.distance_to(olhos), 0.1)
+	_label.pixel_size = LABEL_PIXEL_BASE * dist / LABEL_DIST_REF
 
 
 func _atualizar_tela() -> void:
