@@ -12,10 +12,44 @@
 # sai, e mente).
 name: CI
 
+# Commit que só mexe em documentação não dispara nada. A matriz compila a
+# extensão quatro vezes e o job de testes uma quinta, ~7 min de runner, e
+# nenhuma linha de `.md` ou de `.html` da página da loja pode mudar o resultado
+# de qualquer um deles.
+#
+# **`*.md` aqui é documentação, não cartucho.** Neste projeto `.md` é também a
+# extensão de ROM de Mega Drive (`Sonic (USA).md`), e ler esta lista como
+# "ignorar ROMs" seria natural. Não há conflito porque ROM nenhuma é versionada
+# (ver `.gitignore` e o `exclude_filter` do preset), mas a coincidência é feia o
+# bastante para merecer a nota.
+#
+# `paths-ignore` **não** é "o job passa de graça": ele não roda, e o commit fica
+# sem check nenhum em vez de com um check verde. Isso é inofensivo enquanto
+# nenhuma branch exigir status para mesclar — se um dia `master` for protegida
+# com a CI como check obrigatório, um PR só de documentação passa a esperar para
+# sempre por um job que nunca vai existir, e a saída é `paths` no lugar disto,
+# com um job que reporta sucesso.
+#
+# Basta **um** arquivo fora da lista para tudo rodar, então commit que mistura
+# código e README continua coberto.
 on:
   push:
     branches: [master]
+    # A lista vai repetida de propósito: o parser do GitHub Actions **não**
+    # aceita âncora YAML (`&`/`*`), e o arquivo é recusado inteiro com
+    # "Anchors are not currently supported" — que é erro de workflow, não de
+    # job, então nada roda e nada explica.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
   workflow_dispatch:
 
 env:
