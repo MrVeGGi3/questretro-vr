@@ -22,8 +22,18 @@ cinema gigante) e controles físicos por jogo (ex: "guidão de nave" pro Star Fo
 Para quem só quer usar o app no Quest — nada aqui precisa de computador depois do
 sideload.
 
-1. **Instale o APK** dos [Releases](https://github.com/MrVeGGi3/questretro-vr/releases)
-   por SideQuest ou `adb install questretro-vr-release.apk`.
+1. **Instale o APK**, de um dos dois lugares — é o mesmo arquivo, assinado com a
+   mesma chave: [itch.io](https://veggi3.itch.io/questretrovr), que é por onde o
+   sideload de Quest circula e que atualiza sozinho pelo app da loja, ou os
+   [Releases](https://github.com/MrVeGGi3/questretro-vr/releases), que trazem as
+   notas de cada versão e o `sha256` para conferir o download. Por SideQuest, ou
+   por `adb install -r questretro-vr-release.apk`.
+
+   **O `-r` é o que atualiza** uma instalação que já existe, em vez de recusar
+   com `INSTALL_FAILED_ALREADY_EXISTS`. Atualizar por cima preserva o que está
+   em `user://` — saves de bateria, save states, perfis por cartucho e
+   configuração. Desinstalar apaga tudo isso, e é por isso que a chave de
+   assinatura nunca muda entre versões.
 2. **Libere o acesso aos arquivos.** Abra o menu (segure o botão de menu do controle
    esquerdo por 0,5 s), vá em **ROMs** e toque em **"Permitir acesso"**; nos Ajustes do
    Android que abrirem, ache QuestRetro e ligue a chave.
