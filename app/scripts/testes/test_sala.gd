@@ -30,7 +30,7 @@ const TAM_FOTO := Vector2i(960, 720)
 ## derrubar o teste: as asserções simplesmente não acontecem, e o final imprimia
 ## "TUDO OK" com o salão sem compilar. Zero falha só vale alguma coisa junto com
 ## a conta de quantas passaram.
-const CONFERENCIAS := 49
+const CONFERENCIAS := 54
 
 ## Os métodos de `XRInterface` que o `xr_main` usa para ligar o passthrough.
 ## Nomes, e não chamadas: sem runtime de XR não há o que chamar aqui.
@@ -53,6 +53,7 @@ func _ready() -> void:
 	_testar_persistencia()
 	await _testar_centrar_tela()
 	await _testar_rotulo_legivel()
+	await _testar_rotulo_expira()
 	await _fotografar()
 
 	if _feitas != CONFERENCIAS:
@@ -211,6 +212,44 @@ func _testar_rotulo_legivel() -> void:
 
 	cena._cfg.definir("tela/distancia", dist_antes)
 	cena._cfg.definir("tela/escala", escala_antes)
+	cena.queue_free()
+	await get_tree().process_frame
+
+
+func _testar_rotulo_expira() -> void:
+	var cena: Node3D = load("res://cenas/vr_main.tscn").instantiate()
+	add_child(cena)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# O caminho de verdade, e não `_mostrar` direto: o que quebrou foi a
+	# confirmação de centralizar, e é por `_centrar_tela` que ela passa nos três
+	# lugares que a disparam (clique do analógico, botão do menu e tecla C).
+	cena._centrar_tela(cena.tr("XR_TELA_CENTRADA"))
+	_conferir(cena._label.visible, "a confirmação de centralizar aparece")
+
+	cena._expirar_rotulo(cena.MSG_SEGUNDOS - 0.5)
+	_conferir(cena._label.visible, "e continua lá antes do prazo vencer")
+
+	cena._expirar_rotulo(0.6)
+	_conferir(not cena._label.visible and cena._label.text.is_empty(),
+			"e some sozinha quando o prazo vence (%.1f s)" % cena.MSG_SEGUNDOS)
+
+	# A outra metade, que é o motivo de o prazo ser opcional: erro do core e a
+	# ajuda de "sem ROM" descrevem estado, e apagá-los deixaria a pessoa sem o
+	# que ler — no headset não há log para consultar depois.
+	cena._mostrar("Falha ao carregar a ROM: qualquer coisa")
+	cena._expirar_rotulo(60.0)
+	_conferir(cena._label.visible, "mensagem sem prazo fica, por mais que o tempo passe")
+
+	# Chave crua na tela é o defeito que a página Input acabou de consertar; o
+	# rótulo 3D não passa pelo teste de UI, então a conferência mora aqui.
+	var cruas := 0
+	for chave in ["XR_TELA_CENTRADA", "XR_GUIDAO_CENTRADO", "XR_PASSTHROUGH_VAZIO"]:
+		if cena.tr(chave) == chave:
+			cruas += 1
+	_conferir(cruas == 0, "as três mensagens do rótulo têm tradução (%d cruas)" % cruas)
+
 	cena.queue_free()
 	await get_tree().process_frame
 

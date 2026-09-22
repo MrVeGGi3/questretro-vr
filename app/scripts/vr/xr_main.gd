@@ -50,6 +50,26 @@ const LABEL_DIST_REF := 2.2
 ## metros, para valer igual a 0,8 m e a 8,0 m de distância.
 const LABEL_TOMBO_MAX := 25.0
 
+## Quanto uma mensagem de confirmação fica no rótulo, em segundos.
+##
+## Até existir, **nada** apagava o rótulo: `_mostrar()` escrevia e ia embora, e
+## só a troca de ROM, o `iniciado` do core e o desligar do diagnóstico limpavam.
+## Um "Tela centralizada" ficava na tela até o fim da sessão, e reaparecia como
+## surpresa quando a pessoa voltava ao menu para mexer no tamanho da tela — foi
+## assim que o defeito chegou.
+##
+## Passou despercebido tanto tempo por dois motivos que se somam: com o
+## diagnóstico ligado a linha é reescrita a cada segundo e engole a mensagem
+## presa (o comentário de `_aplicar_sala()` chegou a afirmar que o rótulo "some
+## no frame seguinte", e some mesmo — só nesse caso), e antes do conserto de
+## tamanho aparente o texto virava um borrão ilegível à distância. Rótulo
+## legível é o que torna uma mensagem presa impossível de ignorar.
+##
+## Mensagem **sem** prazo continua existindo, e é o caso do que não é
+## confirmação: erro do core, a ajuda de quando não há ROM e a linha do
+## diagnóstico ficam até o estado mudar.
+const MSG_SEGUNDOS := 2.5
+
 ## Quanto segurar o botão de menu para abrir o painel. Toque mais curto que
 ## isto continua valendo como Start — todos os outros botões já estão no SNES,
 ## e o botão de sistema do controle direito é reservado pelo Quest.
@@ -104,6 +124,8 @@ var _tamanho_tela_ds := Vector2.ONE
 ## não conta. A linha diz qual dos três é.
 var _diag_caneta := ""
 var _label: Label3D
+## Segundos que faltam para apagar o rótulo; 0 significa "fica até mandarem".
+var _label_resta := 0.0
 
 var _xr_ativo := false
 var _aspecto_nativo := 4.0 / 3.0
@@ -158,7 +180,7 @@ func _ready() -> void:
 	# Fecha o painel junto: centralizar com ele aberto deixaria a tela nova atrás
 	# do menu, e a pessoa não veria o que acabou de pedir.
 	_painel.centrar_pedido.connect(func() -> void:
-		_centrar_tela("Tela centralizada")
+		_centrar_tela(tr("XR_TELA_CENTRADA"))
 		_painel.fechar()
 	)
 
@@ -205,6 +227,7 @@ func _process(delta: float) -> void:
 	# roda. O que sobra entre este número e os 1000 ms do segundo é o motor —
 	# desenho, física, OpenXR —, e é o que separa "o nosso `_process` está caro"
 	# de "o frame está caro em outro lugar".
+	_expirar_rotulo(delta)
 	_diag_us_process += Time.get_ticks_usec() - t0
 	_diagnostico(delta)
 
@@ -333,7 +356,7 @@ func _unhandled_input(evento: InputEvent) -> void:
 		# se move, então o efeito é nulo — serve para exercitar o caminho sem
 		# headset, que é o que `test_sala` faz.
 		if evento.keycode == KEY_C:
-			_centrar_tela("Tela centralizada")
+			_centrar_tela(tr("XR_TELA_CENTRADA"))
 			get_viewport().set_input_as_handled()
 			return
 	if evento is InputEventMouse:
@@ -483,6 +506,11 @@ func _ao_mudar_config(chave: String, _valor: Variant) -> void:
 	elif chave.begins_with("audio/"):
 		_aplicar_audio()
 	elif chave == "input/n64_guidao" or chave.begins_with("input/guidao_"):
+		# Mesma razão do `video/diag`: a linha do guidão é reescrita a cada
+		# frame enquanto está ligada, então desligá-la sem limpar deixaria os
+		# últimos números parados na tela para sempre.
+		if chave == "input/guidao_diag":
+			_mostrar("")
 		# Só os ajustes; o recentro fica para quando o painel fechar. Aplicar a
 		# sensibilidade nova é seguro a qualquer hora — capturar repouso com as
 		# mãos no menu não é.
@@ -505,7 +533,7 @@ func _aplicar_sala() -> void:
 		# Cair no Vazio **avisando**: um passthrough que não sobe e não diz nada
 		# é indistinguível de um preto proposital, e a pessoa ficaria mexendo no
 		# menu atrás de um modo que o aparelho não tem.
-		_mostrar("Passthrough indisponível neste aparelho — usando Vazio.")
+		_mostrar(tr("XR_PASSTHROUGH_VAZIO"), MSG_SEGUNDOS)
 		# Também no log: no headset o rótulo some no frame seguinte, e depois só
 		# resta um preto que ninguém sabe explicar.
 		print("Sala: passthrough indisponível — caindo no Vazio")
@@ -730,7 +758,7 @@ func _centrar_tela(msg := "") -> void:
 	_sala.rotation = Vector3(0.0, _ancora_guinada, 0.0)
 	_posicionar_tela()
 	if not msg.is_empty():
-		_mostrar(msg)
+		_mostrar(msg, MSG_SEGUNDOS)
 
 
 ## Logo abaixo da borda de baixo da tela, e do mesmo tamanho **aparente** em
@@ -783,10 +811,24 @@ func _atualizar_tela() -> void:
 	_posicionar_tela()
 
 
-func _mostrar(msg: String) -> void:
+## `segundos` > 0 faz a mensagem se apagar sozinha. O padrão é ficar, porque
+## quem fica é quem descreve um **estado** — e apagar um erro depois de dois
+## segundos e meio deixaria a pessoa sem nada para ler.
+func _mostrar(msg: String, segundos := 0.0) -> void:
 	if _label != null:
 		_label.text = msg
 		_label.visible = not msg.is_empty()
+		_label_resta = segundos if not msg.is_empty() else 0.0
+
+
+## Conta o prazo da mensagem transitória. Fora do `_process` para o teste poder
+## adiantar o relógio sem um headset e sem esperar o tempo de verdade.
+func _expirar_rotulo(delta: float) -> void:
+	if _label_resta <= 0.0:
+		return
+	_label_resta -= delta
+	if _label_resta <= 0.0:
+		_mostrar("")
 
 
 func _trocar_rom(caminho: String) -> void:
@@ -838,7 +880,7 @@ func _ler_input_vr(delta: float) -> void:
 	# recentrando uma coisa.
 	var clique_dir := _ctrl_dir.is_button_pressed(&"primary_click")
 	if clique_dir and not _centrar_tela_antes:
-		_centrar_tela("Tela centralizada")
+		_centrar_tela(tr("XR_TELA_CENTRADA"))
 	_centrar_tela_antes = clique_dir
 
 	if _duas_telas:
@@ -1067,7 +1109,7 @@ func _manche_do_n64() -> Vector2:
 	# era ele o manche —, então não disputa com nada do mapa do N64.
 	var clique := _ctrl_esq.is_button_pressed(&"primary_click")
 	if clique and not _recentrar_antes:
-		_centrar_guidao("Guidão centralizado")
+		_centrar_guidao(tr("XR_GUIDAO_CENTRADO"))
 	_recentrar_antes = clique
 
 	# As duas mãos, e a **ordem importa**: `eixos()` decide o sentido do rolamento
@@ -1102,7 +1144,7 @@ func _centrar_guidao(msg := "") -> void:
 	_guidao.centrar(_ctrl_esq.global_transform, _ctrl_dir.global_transform,
 			_camera.global_transform)
 	if not msg.is_empty():
-		_mostrar(msg)
+		_mostrar(msg, MSG_SEGUNDOS)
 
 
 ## Start segurado pelo grip, ou pulsado pelo toque curto no botão de menu. O

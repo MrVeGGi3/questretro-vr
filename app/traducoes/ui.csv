@@ -163,6 +163,9 @@ EMU_FALTA_CORE_EM,Falta %s em %s,Missing %s in %s
 EMU_FALHA_CARREGAR_ROM,Falha ao carregar a ROM: %s,Failed to load the ROM: %s
 EMU_FALHA_CARREGAR_CORE,Falha ao carregar o core: %s,Failed to load the core: %s
 XR_SEM_ROM_AJUDA,Sem ROM. Segure o botão de menu para escolher uma.,No ROM. Hold the menu button to pick one.
+XR_TELA_CENTRADA,Tela centralizada,Screen recentered
+XR_GUIDAO_CENTRADO,Guidão centralizado,Flight yoke recentered
+XR_PASSTHROUGH_VAZIO,Passthrough indisponível neste aparelho — usando Vazio.,Passthrough unavailable on this device — using Empty.
 TELA_PRE_PORTATIL,Portátil,Handheld
 TELA_PRE_TV,TV,TV
 TELA_PRE_CINEMA,Cinema,Cinema
