@@ -380,7 +380,16 @@ congelado, e um modo de captura teria de distinguir "apertei para escolher" de
 "apertei para jogar". Apontar é o que o laser já sabe fazer.
 
 Os dois analógicos ficam de fora: eles não são botões para o core. O esquerdo do
-SNES vira as quatro direções, e no N64 os dois são eixos de verdade.
+SNES vira as quatro direções, e no N64 os dois são eixos de verdade. A página diz
+isso na própria linha — **"não remapeável"**, ao lado do destino —, e a marca não
+é enfeite: sem ela, a única diferença entre uma linha fixa e uma tocável era o
+realce ao apontar, que só aparece para quem **já** apontou. Uma linha que não
+responde ao toque se lê como travada, e foi exatamente esse o relato que trouxe a
+marca para cá (o destino do analógico esquerdo do N64 dizia "MANCHE", o mesmo
+nome do modo logo abaixo, e desligar o modo parecia não destravá-la).
+
+Desligar o guidão devolve o thumbstick ao manche do N64 no mesmo frame — não há
+nada a restaurar à mão, e nunca houve.
 
 Com um **perfil de cartucho** ligado (abaixo), o mapa que você montar vale só
 para aquele jogo.
@@ -519,9 +528,10 @@ orçamento" mas não separava o salão do resto.
 
 Ligue **Vídeo → Diagnóstico** para ver os números na própria tela, sem cabo nem
 rebuild. Cada amostra carrega o estado em que rodou — resolução e formato do
-frame, sala, se o menu estava aberto — e quanto do segundo foi gasto dentro do
-core, convertendo pixel e bombeando áudio. Isso existe porque contador de fps
-sozinho diz *que* o frame ficou longo e nunca *onde*: três suspeitos das quedas
+frame, sala, tamanho e distância da tela, se o menu estava aberto — e quanto do
+segundo foi gasto dentro do core, convertendo pixel e bombeando áudio. Isso
+existe porque contador de fps sozinho diz *que* o frame ficou longo e nunca
+*onde*: três suspeitos das quedas
 foram eliminados por comparação direta (a sala, o painel aberto e a resolução
 interna do N64) e nenhum deles teria caído sem a amostra dizer em que
 configuração rodou. Os detalhes e o que ainda não está atribuído estão em
@@ -539,6 +549,13 @@ geometria para trás (um vazamento só apareceria no headset, como queda de fps
 sem causa aparente), que o salão sai igual a cada arranque, e que a parede do
 fundo continua além da distância máxima da tela — esta última para quando
 alguém resolver "arrumar" as proporções do salão.
+
+Ele também prende o **tamanho aparente** do rótulo abaixo da tela, varrendo
+distância e escala de ponta a ponta. Essa é a classe de defeito que o desktop
+esconde por construção: a uma distância só, tamanho fixo em metros e tamanho fixo
+em ângulo são indistinguíveis, e a diferença entre os dois é de 10× no fim da
+barra. O teste roda na CI — ficou três commits quebrado em silêncio antes de
+estar lá, o que é motivo suficiente.
 
 ## ROMs
 
