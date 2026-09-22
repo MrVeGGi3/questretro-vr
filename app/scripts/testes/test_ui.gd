@@ -69,6 +69,7 @@ func _ready() -> void:
 	await _testar_botao_perfil(cfg, emu)
 	_testar_combinar()
 	await _testar_remap(cfg, emu)
+	await _testar_eixo_fixo(cfg, emu)
 	await _testar_biblioteca(cfg, emu)
 	_testar_sistemas_completos()
 	_testar_primeira_carga_pelo_menu()
@@ -699,6 +700,81 @@ func _testar_remap(cfg: ConfigEmu, emu: EmuCore) -> void:
 
 	cfg.definir(chave, antes)
 	cfg.usar_perfil(emu.id_rom())
+	vp.queue_free()
+	await get_tree().process_frame
+
+
+## As linhas de **eixo** do N64, ligando e desligando o modo guidão.
+##
+## Nasceu de um relato ("desativar o Modo Manche bloqueia a edição do analógico
+## esquerdo") cuja apuração deu o contrário do título: a linha do analógico nunca
+## foi tocável, em sistema nenhum — ela é `_linha_fixa`, sem `Button`. O que o
+## modo fez foi deixar a palavra **MANCHE** naquela linha depois de desligado, e
+## uma linha que não responde ao toque com o nome do modo escrito nela se lê como
+## sobra travada.
+##
+## Então é isto que o teste prende, nesta ordem: que ligar e desligar devolve a
+## lista exatamente como estava; que o analógico continua **fora** do remap nos
+## dois estados (não é o que se conserta aqui, e virar tocável por acidente seria
+## regressão); e que o destino dele não repete mais o nome do modo.
+func _testar_eixo_fixo(cfg: ConfigEmu, emu: EmuCore) -> void:
+	# A página mostra o mapa do console em execução, e sem ROM isso é o SNES. O
+	# relato é do N64, e o campo é GDScript comum — dizer o sistema é o que
+	# dispensa uma ROM que o CI não tem.
+	var sistema_antes := emu.sistema
+	emu.sistema = "n64"
+	var guidao_antes := bool(cfg.obter("input/n64_guidao"))
+	cfg.definir("input/n64_guidao", false)
+
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("MENU_INPUT")
+	await get_tree().process_frame
+
+	var chip := menu.find_child("Chip_INPUT_EIXO_ESQ", true, false) as Label
+	if chip == null:
+		_conferir(false, "achei a linha do analógico esquerdo na página de Input")
+		vp.queue_free()
+		return
+	var desligado := chip.text
+	_conferir(desligado != "INPUT_DEST_MANCHE",
+			"com o guidão desligado o analógico esquerdo não diz o nome do modo (diz %s)"
+					% desligado)
+	_conferir(menu.find_child("Origem_INPUT_EIXO_ESQ", true, false) == null,
+			"e ele não é uma linha remapeável, que é o que a página sempre disse")
+
+	cfg.definir("input/n64_guidao", true)
+	await get_tree().process_frame
+	var pose := menu.find_child("Chip_INPUT_EIXO_POSE", true, false) as Label
+	_conferir(pose != null and pose.text == "INPUT_DEST_MANCHE",
+			"com o guidão ligado, quem vira o manche é a pose das duas mãos")
+	_conferir(menu.find_child("Chip_INPUT_EIXO_ESQ", true, false) == null,
+			"e a linha do analógico esquerdo sai da lista")
+
+	# O que o relato dizia que não voltava.
+	cfg.definir("input/n64_guidao", false)
+	await get_tree().process_frame
+	var de_volta := menu.find_child("Chip_INPUT_EIXO_ESQ", true, false) as Label
+	_conferir(de_volta != null and de_volta.text == desligado,
+			"desligar o guidão devolve a linha do analógico esquerdo como estava")
+	_conferir(menu.find_child("Chip_INPUT_EIXO_POSE", true, false) == null,
+			"e tira a linha da pose das mãos junto")
+
+	# Nenhum dos oito botões remapeáveis foi levado no caminho: a queixa era de
+	# edição bloqueada, e sumir com um deles seria bloquear de verdade.
+	var vistos := 0
+	for entrada in MapaInput.ORIGENS:
+		if menu.find_child("Origem_%s" % entrada[0], true, false) != null:
+			vistos += 1
+	_conferir(vistos == MapaInput.ORIGENS.size(),
+			"e as %d linhas remapeáveis continuam todas lá (%d)"
+					% [MapaInput.ORIGENS.size(), vistos])
+
+	cfg.definir("input/n64_guidao", guidao_antes)
+	emu.sistema = sistema_antes
 	vp.queue_free()
 	await get_tree().process_frame
 

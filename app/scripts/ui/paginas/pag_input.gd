@@ -26,21 +26,33 @@ extends PagBase
 ## Linhas que **não** são remapeáveis, por sistema: os analógicos não são botões
 ## para o core. No SNES o esquerdo vira as quatro direções (mostrar o nome de
 ## uma só diria que as outras três não estão ligadas); no N64 os dois são eixos
-## de verdade.
+## de verdade, cabeados direto em `xr_main._input_n64()` sem passar por chave de
+## mapa nenhuma.
+##
+## O destino do analógico esquerdo do N64 diz **ANALÓGICO**, e não "MANCHE", e a
+## troca é o conserto de um relato real: "manche" nomeia o **modo** guidão, e ler
+## a palavra do modo numa linha que não responde ao toque — ainda por cima logo
+## depois de desligar o modo — se lê como sobra travada. A linha nunca foi
+## tocável em sistema nenhum; o que faltava era ela dizer isso.
+##
+## Chaves de tradução, e não texto pronto: `_linha_fixa` joga o que está aqui
+## direto no `Label`, então literal em português apareceria em português também
+## com `--language en`.
 const EIXOS := {
-	"snes": [["Analógico esquerdo", "D-PAD"]],
-	"megadrive": [["Analógico esquerdo", "D-PAD"]],
-	"nds": [["Analógico esquerdo", "D-PAD"], ["Laser na tela de baixo", "CANETA"]],
-	"n64": [["Analógico esquerdo", "MANCHE"], ["Analógico direito", "C"]],
+	"snes": [["INPUT_EIXO_ESQ", "D-PAD"]],
+	"megadrive": [["INPUT_EIXO_ESQ", "D-PAD"]],
+	"nds": [["INPUT_EIXO_ESQ", "D-PAD"], ["INPUT_EIXO_LASER", "INPUT_DEST_CANETA"]],
+	"n64": [["INPUT_EIXO_ESQ", "INPUT_DEST_ANALOGICO"], ["INPUT_EIXO_DIR", "C"]],
 }
 
 ## Com o guidão ligado, o manche do N64 sai da pose das mãos e o analógico
 ## esquerdo passa a servir de recentro — então as linhas de eixo do N64 deixam
-## de valer e estas as substituem.
+## de valer e estas as substituem. É aqui, e só aqui, que "MANCHE" aparece: com o
+## modo ligado a palavra descreve o que está de fato acontecendo.
 const EIXOS_GUIDAO := [
-	["Pose dos dois controles", "MANCHE"],
-	["Clique do analógico esq.", "CENTRAR"],
-	["Analógico direito", "C"],
+	["INPUT_EIXO_POSE", "INPUT_DEST_MANCHE"],
+	["INPUT_EIXO_CLIQUE", "INPUT_DEST_CENTRAR"],
+	["INPUT_EIXO_DIR", "C"],
 ]
 
 ## Cor do chip por nome de botão, onde o console tem uma. Casa com o rótulo que
@@ -324,8 +336,17 @@ func _nomes_do_core() -> Dictionary:
 
 ## Linha de eixo: informação, sem toque. Os analógicos não são botões para o
 ## core, então não há destino para escolher.
+##
+## A marca de "não remapeável" não é enfeite. Até ela existir, a única diferença
+## entre esta linha e uma tocável era o `hover` do tema — que só aparece para
+## quem **já** apontou —, e a leitura óbvia de uma linha que não responde ao
+## toque é que ela travou. Dizer a limitação custa uma palavra e evita o relato.
+##
+## Nomeada para o teste achar esta linha e este chip sem depender do idioma: os
+## rótulos traduzem, os nomes de nó não.
 func _linha_fixa(origem: String, destino: String) -> Control:
 	var caixa := HBoxContainer.new()
+	caixa.name = "Eixo_" + origem
 	caixa.add_theme_constant_override("separation", 20)
 	caixa.custom_minimum_size.y = 66
 
@@ -335,11 +356,17 @@ func _linha_fixa(origem: String, destino: String) -> Control:
 	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caixa.add_child(lab)
 
+	var fixa := WidgetsVR.mono("INPUT_EIXO_FIXO")
+	fixa.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caixa.add_child(fixa)
+
 	var seta := WidgetsVR.mono("→")
 	seta.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caixa.add_child(seta)
 
-	caixa.add_child(_chip(destino))
+	var chip := _chip(destino)
+	chip.name = "Chip_" + origem
+	caixa.add_child(chip)
 	return caixa
 
 

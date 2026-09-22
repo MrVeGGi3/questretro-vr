@@ -24,15 +24,21 @@ const IDS := 16
 
 ## Origens físicas do Touch, na ordem em que a mão as encontra — a mesma ordem
 ## em que a página as lista.
+##
+## O primeiro campo é o **id**, que entra na chave de configuração e no nome do
+## nó: ele não traduz, e é por ele que o teste acha a linha. O segundo é chave de
+## tradução, e não o rótulo pronto — a página joga o que está aqui direto no
+## `Label`, então texto literal apareceria em português com `--language en`, ao
+## lado das linhas de eixo que já traduzem.
 const ORIGENS := [
-	["dir_ax", "Botão A (direito)"],
-	["dir_by", "Botão B (direito)"],
-	["esq_ax", "Botão X (esquerdo)"],
-	["esq_by", "Botão Y (esquerdo)"],
-	["esq_trigger", "Gatilho esquerdo"],
-	["dir_trigger", "Gatilho direito"],
-	["dir_grip", "Grip direito"],
-	["esq_grip", "Grip esquerdo"],
+	["dir_ax", "INPUT_BOTAO_A_DIR"],
+	["dir_by", "INPUT_BOTAO_B_DIR"],
+	["esq_ax", "INPUT_BOTAO_X_ESQ"],
+	["esq_by", "INPUT_BOTAO_Y_ESQ"],
+	["esq_trigger", "INPUT_GATILHO_ESQ"],
+	["dir_trigger", "INPUT_GATILHO_DIR"],
+	["dir_grip", "INPUT_GRIP_DIR"],
+	["esq_grip", "INPUT_GRIP_ESQ"],
 ]
 
 ## Destinos oferecidos quando o core não declarou descritor nenhum. O caminho

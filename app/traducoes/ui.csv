@@ -99,6 +99,24 @@ INPUT_MOSTRAR_LEITURA,Mostrar leitura,Show readout
 INPUT_MOSTRAR_LEITURA_DESC,"os eixos ao vivo, na tela",live axes on screen
 INPUT_CENTRALIZAR_AJUDA,Clique o analógico esquerdo para centralizar,Click the left stick to recenter
 INPUT_DISPOSITIVO,Meta Touch · porta 1,Meta Touch · port 1
+INPUT_EIXO_ESQ,Analógico esquerdo,Left stick
+INPUT_EIXO_DIR,Analógico direito,Right stick
+INPUT_EIXO_LASER,Laser na tela de baixo,Laser on the bottom screen
+INPUT_EIXO_POSE,Pose dos dois controles,Pose of both controllers
+INPUT_EIXO_CLIQUE,Clique do analógico esq.,Left stick click
+INPUT_EIXO_FIXO,não remapeável,not remappable
+INPUT_DEST_ANALOGICO,ANALÓGICO,ANALOG
+INPUT_DEST_MANCHE,MANCHE,YOKE
+INPUT_DEST_CENTRAR,CENTRAR,RECENTER
+INPUT_DEST_CANETA,CANETA,STYLUS
+INPUT_BOTAO_A_DIR,Botão A (direito),A button (right)
+INPUT_BOTAO_B_DIR,Botão B (direito),B button (right)
+INPUT_BOTAO_X_ESQ,Botão X (esquerdo),X button (left)
+INPUT_BOTAO_Y_ESQ,Botão Y (esquerdo),Y button (left)
+INPUT_GATILHO_ESQ,Gatilho esquerdo,Left trigger
+INPUT_GATILHO_DIR,Gatilho direito,Right trigger
+INPUT_GRIP_DIR,Grip direito,Right grip
+INPUT_GRIP_ESQ,Grip esquerdo,Left grip
 SAVES_SEM_SUPORTE,Este core não implementa save states.,This core does not implement save states.
 SAVES_SLOT,Slot %d,Slot %d
 SAVES_GRAVAR,Gravar,Save
