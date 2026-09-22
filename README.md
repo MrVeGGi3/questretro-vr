@@ -60,7 +60,9 @@ aparece sozinho.
 
 O português é uma tradução como qualquer outra — não há língua "embutida" no código, e
 é isso que faz o terceiro idioma custar o CSV e mais nada. O `test_ui` reprova chave
-sem tradução em qualquer idioma, e reprova chave que apareça crua na tela.
+sem tradução em qualquer idioma, e reprova chave que apareça crua na tela; o
+`test_sala` faz o mesmo pelas mensagens do rótulo da tela, que não passam pelo
+painel e por isso escapavam daquele teste.
 
 O Sega CD é o único sistema que pede um arquivo a mais: a BIOS do Mega CD, em
 `/sdcard/QuestRetro/system/`. Ela não se baixa pelo app — é da Sega.
@@ -556,6 +558,37 @@ esconde por construção: a uma distância só, tamanho fixo em metros e tamanho
 em ângulo são indistinguíveis, e a diferença entre os dois é de 10× no fim da
 barra. O teste roda na CI — ficou três commits quebrado em silêncio antes de
 estar lá, o que é motivo suficiente.
+
+## O rótulo abaixo da tela
+
+É o único lugar por onde o app fala dentro do headset. Passam por ali o erro de
+quando uma ROM não abre, o `Sem ROM. Segure o botão de menu para escolher uma.`
+do primeiro arranque, o aviso de que o aparelho não tem passthrough, as
+confirmações de centralizar a tela e o guidão, e a linha do diagnóstico. Não há
+log para consultar depois: o que não estiver ali não foi dito.
+
+**O tamanho é aparente, e não em metros.** O olho lê ângulo, então um texto de
+tamanho fixo em metros encolhe com a distância — com `tela/distancia` indo de
+0,8 a 8,0 m, o mesmo rótulo ocupava **um décimo** do ângulo de uma ponta à outra
+da barra, e num Quest 2, com menos pixels por grau, ele cruzava o limite do
+legível antes. O `pixel_size` é recalculado a cada frame pela distância até os
+olhos, o que cancela a perspectiva. `tela/escala` de propósito não entra na
+conta: legibilidade é ângulo, crescer junto com a tela é proporção, e mexer nas
+duas de uma vez tornaria impossível dizer no headset qual delas resolveu.
+
+**A queda para em 25° abaixo da linha dos olhos.** Ele acompanha a borda de
+baixo da tela, e essa borda desce com o tamanho: na maior tela na menor
+distância o texto ia parar **abaixo do chão** — legível e invisível ao mesmo
+tempo. O limite é em ângulo, e não em metros, para valer igual a 0,8 m e a
+8,0 m; em tela pequena ele nunca pega, e o rótulo continua colado embaixo dela.
+
+**Confirmação some em 2,5 s; o que descreve estado fica.** "Tela centralizada" e
+os avisos se apagam sozinhos; erro do core, a ajuda de quando não há ROM e a
+linha do diagnóstico continuam até o estado mudar. A regra existe porque não
+havia nenhuma: o rótulo era escrito e nunca apagado, então uma confirmação
+ficava até o fim da sessão e reaparecia como surpresa ao abrir o menu para mexer
+na tela. Apagar um erro por tempo seria o defeito oposto, e pior — no headset
+não há para onde olhar depois.
 
 ## ROMs
 

@@ -170,7 +170,8 @@ shows up on its own.
 Portuguese is a translation like any other — there is no language baked into the
 code, and that is what makes a third language cost the CSV and nothing else.
 `test_ui` fails on a key missing a translation in any language, and on a key that
-reaches the screen untranslated.
+reaches the screen untranslated; `test_sala` does the same for the label under the
+screen, whose messages never pass through the panel and so escaped that test.
 
 ## Why Godot, godot-cpp 4.5, libretro cores
 

@@ -33,6 +33,20 @@ Isso roda **desta máquina**, não da CI: assinar exige a keystore, que por dese
 nunca sai daqui. Um workflow que assinasse no GitHub precisaria da chave como
 secret, o que a colocaria em mais um lugar — exatamente o que se evita.
 
+### O devlog da versão
+
+O `butler` sobe binário e **não** publica devlog: o post é feito na web, em
+*Edit game > Devlog > Create new post*, colando o HTML no "Edit as HTML" do
+editor — as mesmas tags que a descrição aceita.
+
+O texto de cada versão fica versionado em `docs/loja/devlog-<versão>.html`, pela
+mesma razão que a descrição: o que está na loja é conteúdo do projeto, e sem
+cópia aqui a única fonte passa a ser o editor da itch.
+
+Um devlog de conserto descreve **o que a pessoa via de errado**, e não o que
+mudou no código — quem lê está decidindo se vale atualizar, e lista de commit não
+responde a isso. O primeiro é o da v0.1.1.
+
 ## Criar a página (uma vez, na web)
 
 O butler sobe arquivo, mas não cria projeto. Em <https://itch.io/game/new>:

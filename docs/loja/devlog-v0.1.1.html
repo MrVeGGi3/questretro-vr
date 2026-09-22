@@ -1,0 +1,47 @@
+<!--
+  Devlog da v0.1.1 na itch.io. Colar no editor do post em "Edit as HTML".
+
+  Título do post: "v0.1.1 — the label under the screen"
+
+  Mesmas regras da descrição: só tags que o sanitizador da itch aceita (h3, p,
+  strong, em, ul, li, a, code, hr), e inglês primeiro, português abaixo, porque
+  a itch não tem campo por idioma.
+
+  Um devlog de conserto não vira lista de commits: cada item diz o que a pessoa
+  via de errado, e não o que mudou no código. Quem lê está decidindo se vale
+  atualizar.
+-->
+
+<p><strong>A maintenance update.</strong> Three fixes, all of them in what the app tells you while you play.</p>
+
+<p>If you already have it installed, it updates in place — your saves, save states and per-cartridge profiles stay where they are.</p>
+
+<h3>What changed</h3>
+
+<ul>
+  <li><strong>The label under the screen is readable at any distance.</strong> Its size was fixed in metres, and your eye reads angle: pushed out to 8 m, the same text took up a tenth of the angle it had at 0.8 m. It now keeps the same apparent size across the whole distance range.</li>
+  <li><strong>And it no longer sinks into the floor.</strong> It used to follow the bottom edge of the screen, which drops as the screen grows — on the largest screen at the closest distance the text ended up below the floor: readable and invisible at the same time.</li>
+  <li><strong>"Screen recentered" now goes away on its own,</strong> after 2.5 seconds. It used to stay for the rest of the session and turn up again when you opened the menu to resize the screen. What describes a state — a ROM that failed to load, the first-run hint, the diagnostics line — still stays until the state changes.</li>
+  <li><strong>The Input page says which rows cannot be remapped.</strong> The sticks never were remappable on any console, but nothing said so, and on the N64 the left stick's target read <code>MANCHE</code> — the same word as the flight yoke mode right below it — which made the row look stuck after you turned the mode off.</li>
+  <li><strong>The last Portuguese left in the English build is gone:</strong> the Input page rows and the three messages on the screen label.</li>
+</ul>
+
+<p>Also, each diagnostics sample now records the screen's size and distance, alongside what it already carried about video, room and audio.</p>
+
+<hr>
+
+<p><strong>Uma atualização de conserto.</strong> Três defeitos, todos no que o app diz enquanto você joga.</p>
+
+<p>Se você já tem instalado, atualiza por cima — saves, save states e perfis por cartucho continuam onde estavam.</p>
+
+<h3>O que mudou</h3>
+
+<ul>
+  <li><strong>O rótulo abaixo da tela ficou legível em qualquer distância.</strong> Ele tinha tamanho fixo em metros, e o olho lê ângulo: com a tela empurrada para 8 m, o mesmo texto ocupava um décimo do ângulo que ocupava a 0,8 m. Agora o tamanho aparente é constante ao longo de toda a barra.</li>
+  <li><strong>E ele não afunda mais no chão.</strong> A queda acompanhava a borda de baixo da tela, que desce conforme ela cresce — na maior tela mais perto, o texto ia parar abaixo do piso: legível e invisível ao mesmo tempo.</li>
+  <li><strong>"Tela centralizada" agora some sozinha,</strong> em 2,5 s. Antes ficava até o fim da sessão e reaparecia ao abrir o menu para mexer no tamanho da tela. O que descreve estado — erro ao abrir uma ROM, a ajuda de quando não há ROM, a linha do diagnóstico — continua até o estado mudar.</li>
+  <li><strong>A página Input diz quais linhas não são remapeáveis.</strong> Os analógicos nunca foram, em console nenhum, mas nada dizia isso — e no N64 o destino do analógico esquerdo repetia <code>MANCHE</code>, o nome do modo guidão logo abaixo, o que fazia a linha parecer travada depois de desligar o modo.</li>
+  <li><strong>Sumiu o português que ainda aparecia no app em inglês:</strong> as linhas da página Input e as três mensagens do rótulo da tela.</li>
+</ul>
+
+<p>E cada amostra do diagnóstico passa a registrar tamanho e distância da tela, junto do que já trazia sobre vídeo, sala e áudio.</p>
