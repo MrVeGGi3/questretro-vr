@@ -33,6 +33,73 @@ const LOGO := "res://assets/logo.png"
 const ABAS := ["MENU_ROMS", "MENU_TELA", "MENU_SALA", "MENU_VIDEO", "MENU_AUDIO",
 		"MENU_INPUT", "MENU_SAVES", "MENU_CORES"]
 
+## Fundo "vidro" (Vídeo → Vidro): o frame do jogo, borrado e escurecido, atrás
+## do menu.
+##
+## **Não é blur do que está atrás do painel**, e é de propósito. O blur de verdade
+## precisaria copiar a tela de cada olho no meio do frame (`hint_screen_texture`),
+## que no Compatibility vem sem mipmaps, em multiview é incerto e numa GPU tiler
+## é o padrão caro por banda; e no Passthrough sairia preto, porque o quarto é
+## composto pelo runtime depois do Godot. Borrar a textura do emulador, que já
+## existe, custa uma passada 2D no SubViewport do menu: uma vez por frame, e não
+## uma por olho, e só com o painel aberto (fechado, ele não redesenha). Medido no
+## Quest 3S: 79 amostras com o vidro e o menu aberto, mediana 72 fps.
+##
+## Com jogo, o painel continua **opaco** no 3D: o véu é aplicado no shader. Sem
+## jogo não há o que borrar, e o vidro vira só translucidez (`VIDRO_SEM_JOGO`):
+## a sala aparece atrás, escurecida e nítida. Também de graça, porque o quad do
+## painel já é desenhado com alpha, e vale no Passthrough, onde o runtime compõe
+## o quarto por baixo do que o Godot deixou translúcido.
+##
+## Quanto do véu cobre o jogo. Menos que isso e o texto pequeno (`TXT_DESC`)
+## começa a disputar com o que se mexe atrás: em VR, legibilidade é conforto.
+const VIDRO_VEU := 0.78
+## Raio do borrão, em fração da largura da imagem do jogo.
+const VIDRO_ALCANCE := 0.035
+## Opacidade do fundo quando o vidro está ligado e não há jogo. Mais alta que a
+## do véu porque aqui nada é borrado: a sala atrás chega nítida, e detalhe nítido
+## atrás de texto disputa mais que mancha de cor.
+const VIDRO_SEM_JOGO := 0.82
+## A sidebar sobre o vidro: translúcida para não tapá-lo, e ainda assim mais
+## clara que o resto, como no painel opaco.
+const VIDRO_SIDEBAR := 0.55
+## Nove amostras por pixel com filtro linear. Poucas para um blur "de livro",
+## mas debaixo de 78 % de véu o que sobra é a mancha de cor, que é o efeito
+## inteiro, e o custo fica no nível de uma camada de UI a mais.
+const VIDRO_SHADER := """
+shader_type canvas_item;
+
+uniform vec2 uv_inicio = vec2(0.0);
+uniform vec2 uv_escala = vec2(1.0);
+uniform vec2 tamanho = vec2(1280.0, 800.0);
+uniform float raio_canto = 20.0;
+uniform float alcance = 0.035;
+uniform vec4 veu : source_color;
+
+// `TEXTURE` só existe dentro de `fragment()`, então o sampler vem por parâmetro.
+vec3 amostra(sampler2D t, vec2 uv) {
+	return texture(t, clamp(uv, uv_inicio, uv_inicio + uv_escala)).rgb;
+}
+
+void fragment() {
+	vec2 uv = uv_inicio + UV * uv_escala;
+	vec2 d = vec2(alcance, alcance * tamanho.x / tamanho.y) * uv_escala;
+	vec2 m = d * 0.5;
+	vec3 c = amostra(TEXTURE, uv) * 0.2;
+	c += (amostra(TEXTURE, uv + vec2(m.x, 0.0)) + amostra(TEXTURE, uv - vec2(m.x, 0.0))
+		+ amostra(TEXTURE, uv + vec2(0.0, m.y)) + amostra(TEXTURE, uv - vec2(0.0, m.y))) * 0.1;
+	c += (amostra(TEXTURE, uv + d) + amostra(TEXTURE, uv - d)
+		+ amostra(TEXTURE, uv + vec2(d.x, -d.y)) + amostra(TEXTURE, uv + vec2(-d.x, d.y))) * 0.1;
+	c = mix(c, veu.rgb, veu.a);
+
+	// Recorte com cantos arredondados, igual ao do StyleBox do fundo: o
+	// TextureRect é retangular e vazaria o jogo nas quinas.
+	vec2 p = abs(UV * tamanho - tamanho * 0.5) - (tamanho * 0.5 - vec2(raio_canto));
+	float dist = length(max(p, 0.0)) + min(max(p.x, p.y), 0.0) - raio_canto;
+	COLOR = vec4(c, clamp(0.5 - dist, 0.0, 1.0));
+}
+"""
+
 var _cfg: ConfigEmu
 var _emu: EmuCore
 var _paginas: Dictionary = {}      ## nome -> Control
@@ -40,6 +107,13 @@ var _botoes: Dictionary = {}       ## nome -> Button
 var _area: Control
 var _rom_lab: Label
 var _ativa := ""
+
+var _vidro: TextureRect
+var _vidro_ligado := false         ## a preferência; o vidro só aparece com jogo
+var _vidro_ds := false
+var _vidro_aplicado := false       ## a preferência que `_atualizar_vidro` já pintou
+var _fundo_sb: StyleBoxFlat
+var _sidebar_sb: StyleBoxFlat
 
 
 func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
@@ -49,10 +123,13 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = TemaVR.criar()
 
+	_vidro = _criar_vidro()
+	add_child(_vidro)
+
 	var fundo := PanelContainer.new()
 	fundo.set_anchors_preset(Control.PRESET_FULL_RECT)
-	fundo.add_theme_stylebox_override("panel",
-			TemaVR.caixa(TemaVR.GROUND, TemaVR.RAIO_PAINEL, TemaVR.LINE))
+	_fundo_sb = TemaVR.caixa(TemaVR.GROUND, TemaVR.RAIO_PAINEL, TemaVR.LINE)
+	fundo.add_theme_stylebox_override("panel", _fundo_sb)
 	add_child(fundo)
 
 	var linha := HBoxContainer.new()
@@ -80,6 +157,75 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 		Idioma.aplicar(Idioma.indice_valido(v))
 		ao_abrir()
 	)
+
+	_vidro_ligado = _cfg.obter("video/painel_vidro")
+	_cfg.mudou.connect(func(k: String, v: Variant) -> void:
+		if k == "video/painel_vidro":
+			_vidro_ligado = v
+	)
+	_atualizar_vidro()
+
+
+## Confere a cada frame, e não por sinal, porque a textura do emulador é
+## **trocada** (e não só atualizada) quando a resolução muda, e o `iniciado`
+## chega antes do primeiro frame que a cria. É o mesmo que `xr_main._atualizar_tela()`
+## faz pelo mesmo motivo. Fora a comparação, não custa nada quando nada mudou.
+func _process(_delta: float) -> void:
+	_atualizar_vidro()
+
+
+func _criar_vidro() -> TextureRect:
+	var r := TextureRect.new()
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.visible = false
+
+	var shader := Shader.new()
+	shader.code = VIDRO_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("tamanho", Vector2(TemaVR.PAINEL))
+	mat.set_shader_parameter("raio_canto", float(TemaVR.RAIO_PAINEL))
+	mat.set_shader_parameter("alcance", VIDRO_ALCANCE)
+	mat.set_shader_parameter("veu", Color(TemaVR.GROUND, VIDRO_VEU))
+	r.material = mat
+	return r
+
+
+func vidro_visivel() -> bool:
+	return _vidro.visible
+
+
+func _atualizar_vidro() -> void:
+	var tex: Texture2D = _emu.texture if _vidro_ligado else null
+	var ds := tex != null and NavegadorRoms.tem_duas_telas(_emu.sistema)
+	if tex == _vidro.texture and ds == _vidro_ds and _vidro_ligado == _vidro_aplicado:
+		return
+	_vidro_aplicado = _vidro_ligado
+	_vidro.texture = tex
+	_vidro_ds = ds
+	_vidro.visible = tex != null
+
+	# No DS a textura é as duas telas empilhadas; o fundo usa só a de cima, com
+	# o mesmo recorte que a tela 3D usa (`CanetaDS`).
+	var mat := _vidro.material as ShaderMaterial
+	mat.set_shader_parameter("uv_inicio",
+			Vector2(CanetaDS.UV_CIMA.x, CanetaDS.UV_CIMA.y) if ds else Vector2.ZERO)
+	mat.set_shader_parameter("uv_escala",
+			Vector2(CanetaDS.UV_ESCALA.x, CanetaDS.UV_ESCALA.y) if ds else Vector2.ONE)
+
+	# Com o jogo borrado, o véu já vem do shader e o fundo vira só a borda. Sem
+	# jogo, o próprio fundo é o vidro, translúcido.
+	var fundo := TemaVR.GROUND
+	var lateral := TemaVR.SURFACE
+	if _vidro_ligado:
+		fundo.a = 0.0 if _vidro.visible else VIDRO_SEM_JOGO
+		lateral.a = VIDRO_SIDEBAR
+	_fundo_sb.bg_color = fundo
+	_sidebar_sb.bg_color = lateral
 
 
 func _criar_paginas() -> void:
@@ -140,7 +286,8 @@ func ao_abrir() -> void:
 func _sidebar() -> Control:
 	var painel := PanelContainer.new()
 	painel.custom_minimum_size.x = TemaVR.SIDEBAR
-	painel.add_theme_stylebox_override("panel", TemaVR.caixa(TemaVR.SURFACE, 0))
+	_sidebar_sb = TemaVR.caixa(TemaVR.SURFACE, 0)
+	painel.add_theme_stylebox_override("panel", _sidebar_sb)
 
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 0)

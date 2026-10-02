@@ -1,6 +1,7 @@
 class_name PagVideo
 extends PagBase
-## Como o framebuffer do core é apresentado: filtro, proporção, brilho.
+## Como o framebuffer do core é apresentado: filtro, proporção, brilho — e o
+## vidro, que é o mesmo framebuffer, borrado atrás do menu.
 
 var _emu: EmuCore
 
@@ -19,6 +20,9 @@ func _init(cfg: ConfigEmu, emu: EmuCore) -> void:
 	conteudo.add_child(WidgetsVR.campo("VIDEO_BRILHO", "VIDEO_BRILHO_DESC",
 			WidgetsVR.slider(cfg, "video/brilho", 0.4, 2.0, 0.05,
 					func(v: float) -> String: return "%.2f×" % v)))
+
+	conteudo.add_child(WidgetsVR.campo("VIDEO_VIDRO", "VIDEO_VIDRO_DESC",
+			WidgetsVR.interruptor(cfg, "video/painel_vidro")))
 
 	conteudo.add_child(WidgetsVR.campo("VIDEO_DIAGNOSTICO", "VIDEO_DIAGNOSTICO_DESC",
 			WidgetsVR.interruptor(cfg, "video/diag")))

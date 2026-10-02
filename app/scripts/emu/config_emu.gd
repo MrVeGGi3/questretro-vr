@@ -87,6 +87,11 @@ const PADROES := {
 	# atravessa o `am start` (medido), e sem isto medir o custo de uma sala nova
 	# custava export + sideload. Mesma razão do `input/guidao_diag`.
 	"video/diag": false,
+	# Fundo "vidro" do menu: o jogo borrado atrás do painel, ou a sala translúcida
+	# quando não há jogo (ver `MenuRaiz.VIDRO_SHADER`).
+	# Desligado por padrão: atrás de texto, imagem em movimento cansa mais que
+	# fundo liso, e uma atualização não muda a cara do menu de quem já usa.
+	"video/painel_vidro": false,
 	"audio/volume": 0.8,
 	"audio/mudo": false,
 	"input/dpad_engaja": 0.5,

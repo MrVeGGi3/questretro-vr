@@ -27,7 +27,7 @@ const PAGINAS := MenuRaiz.ABAS
 ## É **piso**, e não igualdade como no `test_sala`, porque aqui o número sobe de
 ## forma legítima: com `-- --rom` os dois blocos que hoje saem PULADO passam a
 ## conferir de verdade. Igualdade reprovaria justamente a execução mais completa.
-const CONFERENCIAS_MIN := 139
+const CONFERENCIAS_MIN := 149
 
 ## Onde moram as strings da interface. O teste lê o **CSV**, e não os
 ## `.translation` gerados: é o arquivo que uma pessoa edita, e é nele que uma
@@ -79,6 +79,7 @@ func _ready() -> void:
 	_testar_csv_de_traducao()
 	_testar_sem_chave_na_tela(cfg, emu)
 	await _testar_alcance_com_barreira(cfg, emu)
+	await _testar_vidro(cfg, emu)
 	_devolver_biblioteca()
 
 	if _feitas < CONFERENCIAS_MIN:
@@ -1234,6 +1235,75 @@ func _testar_alcance_com_barreira(cfg: ConfigEmu, emu: EmuCore) -> void:
 	_conferir(acertou_painel, "e o que ele acerta é o painel, não a barreira")
 
 	vp.queue_free()
+
+
+## O fundo vidro do menu: segue a preferência, recorta o DS e, sem jogo, vira
+## translucidez.
+##
+## Roda com uma textura falsa no lugar do frame, porque o CI não tem ROM e é
+## justamente o caso "ligado com jogo" que precisa ser exercitado. Os PNGs
+## `ui_vidro.png` e `ui_vidro_sem_jogo.png` são para olhar o efeito sem headset.
+func _testar_vidro(cfg: ConfigEmu, emu: EmuCore) -> void:
+	var tex_antes := emu.texture
+	var sistema_antes := emu.sistema
+
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.9, 0.5, 0.1))
+	img.fill_rect(Rect2i(0, 0, 4, 8), Color(0.1, 0.4, 0.9))
+	emu.texture = ImageTexture.create_from_image(img)
+	emu.sistema = "snes"
+	cfg.definir("video/painel_vidro", false)
+
+	var vp := SubViewport.new()
+	vp.size = TemaVR.PAINEL
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var menu := MenuRaiz.new(cfg, emu)
+	vp.add_child(menu)
+	menu.mostrar("MENU_VIDEO")
+
+	_conferir(not menu.vidro_visivel(), "vidro desligado por padrão não aparece")
+	_conferir(menu._fundo_sb.bg_color.a == 1.0, "sem vidro o fundo do menu é opaco")
+
+	cfg.definir("video/painel_vidro", true)
+	menu._atualizar_vidro()
+	_conferir(menu.vidro_visivel(), "vidro ligado com jogo aparece")
+	_conferir(menu._fundo_sb.bg_color.a == 0.0, "com jogo o véu sai do shader, não do StyleBox")
+	var mat := menu._vidro.material as ShaderMaterial
+	_conferir(mat.get_shader_parameter("uv_escala") == Vector2.ONE, "fora do DS o vidro usa a imagem inteira")
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	_salvar(vp, "vidro")
+
+	emu.sistema = "nds"
+	menu._atualizar_vidro()
+	_conferir(mat.get_shader_parameter("uv_escala") == Vector2(1.0, 0.5),
+			"no DS o vidro recorta só a tela de cima")
+
+	emu.texture = null
+	menu._atualizar_vidro()
+	_conferir(not menu.vidro_visivel(), "sem jogo não há o que borrar")
+	_conferir(is_equal_approx(menu._fundo_sb.bg_color.a, MenuRaiz.VIDRO_SEM_JOGO),
+			"sem jogo o vidro vira fundo translúcido")
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	_salvar(vp, "vidro_sem_jogo")
+
+	# Desligar **sem jogo**: a textura não muda (nula dos dois lados), e é só a
+	# preferência que diz que o fundo tem de voltar a ser opaco.
+	cfg.definir("video/painel_vidro", false)
+	menu._atualizar_vidro()
+	_conferir(menu._fundo_sb.bg_color.a == 1.0, "desligar sem jogo devolve o fundo opaco")
+
+	emu.texture = ImageTexture.create_from_image(img)
+	menu._atualizar_vidro()
+	_conferir(not menu.vidro_visivel(), "com o vidro desligado, jogo novo não liga ele")
+
+	vp.queue_free()
+	emu.texture = tex_antes
+	emu.sistema = sistema_antes
+	cfg.definir("video/painel_vidro", ConfigEmu.PADROES["video/painel_vidro"])
 
 
 func _conferir(condicao: bool, descricao: String) -> void:

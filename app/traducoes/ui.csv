@@ -60,6 +60,8 @@ VIDEO_FILTRO_DESC,como o pixel é ampliado,how pixels are scaled
 VIDEO_PROPORCAO,Proporção,Aspect ratio
 VIDEO_BRILHO,Brilho,Brightness
 VIDEO_BRILHO_DESC,compensa o passthrough claro,compensates bright passthrough
+VIDEO_VIDRO,Vidro,Glass
+VIDEO_VIDRO_DESC,"o jogo borrado atrás do menu, ou a sala sem jogo","the game blurred behind the menu, or the room when idle"
 VIDEO_DIAGNOSTICO,Diagnóstico,Diagnostics
 VIDEO_DIAGNOSTICO_DESC,fps e ritmo do emulador na tela,fps and emulator pacing on screen
 VIDEO_MEDIDAS,%d × %d · %.2f fps,%d × %d · %.2f fps

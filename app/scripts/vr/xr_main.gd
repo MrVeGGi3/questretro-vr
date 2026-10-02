@@ -317,6 +317,9 @@ func _diagnostico(delta: float) -> void:
 	# classifica sozinho, e o fatiamento não depende de casar horários.
 	if _painel.esta_aberto():
 		linha += " | MENU ABERTO"
+		# Pelo mesmo motivo, o vidro: é o que separa o A/B dele sem casar horários.
+		if _painel.menu.vidro_visivel():
+			linha += " | VIDRO"
 	# Onde o segundo foi gasto. Em ms por segundo, e não por frame, porque é a
 	# unidade que se lê direto: 1000 é o segundo inteiro, então `core=520` são
 	# 52 % do tempo de parede dentro do `retro_run`. O contador de fps diz *que*
